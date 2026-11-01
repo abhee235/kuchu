@@ -261,9 +261,9 @@ html[data-window='settings'] body {
 }
 
 /* The other sessions at work: a count on the card, and the list it opens to switch the card to one of them. */
-/* "+N" is a switch, a round button like the one beside it: off, a soft raised button (the others show while it is
-   hovered); on, filled with the accent and lit, and the others stay shown. A sheen crosses it as it turns on, and on
-   hover. */
+/* "+N" is a switch, a glossy round button the size of the one beside it: off, soft grey (the others show while it is
+   hovered); on, lit orange and yellow, Kuchu's own colours, and the others stay shown. A white rim, a gloss over its
+   top half, and a sheen that crosses it as it turns on, and on hover. */
 .card-more {
   position: relative;
   overflow: hidden;
@@ -273,29 +273,45 @@ html[data-window='settings'] body {
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 0.5px solid var(--line-light);
+  border: 1.5px solid #ffffff;
   border-radius: 50%;
-  background: linear-gradient(180deg, var(--composer) 0%, var(--active) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 1px 2px rgba(0, 0, 0, 0.14);
-  color: var(--fg-2);
+  background: linear-gradient(180deg, #fbfbfc 0%, #e9ebee 55%, #d9dce0 100%);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.18);
+  color: #4a524d;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.2px;
   cursor: pointer;
   transition: color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
 }
+.card-more > span {
+  position: relative;
+  z-index: 1;
+}
 .card-more:hover {
   color: var(--fg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 2px 6px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 2px 7px rgba(0, 0, 0, 0.22);
 }
 .card-more:active {
   transform: scale(0.94);
 }
 .card-more.is-on {
-  border-color: rgba(37, 99, 235, 0.55);
-  background: linear-gradient(180deg, #6aa6ff 0%, var(--tint) 48%, var(--send) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 2px 10px rgba(37, 99, 235, 0.45);
+  background: linear-gradient(180deg, #ffdf6e 0%, #ffbd3a 45%, #f59a1b 78%, #ec8510 100%);
+  box-shadow: 0 0 0 0.5px rgba(196, 98, 0, 0.45), 0 2px 10px rgba(245, 154, 27, 0.55);
   color: #ffffff;
+  text-shadow: 0 1px 1.5px rgba(150, 66, 0, 0.6);
+}
+/* The gloss: a bright band over the top half. */
+.card-more::before {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  right: 4px;
+  height: 48%;
+  border-radius: 50% 50% 45% 45% / 70% 70% 30% 30%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.15) 100%);
+  pointer-events: none;
 }
 .card-more::after {
   content: '';
@@ -319,11 +335,6 @@ html[data-window='settings'] body {
 @keyframes card-sheen {
   to {
     transform: translateX(130%);
-  }
-}
-@media (prefers-color-scheme: dark) {
-  .card-more {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.4);
   }
 }
 /* Stacked on the card, edge to edge: above it, or below when the window has more room there (PetWindow.tsx measures,

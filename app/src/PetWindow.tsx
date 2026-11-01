@@ -294,7 +294,7 @@ function SessionCard({ card, lines, leaving, onClose, held, onHold }: {
           onPointerEnter={open}
           onClick={hold}
         >
-          +{card.others.length}
+          <span>+{card.others.length}</span>
         </button>
       )}
       <span className="card-actions">
