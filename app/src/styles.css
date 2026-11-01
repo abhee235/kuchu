@@ -153,11 +153,12 @@ html[data-window='settings'] body {
   bottom: calc(14px + var(--pet-h) * 0.5);
   width: 304px;
 }
+/* Beside the pet with a small gap: the pet is 16 px in from its side, the card 8 px clear of it. */
 .stage.is-right .beside {
-  right: calc(var(--pet-w) - 2px);
+  right: calc(var(--pet-w) + 24px);
 }
 .stage.is-left .beside {
-  left: calc(var(--pet-w) - 2px);
+  left: calc(var(--pet-w) + 24px);
 }
 
 /* What a session is doing: one pill, its name and its step; its buttons show on hover. */
