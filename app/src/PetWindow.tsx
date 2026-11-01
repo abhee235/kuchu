@@ -169,7 +169,7 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
   ))
   return (
     <div className={`card${lines ? ' is-lines' : ''}${leaving ? ' is-leaving' : ''}`} role="status" aria-live="polite">
-      <button type="button" className="card-body" onClick={() => void core.openSessions()} title="Your sessions">
+      <button type="button" className="card-body" onClick={() => void core.openSessions(card.session)} title="Your sessions">
         <span className="card-title">{card.title}</span>
         {!answer && more}
         <span className="card-line">{card.line}</span>

@@ -39,6 +39,23 @@ export interface Approval {
   question?: { text: string; options: string[] } | null
 }
 
+/** A conversation started from Kuchu (its id is the Claude Code session's). */
+export interface Chat {
+  id: string
+  cwd: string
+  project: string
+  /** Working on a turn, ready for the next message, or taken on in a terminal. */
+  status: 'working' | 'ready' | 'handed'
+  entries: ChatEntry[]
+  updated: number
+}
+
+/** Your message, Claude's text, a tool it used, or what Kuchu says about the conversation. */
+export interface ChatEntry {
+  kind: 'you' | 'claude' | 'step' | 'note'
+  text: string
+}
+
 export interface View {
   mood: PetMood
   card: Card | null
@@ -55,6 +72,8 @@ export interface Prefs {
   sounds: boolean
   click: 'sessions' | 'settings'
   approvals: boolean
+  /** Folders conversations were started in from Kuchu, the latest first. */
+  folders: string[]
 }
 
 export interface HookReport {
@@ -98,7 +117,14 @@ export const core = {
   hooksPlan: (install: boolean) => invoke<HookPlan>('hooks_plan', { install }),
   hooksApply: (install: boolean, fingerprint: string) => invoke<{ backup: string | null; report: HookReport }>('hooks_apply', { install, fingerprint }),
   openSettings: () => invoke('open_settings'),
-  openSessions: () => invoke('open_sessions'),
+  openSessions: (session?: string) => invoke('open_sessions', { session: session ?? null }),
+  takeOpen: () => invoke<string | null>('take_open'),
+  pickFolder: () => invoke<string | null>('pick_folder'),
+  chats: () => invoke<Chat[]>('chats'),
+  chatStart: (cwd: string, text: string) => invoke<string>('chat_start', { cwd, text }),
+  chatSend: (session: string, text: string) => invoke('chat_send', { session, text }),
+  chatStop: (session: string) => invoke('chat_stop', { session }),
+  chatTerminal: (session: string) => invoke('chat_terminal', { session }),
 }
 
 /** Listens to one of the core's events for as long as the effect lives. */

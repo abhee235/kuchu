@@ -505,6 +505,13 @@ html[data-window='settings'] body {
   overflow-y: auto;
   list-style: none;
 }
+/* Thin scrollbars, the hairline's colour. */
+.list,
+.talk,
+.folders {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
 .row {
   padding: 10px;
   border-radius: 12px;
@@ -613,6 +620,269 @@ kbd {
   border-radius: 5px;
   font: inherit;
   font-size: 11px;
+}
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.icon-btn:disabled:hover {
+  background: transparent;
+}
+.row.is-open {
+  cursor: pointer;
+}
+.row-mark {
+  width: 14px;
+  height: 14px;
+  color: var(--fg-3);
+}
+
+/* A screen's title in the header: a conversation's name, its folder under it. */
+.sheet-title {
+  display: grid;
+  min-width: 0;
+  margin-left: 4px;
+  font-weight: 600;
+}
+.sheet-name,
+.sheet-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sheet-name {
+  line-height: 18px;
+}
+.sheet-sub {
+  font-size: var(--text-caption);
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--fg-3);
+}
+
+/* ── A conversation started from Kuchu ───────────────────────────────────────────────────────────────────── */
+
+.new {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 0 0;
+}
+.new-label {
+  padding: 0 16px 6px;
+  font-size: var(--text-caption);
+  line-height: 16px;
+  color: var(--fg-3);
+}
+.folders {
+  display: grid;
+  gap: 2px;
+  padding: 0 8px;
+  overflow-y: auto;
+}
+.folder {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  column-gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.folder:hover {
+  background: var(--hover);
+}
+.folder[aria-checked='true'] {
+  background: var(--active);
+}
+.folder svg {
+  grid-row: span 2;
+  width: 18px;
+  height: 18px;
+  color: var(--fg-icon);
+}
+.folder-name,
+.folder-path {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.folder-name {
+  font-weight: 600;
+}
+.folder-path {
+  font-size: var(--text-caption);
+  line-height: 16px;
+  color: var(--fg-3);
+}
+.folder.is-pick .folder-name {
+  font-weight: 500;
+  color: var(--fg-2);
+}
+.folder.is-pick svg {
+  grid-row: auto;
+}
+
+.talk {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  overflow-y: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.say {
+  max-width: 100%;
+  font-size: var(--text-label);
+  line-height: 21px;
+  overflow-wrap: anywhere;
+}
+.say.is-you {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: var(--hover);
+  white-space: pre-wrap;
+}
+.say-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.say-text + .say-text,
+.say-code + .say-text,
+.say-text + .say-code {
+  margin-top: 8px;
+}
+.say code,
+.say-code {
+  font-family: 'Geist Mono Variable', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: var(--text-note);
+}
+.say code {
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: var(--code-bg);
+}
+.say-code {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--code-bg);
+  line-height: 19px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.say-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--text-note);
+  line-height: 18px;
+  color: var(--fg-3);
+}
+.say-step svg {
+  width: 13px;
+  height: 13px;
+}
+.say-step span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.say-note {
+  font-size: var(--text-note);
+  line-height: 18px;
+  color: var(--fg-3);
+}
+.talk-working {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-note);
+  line-height: 18px;
+  color: var(--fg-2);
+}
+.talk-error {
+  margin: 0 16px 8px;
+}
+.talk-handed {
+  margin: 0;
+  padding: 14px 16px 16px;
+  border-top: 0.5px solid var(--line-light);
+  font-size: var(--text-note);
+  color: var(--fg-3);
+  text-align: center;
+}
+
+/* The message box: one hairline pill, the send button inside it. */
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 0 12px 12px;
+  padding: 6px 6px 6px 16px;
+  border: 0.5px solid var(--line);
+  border-radius: 22px;
+  background: var(--composer);
+  box-shadow: var(--composer-shadow);
+}
+.composer textarea {
+  flex: 1;
+  min-height: 22px;
+  max-height: 140px;
+  margin: 0 0 5px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  line-height: 22px;
+  resize: none;
+  field-sizing: content;
+}
+.composer textarea::placeholder {
+  color: var(--fg-3);
+}
+.send {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--send);
+  color: var(--send-fg);
+  cursor: pointer;
+}
+.send:disabled {
+  background: var(--active);
+  color: var(--fg-3);
+  cursor: default;
+}
+.send svg {
+  width: 18px;
+  height: 18px;
+}
+.send.is-stop {
+  background: var(--fg);
+  color: var(--page);
+}
+.send.is-stop svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
 }
 
 /* ── Settings ────────────────────────────────────────────────────────────────────────────────────────────── */
