@@ -109,6 +109,9 @@ impl Hub {
         if changed {
             self.publish();
         }
+        if let Some(tone) = tone_for(event, payload) {
+            let _ = self.app.emit("kuchu://tone", tone);
+        }
     }
 
     pub fn seen(&self) {
@@ -172,6 +175,7 @@ impl Hub {
         inner.waiting.push(Waiting { card: card(id, session, project, request), request: request.clone(), shown: Some(shown_tx), decide: Some(decide_tx) });
         drop(inner);
         self.publish();
+        let _ = self.app.emit("kuchu://tone", Mood::Needs);
         Some((id, shown_rx, decide_rx))
     }
 
@@ -215,6 +219,18 @@ impl Hub {
             let _ = w.write_all(format!("{decision}\n").as_bytes()).await;
             let _ = w.flush().await;
         }
+    }
+}
+
+/// The tone an event rings, for each session on its own (the pet's mood is everyone's: one session done while another
+/// works would never ring): done when a turn ends, failed when it could not finish, needs when Claude Code waits on a
+/// permission prompt. A request shown on Kuchu rings needs as it is registered.
+fn tone_for(event: &str, payload: &Value) -> Option<Mood> {
+    match event {
+        "Stop" => Some(Mood::Done),
+        "StopFailure" => Some(Mood::Failed),
+        "Notification" if payload.get("notification_type").and_then(Value::as_str) == Some("permission_prompt") => Some(Mood::Needs),
+        _ => None,
     }
 }
 
@@ -378,6 +394,15 @@ mod tests {
 
     fn choice(kind: &str) -> Choice {
         Choice { kind: kind.into(), answer: None }
+    }
+
+    #[test]
+    fn each_session_rings_its_own_tone() {
+        assert_eq!(tone_for("Stop", &fixture("Stop")), Some(Mood::Done));
+        assert_eq!(tone_for("StopFailure", &json!({ "session_id": "a" })), Some(Mood::Failed));
+        assert_eq!(tone_for("Notification", &json!({ "notification_type": "permission_prompt" })), Some(Mood::Needs));
+        assert_eq!(tone_for("Notification", &json!({ "notification_type": "idle_prompt" })), None);
+        assert_eq!(tone_for("PreToolUse", &fixture("PreToolUse")), None);
     }
 
     #[test]

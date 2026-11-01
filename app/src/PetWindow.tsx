@@ -9,7 +9,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { core, on, SIZES, type Approval, type Card, type Prefs, type View } from './api'
 import { Pet } from './pet/Pet'
 import { lookToward } from './pet/petMood'
-import { playTone, toneFor } from './pet/petSound'
+import { playTone } from './pet/petSound'
 import { SaidMark, StepMark } from './StepMark'
 import type { PetMood } from './pet/petMood'
 
@@ -32,6 +32,8 @@ const NEAR_PX = 150
 /** Petting: the pointer turning back this many times over the pet within this long. */
 const PET_TURNS = 4
 const PET_WITHIN_MS = 1500
+/** Tones closer together than this ring once. */
+const TONE_GAP_MS = 1200
 
 const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
 
@@ -81,13 +83,19 @@ export function PetWindow() {
   }, [])
 
   const mood = view.mood
-  // A small tone when the pet starts to need you, or a session is done or failed.
-  const was = useRef<PetMood>(mood)
+  // A small tone for each session on its own: one done, one needing you, one that did not finish. (The pet's mood is
+  // everyone's: one session done while another works would never change it.) Two at once ring once.
+  const sounds = useRef(false)
+  sounds.current = !!prefs?.sounds
   useEffect(() => {
-    const tone = toneFor(was.current, mood)
-    was.current = mood
-    if (tone && prefs?.sounds) playTone(tone)
-  }, [mood, prefs?.sounds])
+    let last = -TONE_GAP_MS
+    return on<PetMood>('tone', (tone) => {
+      const now = performance.now()
+      if (!sounds.current || now - last < TONE_GAP_MS) return
+      last = now
+      playTone(tone)
+    })
+  }, [])
 
   const approval = view.approvals[0]
   const card = view.card && prefs?.card !== 'off' && cardKey(view.card) !== closed ? view.card : null

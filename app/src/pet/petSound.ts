@@ -1,6 +1,6 @@
 // petSound.ts — Kuchu's small tones: made in the page (no sound files), short, one when a session starts to need you,
-// when one is done, and when one failed. Never while a state lasts, never for thinking or working (they change too
-// often).
+// when one is done, and when one failed, each session on its own (the core says when). Never while a state lasts, never
+// for thinking or working (they change too often).
 
 import type { PetMood } from './petMood'
 
@@ -17,11 +17,6 @@ const TONES: Partial<Record<PetMood, { notes: number[]; each: number; wave: Osci
 
 /** The tones, in the order Settings plays them. */
 export const TONE_MOODS = ['needs', 'done', 'failed'] as const satisfies readonly PetMood[]
-
-/** Which change makes a sound: into needs, done or failed, from anything else. */
-export function toneFor(from: PetMood, to: PetMood): PetMood | null {
-  return to !== from && TONES[to] ? to : null
-}
 
 let audio: AudioContext | undefined
 
