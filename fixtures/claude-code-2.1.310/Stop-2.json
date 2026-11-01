@@ -1,0 +1,16 @@
+{
+  "background_tasks": [],
+  "cwd": "C:\\Users\\you\\projects\\demo",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "last_assistant_message": "refused\n\nThe Write tool was blocked by a permission prompt for the file path, so I did not create `note.txt`. I didn't try another tool to get around that. If you grant write access to the scratchpad folder, I'll create it.",
+  "permission_mode": "default",
+  "prompt_id": "c61f34c9-40e7-44ef-aa2f-f61b3a914576",
+  "scratchpad_dir": "C:\\Users\\you\\projects\\demo\\dad15e6b-dd34-4837-9777-ea3e4dfb2d04\\scratchpad",
+  "session_crons": [],
+  "session_id": "dad15e6b-dd34-4837-9777-ea3e4dfb2d04",
+  "stop_hook_active": false,
+  "transcript_path": "C:\\Users\\you\\.claude\\projects\\C--Users-you-projects-demo\\dad15e6b-dd34-4837-9777-ea3e4dfb2d04.jsonl"
+}

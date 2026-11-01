@@ -1,0 +1,9 @@
+{
+  "cwd": "C:\\Users\\you\\projects\\demo",
+  "hook_event_name": "SessionEnd",
+  "prompt_id": "c61f34c9-40e7-44ef-aa2f-f61b3a914576",
+  "reason": "other",
+  "scratchpad_dir": "C:\\Users\\you\\projects\\demo\\dad15e6b-dd34-4837-9777-ea3e4dfb2d04\\scratchpad",
+  "session_id": "dad15e6b-dd34-4837-9777-ea3e4dfb2d04",
+  "transcript_path": "C:\\Users\\you\\.claude\\projects\\C--Users-you-projects-demo\\dad15e6b-dd34-4837-9777-ea3e4dfb2d04.jsonl"
+}
