@@ -19,6 +19,8 @@
   --send-fg: #ffffff;
   --amber: #f59e0b;
   --amber-fg: #b45309;
+  /* A step done: its check's circle. */
+  --done: #34c759;
   --composer-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.04);
   --menu-shadow: 0 8px 12px 0 rgba(0, 0, 0, 0.08), 0 0 1px 0 rgba(0, 0, 0, 0.62);
   /* The card beside the pet, lifted off whatever is behind it. */
@@ -192,10 +194,16 @@ html[data-window='settings'] body {
   cursor: pointer;
 }
 .card-title,
-.card-line {
+.card-text {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.card-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 .card-title {
   font-size: 14px;
@@ -205,9 +213,12 @@ html[data-window='settings'] body {
 .card-line {
   font-size: 13px;
   line-height: 1.35;
+}
+.card-text {
+  min-width: 0;
   opacity: 0.62;
 }
-.card-line.is-past {
+.card-line.is-past .card-text {
   opacity: 0.42;
 }
 .card-actions {
@@ -328,6 +339,57 @@ html[data-window='settings'] body {
 @media (prefers-reduced-motion: reduce) {
   .card,
   .approval {
+    animation: none;
+  }
+}
+
+/* A step's mark (StepMark.tsx): a turning ring while it runs, a white check on light green once done, a white cross
+   on grey if it failed or was cut short. */
+.mark {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  color: #ffffff;
+}
+.mark.is-small {
+  width: 11px;
+  height: 11px;
+}
+.mark svg {
+  width: 70%;
+  height: 70%;
+}
+.mark.is-running {
+  border: 2px solid var(--line-light);
+  border-top-color: var(--fg-2);
+  animation: mark-turn 0.8s linear infinite;
+}
+.mark.is-small.is-running {
+  border-width: 1.5px;
+}
+.mark.is-done {
+  background: var(--done);
+}
+.mark.is-failed {
+  background: var(--fg-3);
+}
+.mark.is-said {
+  color: var(--fg-3);
+}
+.mark.is-said svg {
+  width: 100%;
+  height: 100%;
+}
+@keyframes mark-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mark.is-running {
     animation: none;
   }
 }
@@ -790,10 +852,6 @@ kbd {
   line-height: 18px;
   color: var(--fg-3);
 }
-.say-step svg {
-  width: 13px;
-  height: 13px;
-}
 .say-step span {
   overflow: hidden;
   white-space: nowrap;
@@ -1051,17 +1109,26 @@ kbd {
   text-overflow: ellipsis;
 }
 .mini-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
   font-size: 11px;
   line-height: 14px;
+  animation: card-in 0.25s ease-out both;
+}
+.mini-line.is-past {
+  animation: none;
+}
+.mini-text {
+  min-width: 0;
   opacity: 0.62;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  animation: card-in 0.25s ease-out both;
 }
-.mini-line.is-past {
+.mini-line.is-past .mini-text {
   opacity: 0.42;
-  animation: none;
 }
 .mini-pet {
   position: absolute;

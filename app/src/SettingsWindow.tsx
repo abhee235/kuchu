@@ -8,6 +8,7 @@ import { core, on, SIZES, type HookPlan, type HookReport, type Prefs } from './a
 import { Pet } from './pet/Pet'
 import type { PetMood } from './pet/petMood'
 import { playTone, TONE_MOODS } from './pet/petSound'
+import { StepMark } from './StepMark'
 
 type Tab = 'pet' | 'beside' | 'claude' | 'requests'
 
@@ -253,7 +254,7 @@ function Connect({ report, onReport }: { report: HookReport | null; onReport: (r
 const STEPS: { mood: PetMood; line: string; ms: number }[] = [
   { mood: 'thinking', line: 'Thinking…', ms: 1600 },
   { mood: 'working', line: 'Reading main.rs', ms: 1500 },
-  { mood: 'working', line: 'Running: the tests', ms: 1700 },
+  { mood: 'working', line: 'Run the tests', ms: 1700 },
   { mood: 'done', line: 'All 23 tests pass.', ms: 2600 },
 ]
 
@@ -277,11 +278,13 @@ function CardPreview({ mode }: { mode: 'line' | 'lines' | 'off' }) {
           <span className="mini-title">Fix the login bug</span>
           {past.map((s) => (
             <span key={s.line} className="mini-line is-past">
-              {s.line}
+              <StepMark progress="done" small />
+              <span className="mini-text">{s.line}</span>
             </span>
           ))}
           <span key={step.line} className="mini-line">
-            {step.line}
+            {step.mood === 'working' && <StepMark progress="running" small />}
+            <span className="mini-text">{step.line}</span>
           </span>
         </span>
       )}

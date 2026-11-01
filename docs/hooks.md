@@ -27,6 +27,14 @@ message that started the work), `permission_mode` and `effort`.
 | Stop | `last_assistant_message`, `background_tasks`, `session_crons`, `stop_hook_active` | done, with the answer's first line |
 | SessionEnd | `reason` | the session gone |
 
+Each step's mark comes from the tool call's `tool_use_id`, the same in PreToolUse and PostToolUse (or
+PostToolUseFailure): running from the one, done or failed from the other.
+
+What Claude says between tools is not in any event. Kuchu reads it from the transcript (`transcript_path`): the text
+written just before the tool call with that `tool_use_id`. The transcript is written a moment after the hook runs, so
+this is tried when the tool starts and again when it ends. In some sessions Claude Code keeps a text as an empty
+thinking block instead; that text cannot be shown.
+
 Not seen yet (they need an interactive session or a particular case): Notification, PostToolUseFailure,
 StopFailure, SubagentStart, SubagentStop, PreCompact, and the AskUserQuestion and ExitPlanMode requests. They are
 recorded before the step that uses them.

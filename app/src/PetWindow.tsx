@@ -10,6 +10,7 @@ import { core, on, SIZES, type Approval, type Card, type Prefs, type View } from
 import { Pet } from './pet/Pet'
 import { lookToward } from './pet/petMood'
 import { playTone, toneFor } from './pet/petSound'
+import { SaidMark, StepMark } from './StepMark'
 import type { PetMood } from './pet/petMood'
 
 interface Pointer {
@@ -159,12 +160,15 @@ function cardKey(card: Card) {
 
 /** Which session, and what it is doing now (or the answer's first lines once done). A click opens the sessions. */
 function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boolean; leaving: boolean; onClose: () => void }) {
-  // Steps read up to the one under way; an answer reads down from its first line.
+  // Steps read up to the one under way, each marked running, done or failed, with what Claude said between them; an
+  // answer reads down from its first line.
   const answer = card.mood === 'done'
-  const rest = card.lines.filter((l) => l !== card.line)
+  const last = card.lines[card.lines.length - 1]
+  const rest = answer ? card.lines.filter((l) => l.text !== card.line) : last?.text === card.line ? card.lines.slice(0, -1) : card.lines
   const more = (lines ? (answer ? rest.slice(0, 2) : rest.slice(-2)) : []).map((l, i) => (
     <span key={i} className="card-line is-past">
-      {l}
+      {l.progress ? <StepMark progress={l.progress} /> : !answer && <SaidMark />}
+      <span className="card-text">{l.text}</span>
     </span>
   ))
   return (
@@ -172,7 +176,10 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
       <button type="button" className="card-body" onClick={() => void core.openSessions(card.session)} title="Your sessions">
         <span className="card-title">{card.title}</span>
         {!answer && more}
-        <span className="card-line">{card.line}</span>
+        <span className="card-line">
+          {card.progress && <StepMark progress={card.progress} />}
+          <span className="card-text">{card.line}</span>
+        </span>
         {answer && more}
       </button>
       <span className="card-actions">

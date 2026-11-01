@@ -16,6 +16,10 @@ const KEPT_STEPS: usize = 3;
 const NAME_EVERY_MS: u64 = 20_000;
 /// How much of the end of a transcript is read for the session's name.
 const NAME_TAIL: u64 = 128 * 1024;
+/// How much of the end of a transcript is read for what Claude said before a tool (a tool's result can be long).
+const SAID_TAIL: u64 = 256 * 1024;
+/// How many of the things Claude said are remembered as shown.
+const SAID_KEPT: usize = 16;
 /// A session's first message, as its name until Claude Code gives it one, at most this long.
 const MAX_NAME: usize = 60;
 /// A line on the card at most this long.
@@ -32,6 +36,31 @@ pub enum Mood {
     Failed,
 }
 
+/// Where a step stands: its tool running, finished, or failed (or cut short).
+#[derive(Clone, Copy, Serialize, PartialEq, Eq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Progress {
+    Running,
+    Done,
+    Failed,
+}
+
+/// One line of a session: a step (with where it stands), or a line of its answer (without).
+#[derive(Clone, Serialize, Debug, PartialEq)]
+pub struct Line {
+    pub text: String,
+    pub progress: Option<Progress>,
+    /// The tool call it is (Claude Code's `tool_use_id`), so its end finds it.
+    #[serde(skip)]
+    pub tool: String,
+}
+
+impl Line {
+    fn said(text: String) -> Line {
+        Line { text, progress: None, tool: String::new() }
+    }
+}
+
 #[derive(Clone, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
@@ -46,7 +75,7 @@ pub struct Session {
     /// What it is doing now, or the answer's first line once done.
     pub line: String,
     /// The last few steps, or the answer's first lines once done.
-    pub lines: Vec<String>,
+    pub lines: Vec<Line>,
     /// The message that started the work, as one line.
     pub prompt: String,
     pub updated: u64,
@@ -66,6 +95,9 @@ pub struct Session {
     first_prompt: String,
     #[serde(skip)]
     name_read: u64,
+    /// The transcript lines of what Claude said that are already shown, the latest last, so each shows once.
+    #[serde(skip)]
+    said: Vec<String>,
 }
 
 impl Session {
@@ -87,7 +119,9 @@ pub struct Card {
     pub session: String,
     pub title: String,
     pub line: String,
-    pub lines: Vec<String>,
+    /// Where `line` stands, when it is a step.
+    pub progress: Option<Progress>,
+    pub lines: Vec<Line>,
     pub mood: Mood,
     /// When its turn ended, or started while it is under way: a card hidden for one turn comes back for the next.
     pub at: u64,
@@ -138,6 +172,7 @@ impl Sessions {
             title: None,
             first_prompt: String::new(),
             name_read: 0,
+            said: Vec::new(),
         });
         if !cwd.is_empty() && cwd != s.cwd {
             s.project = project_of(&cwd);
@@ -172,16 +207,19 @@ impl Sessions {
                 let step = step(&text(p, "tool_name"), p.get("tool_input").unwrap_or(&Value::Null));
                 s.mood = Mood::Working;
                 s.ended = None;
-                push_step(s, step);
+                push_step(s, step, text(p, "tool_use_id"));
+                note_said(s, &text(p, "tool_use_id"));
             }
             "PostToolUse" => {
                 if s.mood == Mood::Needs {
                     s.mood = Mood::Working;
                 }
+                finish_step(s, &text(p, "tool_use_id"), Progress::Done);
+                note_said(s, &text(p, "tool_use_id"));
             }
             "PostToolUseFailure" => {
-                let failed = format!("{} — it failed", s.line);
-                s.line = cut(&failed);
+                finish_step(s, &text(p, "tool_use_id"), Progress::Failed);
+                note_said(s, &text(p, "tool_use_id"));
             }
             "PermissionRequest" => {
                 let step = step(&text(p, "tool_name"), p.get("tool_input").unwrap_or(&Value::Null));
@@ -206,11 +244,12 @@ impl Sessions {
                     l if l.is_empty() => "Done".into(),
                     l => cut(&l),
                 };
-                s.lines = answer.lines().map(first_line).filter(|l| !l.is_empty()).take(KEPT_STEPS).map(|l| cut(&l)).collect();
+                s.lines = answer.lines().map(first_line).filter(|l| !l.is_empty()).take(KEPT_STEPS).map(|l| Line::said(cut(&l))).collect();
             }
             "StopFailure" => {
                 s.mood = Mood::Failed;
                 s.ended = Some(now);
+                cut_short(s);
                 let why = one_line(&[text(p, "error"), text(p, "message")].concat());
                 s.line = if why.is_empty() { "It did not finish".into() } else { cut(&why) };
             }
@@ -232,7 +271,7 @@ impl Sessions {
         match self.all.get_mut(id) {
             Some(s) if s.mood == Mood::Needs => {
                 s.mood = Mood::Working;
-                s.line = s.lines.last().cloned().unwrap_or_else(|| "Working".into());
+                s.line = s.lines.last().map(|l| l.text.clone()).unwrap_or_else(|| "Working".into());
                 true
             }
             _ => false,
@@ -246,6 +285,7 @@ impl Sessions {
             Some(s) if matches!(s.mood, Mood::Thinking | Mood::Working | Mood::Needs) => {
                 s.mood = Mood::Idle;
                 s.line = "Stopped".into();
+                cut_short(s);
                 s.updated = now;
                 true
             }
@@ -310,6 +350,7 @@ impl Sessions {
             session: pick.id.clone(),
             title: if others > 0 { format!("{} · +{}", pick.name, others) } else { pick.name.clone() },
             line: pick.line.clone(),
+            progress: pick.lines.last().filter(|l| l.text == pick.line).and_then(|l| l.progress),
             lines: pick.lines.clone(),
             mood: pick.mood,
             at: pick.ended.unwrap_or(pick.turn),
@@ -329,11 +370,42 @@ impl Sessions {
     }
 }
 
-fn push_step(s: &mut Session, step: String) {
+fn push_step(s: &mut Session, step: String, tool: String) {
     s.line = cut(&step);
-    s.lines.push(s.line.clone());
-    if s.lines.len() > KEPT_STEPS {
-        s.lines.remove(0);
+    s.lines.push(Line { text: s.line.clone(), progress: Some(Progress::Running), tool });
+    let extra = s.lines.len().saturating_sub(KEPT_STEPS);
+    s.lines.drain(..extra);
+}
+
+/// What Claude said before tool call `tool`, put just before its step, once. Hooks do not carry Claude's words; its
+/// transcript does, written a moment after the hook runs, so this is tried when the tool starts and again when it ends.
+fn note_said(s: &mut Session, tool: &str) {
+    if tool.is_empty() {
+        return;
+    }
+    let Some(at) = s.lines.iter().position(|l| l.tool == tool) else { return };
+    let Some((id, said)) = said_before(&s.transcript, tool).filter(|(id, _)| !s.said.contains(id)) else { return };
+    s.said.push(id);
+    let extra = s.said.len().saturating_sub(SAID_KEPT);
+    s.said.drain(..extra);
+    s.lines.insert(at, Line::said(cut(&said)));
+    let extra = s.lines.len().saturating_sub(KEPT_STEPS);
+    s.lines.drain(..extra);
+}
+
+/// A tool call ended: its step is done or failed. Without an id, the last step still running is the one.
+fn finish_step(s: &mut Session, tool: &str, progress: Progress) {
+    let running = |l: &&mut Line| l.progress == Some(Progress::Running);
+    let found = if tool.is_empty() { s.lines.iter_mut().rev().find(running) } else { s.lines.iter_mut().find(|l| l.tool == tool) };
+    if let Some(line) = found {
+        line.progress = Some(progress);
+    }
+}
+
+/// A turn ended before its steps did: those still running did not finish.
+fn cut_short(s: &mut Session) {
+    for line in s.lines.iter_mut().filter(|l| l.progress == Some(Progress::Running)) {
+        line.progress = Some(Progress::Failed);
     }
 }
 
@@ -341,9 +413,10 @@ fn push_step(s: &mut Session, step: String) {
 pub fn step(tool: &str, input: &Value) -> String {
     let s = |key: &str| input.get(key).and_then(Value::as_str).unwrap_or("").to_string();
     let line = match tool {
+        // What the command is for, as Claude Code describes it, else the command itself; its mark says it runs.
         "Bash" | "PowerShell" => match one_line(&s("description")) {
-            d if !d.is_empty() => format!("Running: {d}"),
-            _ => format!("Running {}", one_line(&s("command"))),
+            d if !d.is_empty() => d,
+            _ => one_line(&s("command")),
         },
         "Read" => format!("Reading {}", file_name(&s("file_path"))),
         "Write" => format!("Writing {}", file_name(&s("file_path"))),
@@ -440,6 +513,48 @@ fn cut_to(s: &str, max: usize) -> String {
     format!("{}…", s.chars().take(max - 1).collect::<String>().trim_end())
 }
 
+/// What Claude said just before tool call `tool`, if anything: the transcript line's id and the text's first line.
+/// Found in the transcript by the tool call's line, then read back from there, stopping at a tool's result or at the
+/// person's message (words from before those were said for something else).
+pub fn said_before(transcript: &str, tool: &str) -> Option<(String, String)> {
+    if transcript.is_empty() || tool.is_empty() {
+        return None;
+    }
+    let tail = tail_of(transcript, SAID_TAIL)?;
+    let call = format!("\"id\":\"{tool}\"");
+    let mut lines = tail.lines().rev().skip_while(|l| !(l.contains(&call) && l.contains("\"tool_use\"")));
+    lines.next()?;
+    for line in lines {
+        let is_user = line.contains("\"type\":\"user\"");
+        if !is_user && !line.contains("\"type\":\"assistant\"") {
+            continue;
+        }
+        let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+        if v.get("isSidechain").and_then(Value::as_bool) == Some(true) {
+            continue;
+        }
+        if is_user {
+            return None;
+        }
+        let blocks = v["message"]["content"].as_array().cloned().unwrap_or_default();
+        if let Some(said) = blocks.iter().rev().filter(|b| b["type"] == "text").map(|b| first_line(b["text"].as_str().unwrap_or(""))).find(|t| !t.is_empty()) {
+            return Some((v["uuid"].as_str().unwrap_or("").to_string(), said));
+        }
+    }
+    None
+}
+
+/// The last `bytes` of a file, as text (a line cut at the start is dropped by whoever reads it).
+fn tail_of(path: &str, bytes: u64) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    file.seek(SeekFrom::Start(len.saturating_sub(bytes))).ok()?;
+    let mut buf = Vec::new();
+    file.take(bytes).read_to_end(&mut buf).ok()?;
+    Some(String::from_utf8_lossy(&buf).into_owned())
+}
+
 /// The session's name as Claude Code keeps it at the end of its transcript: the name it was renamed to, else the
 /// latest title Claude Code gave it. Only the end of the file is read (Claude Code writes the title again as it goes).
 pub fn title_in(transcript: &str) -> Option<String> {
@@ -491,7 +606,7 @@ mod tests {
         let card = s.card().unwrap();
         // No title in a transcript yet: the session is called by its first message.
         assert!(card.title.starts_with("Run the shell command: echo kuchu"), "{}", card.title);
-        assert!(card.line.starts_with("Running"), "{}", card.line);
+        assert_eq!(card.line, "Print kuchu");
         s.apply("PostToolUse", &fixture("PostToolUse"), 4);
         s.apply("Stop", &fixture("Stop"), 5);
         assert_eq!(s.mood(), Mood::Done);
@@ -627,10 +742,67 @@ mod tests {
     }
 
     #[test]
+    fn each_step_shows_whether_it_runs_is_done_or_failed() {
+        let mut s = Sessions::default();
+        s.apply("PreToolUse", &fixture("PreToolUse"), 1);
+        assert_eq!(s.card().unwrap().progress, Some(Progress::Running));
+        s.apply("PostToolUse", &fixture("PostToolUse"), 2);
+        assert_eq!(s.card().unwrap().progress, Some(Progress::Done));
+        // Two at once, the second failing; a turn cut short leaves none running.
+        let id = fixture("PreToolUse")["session_id"].as_str().unwrap().to_string();
+        let call = |tool: &str| serde_json::json!({ "session_id": id, "tool_name": "Read", "tool_input": { "file_path": "a.rs" }, "tool_use_id": tool });
+        s.apply("PreToolUse", &call("t1"), 3);
+        s.apply("PreToolUse", &call("t2"), 4);
+        s.apply("PostToolUseFailure", &call("t2"), 5);
+        let progress: Vec<_> = s.card().unwrap().lines.iter().map(|l| l.progress).collect();
+        assert_eq!(progress, vec![Some(Progress::Done), Some(Progress::Running), Some(Progress::Failed)]);
+        assert!(s.stopped(&id, 6));
+        assert!(s.list()[0].lines.iter().all(|l| l.progress != Some(Progress::Running)));
+    }
+
+    #[test]
+    fn what_claude_said_before_a_tool_shows_once_between_the_steps() {
+        let dir = std::env::temp_dir().join(format!("kuchu-said-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let transcript = dir.join("s.jsonl");
+        let t = transcript.display().to_string();
+        let write = |lines: &[&str]| std::fs::write(&transcript, lines.join("\n") + "\n").unwrap();
+        let prompt = r#"{"type":"user","uuid":"u1","message":{"role":"user","content":"Fix the tests"}}"#;
+        let think = r#"{"type":"assistant","uuid":"a1","message":{"content":[{"type":"thinking","thinking":""}]}}"#;
+        let said = r#"{"type":"assistant","uuid":"a2","message":{"content":[{"type":"text","text":"I'll run the **tests** first.\nThen fix them."}]}}"#;
+        let call = r#"{"type":"assistant","uuid":"a3","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{}}]}}"#;
+        let call1b = r#"{"type":"assistant","uuid":"a3b","message":{"content":[{"type":"tool_use","id":"t1b","name":"Bash","input":{}}]}}"#;
+        let result = r#"{"type":"user","uuid":"u2","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}"#;
+        let call2 = r#"{"type":"assistant","uuid":"a4","message":{"content":[{"type":"tool_use","id":"t2","name":"Read","input":{}}]}}"#;
+        let said3 = r#"{"type":"assistant","uuid":"a5","message":{"content":[{"type":"text","text":"Now the [lint](x.md)."}]}}"#;
+        let call3 = r#"{"type":"assistant","uuid":"a6","message":{"content":[{"type":"tool_use","id":"t3","name":"Bash","input":{}}]}}"#;
+        let tool = |id: &str, cmd: &str| serde_json::json!({ "session_id": "a", "cwd": "/x/a", "transcript_path": t, "tool_name": "Bash", "tool_input": { "command": cmd }, "tool_use_id": id });
+        let texts = |s: &Sessions| s.list()[0].lines.iter().map(|l| l.text.clone()).collect::<Vec<_>>();
+        let mut s = Sessions::default();
+        // Words, then two tools at once: the words show once, before the first.
+        write(&[prompt, think, said, call, call1b]);
+        s.apply("PreToolUse", &tool("t1", "npm test"), 1);
+        s.apply("PreToolUse", &tool("t1b", "npm run lint"), 2);
+        assert_eq!(texts(&s), ["I'll run the tests first.", "npm test", "npm run lint"]);
+        assert_eq!(s.list()[0].lines[0].progress, None);
+        // A tool right after another's result, nothing said between: no words, and the old ones are not shown again.
+        write(&[prompt, think, said, call, call1b, result, call2]);
+        s.apply("PostToolUse", &tool("t1", "npm test"), 3);
+        s.apply("PreToolUse", &tool("t2", "git status"), 4);
+        assert_eq!(texts(&s), ["npm test", "npm run lint", "git status"]);
+        // The transcript written only after the tool started: its words come when it ends, before its step.
+        s.apply("PreToolUse", &tool("t3", "npm run lint --fix"), 5);
+        write(&[prompt, think, said, call, call1b, result, call2, said3, call3]);
+        s.apply("PostToolUse", &tool("t3", "npm run lint --fix"), 6);
+        assert_eq!(texts(&s), ["git status", "Now the lint.", "npm run lint --fix"]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn each_tool_reads_as_a_step() {
         assert_eq!(step("Edit", &serde_json::json!({ "file_path": "C:\\p\\src\\app.ts" })), "Editing app.ts");
         assert_eq!(step("WebFetch", &serde_json::json!({ "url": "https://docs.rs/tauri/latest" })), "Reading docs.rs");
         assert_eq!(step("mcp__github__create_issue", &Value::Null), "Using github: create issue");
-        assert_eq!(step("Bash", &serde_json::json!({ "command": "npm   test\n--watch" })), "Running npm test --watch");
+        assert_eq!(step("Bash", &serde_json::json!({ "command": "npm   test\n--watch" })), "npm test --watch");
     }
 }

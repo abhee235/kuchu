@@ -12,17 +12,28 @@ export interface Session {
   cwd: string
   mood: PetMood
   line: string
-  lines: string[]
+  lines: Line[]
   prompt: string
   updated: number
   ended?: number | null
+}
+
+/** Where a step stands: its tool running, finished, or failed (or cut short). */
+export type Progress = 'running' | 'done' | 'failed'
+
+/** A step (with where it stands), or a line of an answer (without). */
+export interface Line {
+  text: string
+  progress: Progress | null
 }
 
 export interface Card {
   session: string
   title: string
   line: string
-  lines: string[]
+  /** Where `line` stands, when it is a step. */
+  progress: Progress | null
+  lines: Line[]
   mood: PetMood
   /** When its turn ended, or started while it is under way. */
   at: number
@@ -54,6 +65,8 @@ export interface Chat {
 export interface ChatEntry {
   kind: 'you' | 'claude' | 'step' | 'note'
   text: string
+  /** A step's: where it stands. */
+  progress?: Progress
 }
 
 export interface View {

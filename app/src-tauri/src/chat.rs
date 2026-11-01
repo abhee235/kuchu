@@ -18,7 +18,7 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 
 use crate::hub::{now, Hub};
-use crate::sessions::step;
+use crate::sessions::{step, Progress};
 
 /// A conversation's process closes after this long without a turn; the next message starts it again.
 const QUIET: Duration = Duration::from_secs(10 * 60);
@@ -51,8 +51,14 @@ pub enum Entry {
     You { text: String },
     /// Claude's text, growing while it streams.
     Claude { text: String },
-    /// A tool Claude used, as one line.
-    Step { text: String },
+    /// A tool Claude used, as one line, and where it stands.
+    Step {
+        text: String,
+        progress: Progress,
+        /// The tool call (`tool_use_id`), so its result finds it.
+        #[serde(skip)]
+        tool: String,
+    },
     /// What Kuchu says about the conversation: stopped, did not finish, taken on in a terminal.
     Note { text: String },
 }
@@ -141,7 +147,8 @@ impl Reader {
                         }
                         "tool_use" => {
                             let name = block["name"].as_str().unwrap_or("");
-                            chat.entries.push(Entry::Step { text: step(name, &block["input"]) });
+                            let tool = block["id"].as_str().unwrap_or("").to_string();
+                            chat.entries.push(Entry::Step { text: step(name, &block["input"]), progress: Progress::Running, tool });
                             self.open = false;
                             change.shown = true;
                         }
@@ -149,8 +156,32 @@ impl Reader {
                     }
                 }
             }
+            // A tool's result: its step is done, or failed.
+            "user" => {
+                for block in o["message"]["content"].as_array().into_iter().flatten().filter(|b| b["type"] == "tool_result") {
+                    let id = block["tool_use_id"].as_str().unwrap_or("");
+                    let ended = if block["is_error"] == true { Progress::Failed } else { Progress::Done };
+                    for entry in &mut chat.entries {
+                        if let Entry::Step { tool, progress, .. } = entry {
+                            if tool == id {
+                                *progress = ended;
+                                change.shown = true;
+                            }
+                        }
+                    }
+                }
+            }
             "result" => {
                 self.open = false;
+                // Steps the turn ended before: done if it finished, cut short if not.
+                let rest = if o["subtype"] == "success" { Progress::Done } else { Progress::Failed };
+                for entry in &mut chat.entries {
+                    if let Entry::Step { progress, .. } = entry {
+                        if *progress == Progress::Running {
+                            *progress = rest;
+                        }
+                    }
+                }
                 let ended = if o["subtype"] == "success" {
                     Ended::Done
                 } else if o["terminal_reason"] == "aborted_streaming" {
@@ -440,6 +471,13 @@ impl Chats {
                 (true, None) => "Claude Code stopped.".to_string(),
             }
         };
+        for entry in &mut held.chat.entries {
+            if let Entry::Step { progress, .. } = entry {
+                if *progress == Progress::Running {
+                    *progress = Progress::Failed;
+                }
+            }
+        }
         held.chat.entries.push(Entry::Note { text: note });
         held.chat.status = Status::Ready;
         held.chat.updated = now();
@@ -588,7 +626,8 @@ mod tests {
         // Two messages sent at once: Claude Code takes the second into the same turn.
         let (chat, changes) = replay("two-messages");
         assert!(changes.iter().any(|c| c.began));
-        assert_eq!(chat.entries, vec![Entry::Step { text: "Reading note.txt".into() }, Entry::Claude { text: "bye".into() }]);
+        let read = Entry::Step { text: "Reading note.txt".into(), progress: Progress::Done, tool: "toolu_016AU4KGg6hYybMjWaHnMPWj".into() };
+        assert_eq!(chat.entries, vec![read, Entry::Claude { text: "bye".into() }]);
         assert_eq!(chat.status, Status::Ready);
         assert_eq!(ends(&changes), vec![&Ended::Done]);
     }
@@ -625,6 +664,21 @@ mod tests {
         assert_eq!(r.take(&mut chat, &failed).ended, Some(Ended::Failed("error max turns".into())));
         assert_eq!(chat.entries, vec![Entry::Note { text: "It did not finish: error max turns".into() }]);
         assert_eq!(chat.status, Status::Ready);
+    }
+
+    #[test]
+    fn a_step_runs_until_its_result_comes() {
+        let (mut chat, mut r) = (blank(), Reader::default());
+        let call = |id: &str| json!({ "type": "assistant", "message": { "content": [{ "type": "tool_use", "id": id, "name": "Read", "input": { "file_path": "a.rs" } }] } });
+        r.take(&mut chat, &call("t1"));
+        r.take(&mut chat, &call("t2"));
+        let result = json!({ "type": "user", "message": { "content": [{ "type": "tool_result", "tool_use_id": "t2", "is_error": true, "content": "no" }] } });
+        r.take(&mut chat, &result);
+        let progress = |chat: &Chat| chat.entries.iter().map(|e| if let Entry::Step { progress, .. } = e { Some(*progress) } else { None }).collect::<Vec<_>>();
+        assert_eq!(progress(&chat), vec![Some(Progress::Running), Some(Progress::Failed)]);
+        // Stopped before t1 came back: it did not finish.
+        r.take(&mut chat, &json!({ "type": "result", "subtype": "error_during_execution", "terminal_reason": "aborted_streaming" }));
+        assert_eq!(progress(&chat)[..2], [Some(Progress::Failed), Some(Progress::Failed)]);
     }
 
     #[test]

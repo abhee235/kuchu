@@ -5,10 +5,11 @@
 // takes their messages only there.)
 
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { ArrowLeft, ArrowUp, Folder, FolderOpen, MessageSquare, Plus, Settings, Square, SquareTerminal, Wrench, X } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Folder, FolderOpen, MessageSquare, Plus, Settings, Square, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ago, core, MOOD_LABEL, on, type Chat, type ChatEntry, type HookReport, type Prefs, type Session, type View } from './api'
 import { Pet } from './pet/Pet'
+import { StepMark } from './StepMark'
 
 type Screen = { kind: 'list' } | { kind: 'new' } | { kind: 'chat'; id: string }
 
@@ -374,7 +375,7 @@ function Said({ entry }: { entry: ChatEntry }) {
     case 'step':
       return (
         <div className="say-step">
-          <Wrench />
+          <StepMark progress={entry.progress ?? 'done'} />
           <span>{entry.text}</span>
         </div>
       )
