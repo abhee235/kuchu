@@ -36,11 +36,11 @@ const PET_WITHIN_MS = 1500
 const TONE_GAP_MS = 1200
 /** The list of other sessions stays this long after the pointer leaves it. */
 const LIST_LINGER_MS = 300
-/** The list's tallest (it scrolls past this), its gap from the card, and the room it keeps from the window's edge for
- *  its shadow. */
-const LIST_MAX_PX = 240
+/** The stack of other sessions' cards: its tallest (it scrolls past this), the gap between cards, and the room it
+ *  reaches past them for their shadows (as in styles.css). */
+const LIST_MAX_PX = 320
 const LIST_GAP_PX = 6
-const LIST_EDGE_PX = 8
+const LIST_PAD_PX = 8
 
 const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
 
@@ -247,8 +247,8 @@ function SessionCard({ card, lines, leaving, onClose, held, onHold }: {
     const el = listRef.current
     if (!list || !box || !el) return setRoom(null)
     const need = Math.min(el.scrollHeight, LIST_MAX_PX)
-    const above = box.top - LIST_GAP_PX - LIST_EDGE_PX
-    const below = window.innerHeight - box.bottom - LIST_GAP_PX - LIST_EDGE_PX
+    const above = box.top - LIST_GAP_PX + LIST_PAD_PX
+    const below = window.innerHeight - box.bottom - LIST_GAP_PX + LIST_PAD_PX
     const under = above < need && below > above
     const max = Math.max(0, Math.min(LIST_MAX_PX, under ? below : above))
     setRoom((r) => (r?.below === under && r.max === max ? r : { below: under, max }))
