@@ -22,11 +22,16 @@ pub struct Prefs {
     pub approvals: bool,
     /// Where the pet was left (its box's top-left, physical px), so it comes back there.
     pub at: Option<(i32, i32)>,
+    /// Folders conversations were started in from Kuchu, the latest first.
+    pub folders: Vec<String>,
 }
+
+/// How many recent folders are kept.
+const FOLDERS: usize = 6;
 
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, sounds: true, click: "sessions".into(), approvals: true, at: None }
+        Prefs { size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, sounds: true, click: "sessions".into(), approvals: true, at: None, folders: Vec::new() }
     }
 }
 
@@ -51,7 +56,15 @@ impl Prefs {
         if !matches!(self.click.as_str(), "sessions" | "settings") {
             self.click = d.click;
         }
+        self.folders.truncate(FOLDERS);
         self
+    }
+
+    /// A folder a conversation was just started in goes first.
+    pub fn used_folder(&mut self, folder: &str) {
+        self.folders.retain(|f| !f.eq_ignore_ascii_case(folder));
+        self.folders.insert(0, folder.to_string());
+        self.folders.truncate(FOLDERS);
     }
 
     pub fn load(path: &Path) -> Prefs {

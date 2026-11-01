@@ -16,6 +16,7 @@ tauri-build = { version = "2", features = [] }
 kuchu-wire = { path = "../../wire" }
 tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-global-shortcut = "2"
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-tokio = { version = "1", features = ["net", "io-util", "time", "sync", "macros", "rt"] }
+tokio = { version = "1", features = ["net", "io-util", "time", "sync", "macros", "rt", "process"] }

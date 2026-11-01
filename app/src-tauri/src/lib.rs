@@ -2,6 +2,7 @@
 //! everywhere but the pet and its cards), the pointer read for the pet's eyes, the sessions list and Settings windows,
 //! the tray and the shortcut. The hub (`hub.rs`) takes the relay's events in; the pages in `app/src` draw it all.
 
+mod chat;
 mod hooks;
 mod hub;
 mod prefs;
@@ -18,6 +19,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_global_shortcut::{Builder as ShortcutBuilder, ShortcutState};
 
+use chat::{Chat, Chats};
 use hub::{Choice, Hub, View};
 use prefs::Prefs;
 
@@ -34,9 +36,11 @@ const POLL: Duration = Duration::from_millis(40);
 const NEAR: f64 = 4.0;
 /// A drag is over once the window has not moved for this long.
 const SETTLE: Duration = Duration::from_millis(300);
+/// How long after losing the focus the sessions list checks it really has, before hiding.
+const BLUR_SETTLE: Duration = Duration::from_millis(150);
 /// The shortcut that opens the sessions list from anywhere.
 const SHORTCUT: &str = "ctrl+alt+k";
-const SESSIONS_SIZE: (f64, f64) = (360.0, 460.0);
+const SESSIONS_SIZE: (f64, f64) = (400.0, 560.0);
 
 fn pet_height(width: u32) -> f64 {
     (width as f64 * 154.0 / 120.0).round()
@@ -81,6 +85,8 @@ struct Layout {
     right: AtomicBool,
     rects: Mutex<Vec<Rect>>,
     moved: Mutex<Option<Instant>>,
+    /// The pointer is on the pet or one of its cards (the window takes the mouse).
+    taking: AtomicBool,
 }
 
 struct Kuchu {
@@ -90,6 +96,12 @@ struct Kuchu {
     hub: Arc<Hub>,
     /// The relay where the hooks point (copied there at start).
     relay: Mutex<Result<PathBuf, String>>,
+    /// Conversations started from Kuchu.
+    chats: Arc<Chats>,
+    /// A folder is being picked: the sessions list stays while the dialog has the focus.
+    picking: AtomicBool,
+    /// The conversation the sessions list should open next (a click on its card).
+    open: Mutex<Option<String>>,
 }
 
 impl Kuchu {
@@ -108,6 +120,15 @@ impl Kuchu {
         let more_y = (CARD_H * scale).round() as i32;
         let x = if self.layout.right.load(Ordering::Relaxed) { px - more_x } else { px };
         (x, py - more_y, bw + CARD_W, bh + CARD_H)
+    }
+
+    /// The pet and the room its cards take beside and above it (physical px), whether a card shows or not: the
+    /// sessions list keeps out of it.
+    fn zone(&self, scale: f64) -> (f64, f64, f64, f64) {
+        let (bw, bh) = box_of(self.width());
+        let (px, py) = *self.layout.pet.lock().unwrap();
+        let x = if self.layout.right.load(Ordering::Relaxed) { px as f64 - CARD_W * scale } else { px as f64 };
+        (x, py as f64 - CARD_H * scale, (bw + CARD_W) * scale, (bh + CARD_H) * scale)
     }
 
     /// Where the pet is, from where its window is.
@@ -153,6 +174,11 @@ impl Kuchu {
                     self.place(window);
                 }
             }
+        }
+        // The pet moved with the sessions list open: the list moves out of its way.
+        let app = window.app_handle();
+        if let Some(list) = app.get_webview_window("sessions").filter(|l| l.is_visible().unwrap_or(false)) {
+            place_sessions(app, &list);
         }
         let mut prefs = self.prefs.lock().unwrap();
         if prefs.at != Some((px, py)) {
@@ -226,6 +252,7 @@ pub fn run() {
                 })
                 .build(),
         )
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             view,
             get_prefs,
@@ -242,6 +269,13 @@ pub fn run() {
             hooks_apply,
             open_settings,
             open_sessions,
+            take_open,
+            pick_folder,
+            chats,
+            chat_start,
+            chat_send,
+            chat_stop,
+            chat_terminal,
         ])
         .setup(|app| {
             let config = app.path().app_config_dir()?;
@@ -256,12 +290,17 @@ pub fn run() {
                     let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("bin");
                     hooks::place_relay(&from, &dir).map_err(|e| format!("Kuchu could not put its relay in place: {e}"))
                 });
+            let handle = app.handle().clone();
+            let chats = Chats::new(app.handle().clone(), hub.clone(), Box::new(move || own_settings(&handle)));
             let kuchu = Arc::new(Kuchu {
                 prefs: Mutex::new(prefs),
                 prefs_path,
-                layout: Layout { pet: Mutex::new(at), wide: false.into(), right: true.into(), rects: Mutex::new(Vec::new()), moved: Mutex::new(None) },
+                layout: Layout { pet: Mutex::new(at), wide: false.into(), right: true.into(), rects: Mutex::new(Vec::new()), moved: Mutex::new(None), taking: false.into() },
                 hub: hub.clone(),
                 relay: Mutex::new(relay),
+                chats,
+                picking: false.into(),
+                open: Mutex::new(None),
             });
             app.manage(kuchu.clone());
 
@@ -291,11 +330,12 @@ pub fn run() {
                     app_handle.exit(0);
                 }
             });
-            let hub = kuchu.hub.clone();
+            let (hub, chats) = (kuchu.hub.clone(), kuchu.chats.clone());
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(Duration::from_secs(60)).await;
                     hub.expire();
+                    chats.expire();
                 }
             });
             Ok(())
@@ -335,6 +375,7 @@ fn follow_pointer(app: AppHandle, window: WebviewWindow, kuchu: Arc<Kuchu>) {
             let now = Pointer { dx: (x - pet.x - pet.w / 2.0).round(), dy: (y - pet.y - pet.h / 2.0).round(), over, card };
             if take != taking {
                 taking = take;
+                kuchu.layout.taking.store(take, Ordering::Relaxed);
                 let _ = window.set_ignore_cursor_events(!take);
             }
             if last.as_ref() != Some(&now) {
@@ -349,7 +390,7 @@ fn kuchu(app: &AppHandle) -> Arc<Kuchu> {
     app.state::<Arc<Kuchu>>().inner().clone()
 }
 
-/// The sessions list: beside the pet, above it if there is room. It hides when it loses the focus.
+/// The sessions list, near the pet but never over it or its cards. It hides when it loses the focus.
 fn toggle_sessions(app: &AppHandle) {
     if let Some(list) = app.get_webview_window("sessions") {
         if list.is_visible().unwrap_or(false) {
@@ -359,6 +400,7 @@ fn toggle_sessions(app: &AppHandle) {
         place_sessions(app, &list);
         let _ = list.show();
         let _ = list.set_focus();
+        raise_pet(app);
         return;
     }
     let built = WebviewWindowBuilder::new(app, "sessions", WebviewUrl::App("index.html".into()))
@@ -372,37 +414,71 @@ fn toggle_sessions(app: &AppHandle) {
         .visible(false)
         .build();
     if let Ok(list) = built {
-        // Hidden when it loses the focus, once it has had it: a window being made reports "not focused" first.
+        // Hidden when it loses the focus, but not to the folder dialog it opened, nor to a click on the pet's cards
+        // (allowing a request mid-conversation). A window being made, its page still loading, reports losing the focus
+        // when it has not: it hides only if, a moment later, it is still without it.
         let hide = list.clone();
-        let had_focus = Arc::new(AtomicBool::new(false));
-        list.on_window_event(move |event| match event {
-            WindowEvent::Focused(true) => had_focus.store(true, Ordering::Relaxed),
-            WindowEvent::Focused(false) if had_focus.swap(false, Ordering::Relaxed) => {
-                let _ = hide.hide();
+        let handle = app.clone();
+        list.on_window_event(move |event| {
+            if let WindowEvent::Focused(false) = event {
+                let (hide, handle) = (hide.clone(), handle.clone());
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(BLUR_SETTLE).await;
+                    let k = kuchu(&handle);
+                    let ours = k.picking.load(Ordering::Relaxed) || k.layout.taking.load(Ordering::Relaxed);
+                    if !ours && !hide.is_focused().unwrap_or(true) {
+                        let _ = hide.hide();
+                    }
+                });
             }
-            _ => {}
         });
         place_sessions(app, &list);
         let _ = list.show();
         let _ = list.set_focus();
+        raise_pet(app);
     }
 }
 
+/// Where the sessions list goes: out of the pet's zone (the pet and the room its cards take), inside the work area.
+/// Above the zone if it fits there, else below it, else beside it (away from the screen's edge first).
 fn place_sessions(app: &AppHandle, list: &WebviewWindow) {
     let Some(pet) = app.get_webview_window("pet") else { return };
     let k = kuchu(app);
     let scale = pet.scale_factor().unwrap_or(1.0);
-    let (px, py) = *k.layout.pet.lock().unwrap();
-    let (bw, _) = box_of(k.width());
-    let (w, h) = (SESSIONS_SIZE.0 * scale, SESSIONS_SIZE.1 * scale);
-    let Ok(Some(monitor)) = pet.monitor_from_point(px as f64, py as f64) else { return };
+    let (zx, zy, zw, zh) = k.zone(scale);
+    let Ok(Some(monitor)) = pet.monitor_from_point(zx + zw / 2.0, zy + zh) else { return };
     let area = monitor.work_area();
-    let (ax, ay) = (area.position.x as f64, area.position.y as f64);
-    let (aw, ah) = (area.size.width as f64, area.size.height as f64);
-    let centre = px as f64 + bw * scale / 2.0;
-    let x = (centre - w / 2.0).clamp(ax + 8.0, ax + aw - w - 8.0);
-    let y = (py as f64 - h + 8.0 * scale).clamp(ay + 8.0, ay + ah - h - 8.0);
+    let area = (area.position.x as f64, area.position.y as f64, area.size.width as f64, area.size.height as f64);
+    let (px, _) = *k.layout.pet.lock().unwrap();
+    let centre = px as f64 + box_of(k.width()).0 * scale / 2.0;
+    let size = (SESSIONS_SIZE.0 * scale, SESSIONS_SIZE.1 * scale);
+    let (x, y) = out_of_the_way((zx, zy, zw, zh), centre, size, area, k.layout.right.load(Ordering::Relaxed), 8.0 * scale);
     let _ = list.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
+}
+
+/// A place for a window of `size` in `area` that does not cover `zone`: above it, else below it (centred on `centre`),
+/// else on its inner side, else its outer side (bottoms lined up); if none fits, the inner side, kept on the screen.
+fn out_of_the_way(zone: (f64, f64, f64, f64), centre: f64, size: (f64, f64), area: (f64, f64, f64, f64), right: bool, gap: f64) -> (f64, f64) {
+    let (zx, zy, zw, zh) = zone;
+    let (w, h) = size;
+    let (ax, ay, aw, ah) = area;
+    let clamp_x = |x: f64| x.clamp(ax + gap, (ax + aw - w - gap).max(ax + gap));
+    let clamp_y = |y: f64| y.clamp(ay + gap, (ay + ah - h - gap).max(ay + gap));
+    let fits = |(x, y): (f64, f64)| x >= ax + gap - 0.5 && y >= ay + gap - 0.5 && x + w <= ax + aw - gap + 0.5 && y + h <= ay + ah - gap + 0.5;
+    let x = clamp_x(centre - w / 2.0);
+    let level = clamp_y(zy + zh - h);
+    let (inner, outer) = if right { (zx - gap - w, zx + zw + gap) } else { (zx + zw + gap, zx - gap - w) };
+    [(x, zy - gap - h), (x, zy + zh + gap), (inner, level), (outer, level)].into_iter().find(|&p| fits(p)).unwrap_or((clamp_x(inner), level))
+}
+
+/// Puts the pet's window back on top of the other windows that stay on top (the sessions list too), without taking
+/// the focus: its cards, a permission request above all, are never covered.
+fn raise_pet(app: &AppHandle) {
+    if let Some(pet) = app.get_webview_window("pet") {
+        // Set again only when it changes, so it is taken off and put back.
+        let _ = pet.set_always_on_top(false);
+        let _ = pet.set_always_on_top(true);
+    }
 }
 
 fn show_settings(app: &AppHandle) {
@@ -453,17 +529,25 @@ async fn pet_clicked(app: AppHandle) {
 
 #[tauri::command]
 fn forget(app: AppHandle, session: String) {
-    kuchu(&app).hub.forget(&session);
+    let k = kuchu(&app);
+    k.hub.forget(&session);
+    k.chats.forget(&session);
 }
 
+/// A click on a permission card. The sessions list, if open, has the focus back (the click took it), so it still hides
+/// when you go elsewhere.
 #[tauri::command]
 fn decide(app: AppHandle, id: u64, choice: Choice) {
     kuchu(&app).hub.decide(id, choice);
+    if let Some(list) = app.get_webview_window("sessions").filter(|l| l.is_visible().unwrap_or(false)) {
+        let _ = list.set_focus();
+    }
 }
 
 #[tauri::command]
 fn approval_shown(app: AppHandle, id: u64) {
     kuchu(&app).hub.shown(id);
+    raise_pet(&app);
 }
 
 /// The page shows a card (or stops): the window grows beside and above the pet, which stays where it is.
@@ -475,6 +559,9 @@ fn set_wide(app: AppHandle, wide: bool) {
     }
     if let Some(window) = app.get_webview_window("pet") {
         k.place(&window);
+    }
+    if wide {
+        raise_pet(&app);
     }
 }
 
@@ -528,9 +615,93 @@ async fn open_settings(app: AppHandle) {
     show_settings(&app);
 }
 
+/// The sessions list; given a conversation started from Kuchu, the list opens on it (a click on its card).
 #[tauri::command]
-async fn open_sessions(app: AppHandle) {
-    toggle_sessions(&app);
+async fn open_sessions(app: AppHandle, session: Option<String>) {
+    let k = kuchu(&app);
+    match session.filter(|id| k.chats.has(id)) {
+        Some(id) => {
+            *k.open.lock().unwrap() = Some(id);
+            let shown = app.get_webview_window("sessions").is_some_and(|w| w.is_visible().unwrap_or(false));
+            if !shown {
+                toggle_sessions(&app);
+            }
+            let _ = app.emit("kuchu://open", ());
+        }
+        None => toggle_sessions(&app),
+    }
+}
+
+/// The conversation the sessions list should open, once.
+#[tauri::command]
+fn take_open(app: AppHandle) -> Option<String> {
+    kuchu(&app).open.lock().unwrap().take()
+}
+
+/// A folder for a new conversation, from the system's folder dialog.
+#[tauri::command]
+async fn pick_folder(app: AppHandle) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    let k = kuchu(&app);
+    k.picking.store(true, Ordering::Relaxed);
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let mut dialog = app.dialog().file().set_title("Where should Claude work?");
+    let list = app.get_webview_window("sessions");
+    if let Some(list) = &list {
+        dialog = dialog.set_parent(list);
+    }
+    dialog.pick_folder(move |folder| {
+        let _ = tx.send(folder);
+    });
+    let folder = rx.await.ok().flatten();
+    k.picking.store(false, Ordering::Relaxed);
+    if let Some(list) = &list {
+        let _ = list.set_focus();
+    }
+    folder.and_then(|f| f.into_path().ok()).map(|p| p.display().to_string())
+}
+
+#[tauri::command]
+fn chats(app: AppHandle) -> Vec<Chat> {
+    kuchu(&app).chats.list()
+}
+
+/// A new conversation in `cwd`; the folder goes first among the recent ones. Returns its session id.
+#[tauri::command]
+async fn chat_start(app: AppHandle, cwd: String, text: String) -> Result<String, String> {
+    let k = kuchu(&app);
+    let id = k.chats.start(&cwd, &text)?;
+    let mut next = k.prefs.lock().unwrap().clone();
+    next.used_folder(&cwd);
+    k.set_prefs(&app, next);
+    Ok(id)
+}
+
+#[tauri::command]
+async fn chat_send(app: AppHandle, session: String, text: String) -> Result<(), String> {
+    kuchu(&app).chats.send(&session, &text)
+}
+
+#[tauri::command]
+async fn chat_stop(app: AppHandle, session: String) {
+    kuchu(&app).chats.stop(&session);
+}
+
+#[tauri::command]
+async fn chat_terminal(app: AppHandle, session: String) -> Result<(), String> {
+    kuchu(&app).chats.hand_off(&session)
+}
+
+/// Settings for a session Kuchu starts itself: nothing extra while Claude Code's settings have Kuchu's hooks; until
+/// they do, a file with only those hooks, so the session still shows beside the pet and asks for permission there.
+fn own_settings(app: &AppHandle) -> Option<PathBuf> {
+    let relay = relay_path(app).ok()?;
+    if hooks::status(&hooks::settings_path(), &relay).state != "missing" {
+        return None;
+    }
+    let path = app.path().app_local_data_dir().ok()?.join("hooks.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&hooks::own(&relay)).ok()?).ok()?;
+    Some(path)
 }
 
 /// The tray: always a way back to the pet, the sessions, Settings, sounds, quitting.
@@ -582,4 +753,38 @@ fn tray(app: &AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn apart(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> bool {
+        a.0 + a.2 <= b.0 || b.0 + b.2 <= a.0 || a.1 + a.3 <= b.1 || b.1 + b.3 <= a.1
+    }
+
+    #[test]
+    fn the_sessions_list_keeps_out_of_the_pets_way() {
+        let size = (400.0, 560.0);
+        let screen = (0.0, 0.0, 2560.0, 1400.0);
+        // The pet low on the right (where it starts): the list goes above it and its cards.
+        let low = (2000.0, 900.0, 480.0, 410.0);
+        let at = out_of_the_way(low, 2400.0, size, screen, true, 8.0);
+        assert_eq!(at, (2152.0, 332.0));
+        // Near the top: below.
+        let high = (2000.0, 20.0, 480.0, 410.0);
+        let at = out_of_the_way(high, 2400.0, size, screen, true, 8.0);
+        assert_eq!(at, (2152.0, 438.0));
+        assert!(apart((at.0, at.1, size.0, size.1), high));
+        // A short screen, room neither above nor below: beside it, away from the edge.
+        let short = (0.0, 0.0, 2560.0, 800.0);
+        let middle = (2000.0, 200.0, 480.0, 410.0);
+        let at = out_of_the_way(middle, 2400.0, size, short, true, 8.0);
+        assert_eq!(at, (1592.0, 50.0));
+        assert!(apart((at.0, at.1, size.0, size.1), middle));
+        // On the left half, beside means to its right.
+        let left = (40.0, 200.0, 480.0, 410.0);
+        let at = out_of_the_way(left, 120.0, size, short, false, 8.0);
+        assert_eq!(at, (528.0, 50.0));
+    }
 }

@@ -117,6 +117,12 @@ impl Hub {
         }
     }
 
+    pub fn stopped(&self, session: &str) {
+        if self.inner.lock().unwrap().sessions.stopped(session, now()) {
+            self.publish();
+        }
+    }
+
     pub fn forget(&self, session: &str) {
         if self.inner.lock().unwrap().sessions.forget(session) {
             self.publish();

@@ -195,8 +195,9 @@ mod tests {
     #[test]
     fn the_recorded_payloads_still_read() {
         let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../fixtures/claude-code-2.1.310");
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let text = std::fs::read_to_string(entry.unwrap().path()).unwrap();
+        // The hook payloads; `stream/` holds what `claude -p` prints, which the relay never sees.
+        for path in std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_file()) {
+            let text = std::fs::read_to_string(path).unwrap();
             let payload: Value = serde_json::from_str(&text).unwrap();
             assert!(payload.get("session_id").is_some());
             assert!(slim(payload).get("tool_response").is_none());

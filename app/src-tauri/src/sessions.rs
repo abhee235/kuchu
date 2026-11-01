@@ -239,6 +239,20 @@ impl Sessions {
         }
     }
 
+    /// A turn stopped from Kuchu, or one that did not finish there: Claude Code sends no Stop for it, so the session
+    /// is no longer busy.
+    pub fn stopped(&mut self, id: &str, now: u64) -> bool {
+        match self.all.get_mut(id) {
+            Some(s) if matches!(s.mood, Mood::Thinking | Mood::Working | Mood::Needs) => {
+                s.mood = Mood::Idle;
+                s.line = "Stopped".into();
+                s.updated = now;
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// Forgets a session (from the list: one whose terminal was closed mid-turn sends nothing more).
     pub fn forget(&mut self, id: &str) -> bool {
         self.all.remove(id).is_some()

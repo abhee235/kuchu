@@ -170,6 +170,11 @@ fn changed(settings: &Value, relay: &Path, install: bool) -> Value {
     root
 }
 
+/// Kuchu's hooks alone, as settings for a session Kuchu starts itself while Claude Code's settings do not have them.
+pub fn own(relay: &Path) -> Value {
+    changed(&json!({}), relay, true)
+}
+
 /// How Kuchu's hooks stand.
 pub fn status(path: &Path, relay: &Path) -> Report {
     let shown = path.display().to_string();

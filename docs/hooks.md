@@ -44,3 +44,24 @@ recorded before the step that uses them.
   each is checked live before the first release.
 - A `claude -p` run ends its session right after `Stop`: a session that ends with its answer unseen stays until the
   pet is clicked.
+
+## A conversation started from Kuchu
+
+Kuchu runs one Claude Code process per conversation, measured on 2.1.310 (recordings in
+[`fixtures/claude-code-2.1.310/stream/`](../fixtures/claude-code-2.1.310/stream)):
+
+- `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages
+  --session-id <id>` in the chosen folder; later processes for the same conversation use `--resume <id>`.
+- Each message is one line on stdin: `{"type":"user","message":{"role":"user","content":"…"}}`. A message sent while
+  Claude works is taken into the same turn (one `result` for both).
+- What comes back, one JSON object a line: `system`/`init` at the start of each turn; `stream_event` with
+  `text_delta` pieces as Claude writes; `assistant` with each whole block (`text`, `tool_use`, `thinking`); `result`
+  at the end of the turn (`subtype` `success`, or `error_during_execution` with `terminal_reason`
+  `aborted_streaming` when stopped). Lines with a `parent_tool_use_id` are a helper's own.
+- Stopping: `{"type":"control_request","request_id":"…","request":{"subtype":"interrupt"}}` on stdin; Claude Code
+  answers with a `control_response` and ends the turn. The same process takes the next message.
+- Permission prompts go to the PermissionRequest hook, as in any `claude -p` run, so they show on Kuchu like any
+  other session's. A stopped turn sends no Stop to the hooks.
+- Closing stdin lets the process finish its turn and exit. A terminal takes the conversation on with
+  `claude --resume <id>`; started from Kuchu, it must get the new console's own input and output (through `start`
+  on Windows), or Claude Code finds no terminal and exits.
