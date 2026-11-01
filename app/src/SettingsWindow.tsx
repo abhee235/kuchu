@@ -107,6 +107,12 @@ export function SettingsWindow() {
                   ))}
                 </div>
               </Row>
+              <Row
+                label="Keep an answer until you click Kuchu"
+                desc="Otherwise an answer shows for a few seconds, or as long as your pointer is on it, then fades. Kuchu keeps its happy face until you click it."
+              >
+                <Toggle label="Keep an answer until you click Kuchu" on={prefs.keepAnswer} set={(keepAnswer) => set({ keepAnswer })} />
+              </Row>
               <Row label="Clicking Kuchu opens" desc="Ctrl+Alt+K opens your sessions from anywhere, and the tray icon always brings Kuchu back.">
                 <Segmented
                   value={prefs.click}

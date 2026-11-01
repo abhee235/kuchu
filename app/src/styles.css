@@ -176,6 +176,10 @@ html[data-window='settings'] body {
   padding-top: 12px;
   padding-bottom: 12px;
 }
+/* An answer's few seconds are up. */
+.card.is-leaving {
+  animation: card-out 0.35s ease-in both;
+}
 .card-body {
   flex: 1;
   min-width: 0;
@@ -314,6 +318,11 @@ html[data-window='settings'] body {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+@keyframes card-out {
+  to {
+    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {

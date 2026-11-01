@@ -9,7 +9,7 @@ Windows and macOS first; Linux later. Work in progress: see [PLAN.md](PLAN.md).
 ## What it does
 
 - **Every session, on its own card.** Beside the pet: the project and what Claude is doing now (or the answer's first
-  line once done), in one line or a few. A click on the pet lists every session.
+  line once done, for a few seconds), in one line or a few. A click on the pet lists every session.
 - **Permission requests on the pet.** Allow, Deny, or hand it back to Claude Code. Nothing is allowed without a click.
 - **Its own Settings.** Size, see-through under the pointer, sounds, what shows beside the pet, what a click opens,
   and connecting to Claude Code: the change to `settings.json` is shown first, and a copy of the file is kept.

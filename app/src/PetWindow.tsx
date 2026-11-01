@@ -16,12 +16,16 @@ interface Pointer {
   dx: number
   dy: number
   over: boolean
+  card: boolean
 }
 
 /** How far the pointer moves with the button down before it is a drag, not a click. */
 const DRAG_PX = 4
 /** A click this soon after a card appears does not count: it was meant for what was there before. */
 const SETTLING_MS = 600
+/** How long an answer stays beside the pet (unless Settings keeps it), then how long it takes to fade. */
+const ANSWER_MS = 8000
+const FADE_MS = 350
 
 const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
 
@@ -31,7 +35,9 @@ export function PetWindow() {
   const [right, setRight] = useState(true)
   const [look, setLook] = useState({ x: 0, y: 0 })
   const [over, setOver] = useState(false)
+  const [onCard, setOnCard] = useState(false)
   const [closed, setClosed] = useState<string | null>(null)
+  const [leaving, setLeaving] = useState<string | null>(null)
 
   useEffect(() => {
     void core.view().then(setView)
@@ -44,6 +50,7 @@ export function PetWindow() {
       on<Pointer>('pointer', (p) => {
         setLook(lookToward(p))
         setOver(p.over)
+        setOnCard(p.card)
       }),
     ]
     return () => offs.forEach((off) => off())
@@ -62,6 +69,21 @@ export function PetWindow() {
   const card = view.card && prefs?.card !== 'off' && cardKey(view.card) !== closed ? view.card : null
   const wide = !!approval || !!card
   useEffect(() => void core.setWide(wide), [wide])
+
+  // An answer shows for a few seconds, then fades, unless Settings keeps it until the pet is clicked. While the
+  // pointer is on it, it stays.
+  const key = card ? cardKey(card) : null
+  const brief = card?.mood === 'done' && !!prefs && !prefs.keepAnswer
+  useEffect(() => {
+    if (!brief || onCard) return
+    const fade = setTimeout(() => setLeaving(key), ANSWER_MS)
+    const gone = setTimeout(() => setClosed(key), ANSWER_MS + FADE_MS)
+    return () => {
+      clearTimeout(fade)
+      clearTimeout(gone)
+      setLeaving(null)
+    }
+  }, [brief, onCard, key])
 
   // What takes the mouse: the pet first, then the card beside it. Measured after every layout (and when the core
   // resizes the window), sent only when it changed.
@@ -100,7 +122,7 @@ export function PetWindow() {
           {approval ? (
             <ApprovalCard key={approval.id} approval={approval} more={view.approvals.length - 1} />
           ) : (
-            card && <SessionCard card={card} lines={prefs?.card === 'lines'} onClose={() => setClosed(cardKey(card))} />
+            card && <SessionCard card={card} lines={prefs?.card === 'lines'} leaving={leaving === key} onClose={() => setClosed(key)} />
           )}
         </div>
       )}
@@ -130,23 +152,28 @@ export function PetWindow() {
   )
 }
 
+/** One card per session, mood and turn: a card hidden in one turn comes back in the next. */
 function cardKey(card: Card) {
-  return `${card.session}:${card.mood}`
+  return `${card.session}:${card.mood}:${card.at}`
 }
 
 /** Which session, and what it is doing now (or the answer's first lines once done). A click opens the sessions. */
-function SessionCard({ card, lines, onClose }: { card: Card; lines: boolean; onClose: () => void }) {
-  const more = lines ? card.lines.filter((l) => l !== card.line).slice(-2) : []
+function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boolean; leaving: boolean; onClose: () => void }) {
+  // Steps read up to the one under way; an answer reads down from its first line.
+  const answer = card.mood === 'done'
+  const rest = card.lines.filter((l) => l !== card.line)
+  const more = (lines ? (answer ? rest.slice(0, 2) : rest.slice(-2)) : []).map((l, i) => (
+    <span key={i} className="card-line is-past">
+      {l}
+    </span>
+  ))
   return (
-    <div className={`card${lines ? ' is-lines' : ''}`} role="status" aria-live="polite">
+    <div className={`card${lines ? ' is-lines' : ''}${leaving ? ' is-leaving' : ''}`} role="status" aria-live="polite">
       <button type="button" className="card-body" onClick={() => void core.openSessions()} title="Your sessions">
         <span className="card-title">{card.title}</span>
-        {more.map((l, i) => (
-          <span key={i} className="card-line is-past">
-            {l}
-          </span>
-        ))}
+        {!answer && more}
         <span className="card-line">{card.line}</span>
+        {answer && more}
       </button>
       <span className="card-actions">
         <button type="button" aria-label="Your sessions" title="Your sessions" onClick={() => void core.openSessions()}>

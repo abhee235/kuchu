@@ -13,6 +13,8 @@ pub struct Prefs {
     pub see_through: bool,
     /// What shows beside the pet: "line", "lines" or "off".
     pub card: String,
+    /// An answer stays beside the pet until it is clicked; otherwise it shows for a few seconds.
+    pub keep_answer: bool,
     pub sounds: bool,
     /// What a click on the pet opens: "sessions" or "settings".
     pub click: String,
@@ -24,7 +26,7 @@ pub struct Prefs {
 
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { size: "base".into(), see_through: true, card: "line".into(), sounds: true, click: "sessions".into(), approvals: true, at: None }
+        Prefs { size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, sounds: true, click: "sessions".into(), approvals: true, at: None }
     }
 }
 

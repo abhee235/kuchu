@@ -62,12 +62,13 @@ impl Rect {
     }
 }
 
-/// What the page needs from the pointer: where it is from the pet's centre, and whether it is on the pet.
+/// What the page needs from the pointer: where it is from the pet's centre, and whether it is on the pet or a card.
 #[derive(Clone, Serialize, PartialEq)]
 struct Pointer {
     dx: f64,
     dy: f64,
     over: bool,
+    card: bool,
 }
 
 /// Where the pet is and what its window holds.
@@ -329,8 +330,9 @@ fn follow_pointer(app: AppHandle, window: WebviewWindow, kuchu: Arc<Kuchu>) {
             let rects = kuchu.layout.rects.lock().unwrap().clone();
             let pet = rects.first().copied().unwrap_or_else(|| kuchu.pet_in_window());
             let over = pet.holds(x, y);
-            let take = over || rects.iter().skip(1).any(|r| r.holds(x, y));
-            let now = Pointer { dx: (x - pet.x - pet.w / 2.0).round(), dy: (y - pet.y - pet.h / 2.0).round(), over };
+            let card = rects.iter().skip(1).any(|r| r.holds(x, y));
+            let take = over || card;
+            let now = Pointer { dx: (x - pet.x - pet.w / 2.0).round(), dy: (y - pet.y - pet.h / 2.0).round(), over, card };
             if take != taking {
                 taking = take;
                 let _ = window.set_ignore_cursor_events(!take);

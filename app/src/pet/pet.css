@@ -242,12 +242,12 @@
   opacity: 0;
 }
 
-/* Done: a hop every few seconds until the pet is clicked, arms out, happy eyes. */
+/* Done: three hops, then arms out and happy eyes until the pet is clicked. */
 .pet.is-done .pet-whole {
-  animation: pet-hop 4.5s ease-out infinite;
+  animation: pet-hop 4.5s ease-out 3;
 }
 .pet.is-done .pet-shadow {
-  animation: pet-squeeze 4.5s ease-out infinite;
+  animation: pet-squeeze 4.5s ease-out 3;
 }
 .pet.is-done .pet-arm-l {
   transform: rotate(34deg);

@@ -1,7 +1,8 @@
 // Pet.tsx — Kuchu, the desk robot, with a wink on its screen (a lit eye, the saffron pointer for the other, a smile),
 // shaded to read as a glossy toy. It acts out what Claude Code is doing: blinks and glances when idle (a timer,
 // so nothing runs in between), a thought bubble while a session thinks, typing at a small laptop while it works, a wave
-// when it needs you, a hop every few seconds when a session is done until the pet is clicked, a frown when one failed.
+// when it needs you, three hops when a session is done and a happy face until the pet is clicked, a frown when one
+// failed.
 // Its eyes and head follow the pointer. Asked for less motion, it keeps its expressions and drops the movement.
 
 import { useEffect, useId, useState } from 'react'

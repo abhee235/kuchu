@@ -52,6 +52,9 @@ pub struct Session {
     pub updated: u64,
     /// When its last turn ended, for "done until the pet is clicked".
     pub ended: Option<u64>,
+    /// When its current turn started (its last message), so each turn's card is its own.
+    #[serde(skip)]
+    turn: u64,
     /// Claude Code ended the session while its answer was unseen: it goes once the pet is clicked.
     #[serde(skip)]
     pub closed: bool,
@@ -86,6 +89,8 @@ pub struct Card {
     pub line: String,
     pub lines: Vec<String>,
     pub mood: Mood,
+    /// When its turn ended, or started while it is under way: a card hidden for one turn comes back for the next.
+    pub at: u64,
 }
 
 #[derive(Default)]
@@ -127,6 +132,7 @@ impl Sessions {
             prompt: String::new(),
             updated: now,
             ended: None,
+            turn: now,
             closed: false,
             transcript: String::new(),
             title: None,
@@ -160,6 +166,7 @@ impl Sessions {
                 s.line = "Thinking…".into();
                 s.lines.clear();
                 s.ended = None;
+                s.turn = now;
             }
             "PreToolUse" => {
                 let step = step(&text(p, "tool_name"), p.get("tool_input").unwrap_or(&Value::Null));
@@ -291,6 +298,7 @@ impl Sessions {
             line: pick.line.clone(),
             lines: pick.lines.clone(),
             mood: pick.mood,
+            at: pick.ended.unwrap_or(pick.turn),
         })
     }
 
@@ -367,11 +375,36 @@ fn one_line(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// A line of text without Markdown's marks.
+/// A line of text without Markdown's marks: no heading, quote or list marks, links as their text.
 fn first_line(markdown: &str) -> String {
     let line = markdown.lines().map(str::trim).find(|l| l.chars().any(char::is_alphanumeric)).unwrap_or("");
     let line = line.trim_start_matches(|c: char| matches!(c, '#' | '>' | '-' | '*' | '+' | ' '));
-    line.chars().filter(|c| !matches!(c, '*' | '_' | '`' | '~')).collect::<String>().trim().to_string()
+    let line = match line.split_once(['.', ')']) {
+        Some((n, rest)) if !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()) && rest.starts_with(' ') => rest.trim_start(),
+        _ => line,
+    };
+    unlink(line).chars().filter(|c| !matches!(c, '*' | '_' | '`' | '~')).collect::<String>().trim().to_string()
+}
+
+/// Markdown links and images as their text: `[text](address)` reads `text`.
+fn unlink(s: &str) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some(open) = rest.find('[') {
+        let inside = &rest[open + 1..];
+        let Some(close) = inside.find(']') else { break };
+        let Some(address) = inside[close + 1..].strip_prefix('(') else {
+            out.push_str(&rest[..open + close + 2]);
+            rest = &inside[close + 1..];
+            continue;
+        };
+        let Some(end) = address.find(')') else { break };
+        out.push_str(rest[..open].strip_suffix('!').unwrap_or(&rest[..open]));
+        out.push_str(&inside[..close]);
+        rest = &address[end + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 fn lower_first(s: &str) -> String {
@@ -550,6 +583,33 @@ mod tests {
         s.apply("PostToolUse", &event(""), 3 * NAME_EVERY_MS);
         assert_eq!(s.list()[0].name, "Auth");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn an_answer_reads_without_its_markdown() {
+        assert_eq!(first_line("- [Kuchu rules](C:\\Users\\me\\rules.md) — standalone"), "Kuchu rules — standalone");
+        assert_eq!(first_line("2. See ![the pet](pet.png) and [b] alone"), "See the pet and [b] alone");
+        assert_eq!(first_line("## The **fix**: `cut` in [sessions.rs](src/sessions.rs#L385)"), "The fix: cut in sessions.rs");
+        assert_eq!(first_line("3.5 GHz is plenty"), "3.5 GHz is plenty");
+    }
+
+    #[test]
+    fn a_hidden_card_comes_back_for_the_next_turn() {
+        let mut s = Sessions::default();
+        let a = |extra: Value| {
+            let mut p = serde_json::json!({ "session_id": "a", "cwd": "/x/a" });
+            p.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            p
+        };
+        s.apply("UserPromptSubmit", &a(serde_json::json!({ "prompt": "one" })), 1);
+        s.apply("Stop", &a(serde_json::json!({ "last_assistant_message": "First" })), 2);
+        let first = s.card().unwrap();
+        s.apply("UserPromptSubmit", &a(serde_json::json!({ "prompt": "two" })), 3);
+        assert_eq!(s.card().unwrap().at, 3);
+        s.apply("Stop", &a(serde_json::json!({ "last_assistant_message": "Second" })), 4);
+        let second = s.card().unwrap();
+        assert_eq!((first.mood, second.mood), (Mood::Done, Mood::Done));
+        assert_ne!(first.at, second.at);
     }
 
     #[test]

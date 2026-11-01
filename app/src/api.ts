@@ -24,6 +24,8 @@ export interface Card {
   line: string
   lines: string[]
   mood: PetMood
+  /** When its turn ended, or started while it is under way. */
+  at: number
 }
 
 export interface Approval {
@@ -48,6 +50,8 @@ export interface Prefs {
   size: 'small' | 'base' | 'big'
   seeThrough: boolean
   card: 'line' | 'lines' | 'off'
+  /** An answer stays beside the pet until it is clicked; otherwise it shows for a few seconds. */
+  keepAnswer: boolean
   sounds: boolean
   click: 'sessions' | 'settings'
   approvals: boolean
