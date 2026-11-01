@@ -1,0 +1,52 @@
+/* The pet's window is transparent: the page has no background of its own. */
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+}
+
+/* The pet in the window's bottom-left corner: 16 px from the side, 14 px from the bottom (the core places the window
+   around it with room for the shadow). */
+.bubble {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  width: var(--pet-w, 96px);
+  height: var(--pet-h, 123px);
+  cursor: grab;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.28));
+  touch-action: none;
+}
+.bubble:active {
+  cursor: grabbing;
+}
+
+/* See-through: the pet fades while the pointer is on it, so what is behind it shows; held, it is solid again. "On it"
+   comes from the core, which knows where the pointer is even while clicks go through the window. */
+.bubble .pet {
+  transition: opacity 0.2s ease;
+}
+.bubble.is-over .pet {
+  opacity: 0.3;
+}
+.bubble:active .pet {
+  opacity: 1;
+}
+
+.icon-stage {
+  width: 1024px;
+  height: 1024px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+}

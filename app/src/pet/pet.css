@@ -1,0 +1,479 @@
+/* pet.css — Kuchu's look and its moves (Pet.tsx). */
+
+/* ── The desk robot, a wink on its screen (Pet.tsx) ──────────────────────────────────────────────────────────────── */
+
+.pet {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.pet svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.pet-shell {
+  stroke: rgba(70, 52, 30, 0.16);
+  stroke-width: 0.8;
+}
+.pet-plate {
+  fill: #ece3d5;
+  stroke: rgba(70, 52, 30, 0.1);
+  stroke-width: 0.6;
+}
+.pet-joint {
+  fill: #cfc3b1;
+}
+.pet-saffron {
+  fill: #ee8a1e;
+}
+.pet-spark {
+  fill: #fff;
+  opacity: 0.85;
+}
+.pet-bevel {
+  fill: none;
+  stroke: #fff;
+  stroke-opacity: 0.7;
+  stroke-width: 1;
+}
+.pet-rim {
+  fill: none;
+  stroke: #000;
+  stroke-opacity: 0.35;
+  stroke-width: 1.2;
+}
+.pet-pointer-glow {
+  fill: none;
+  stroke: #ee8a1e;
+  stroke-opacity: 0.22;
+  stroke-width: 7;
+  stroke-linejoin: round;
+}
+.pet-line {
+  fill: none;
+  stroke: #fff6ea;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+}
+.pet-cloud {
+  fill: #fffaf3;
+  stroke: rgba(70, 52, 30, 0.18);
+  stroke-width: 0.8;
+}
+.pet-dot {
+  fill: #8a7e70;
+}
+.pet-ripple {
+  fill: none;
+  stroke: #ee8a1e;
+  stroke-width: 1.6;
+  opacity: 0;
+  transform-origin: 66px 39px;
+}
+
+/* What moves, and about where. */
+.pet-shadow {
+  transform-origin: 60px 137px;
+}
+.pet-whole {
+  transform-origin: 60px 132px;
+  transition: transform 0.35s ease;
+}
+.pet-head {
+  transform-origin: 60px 90px;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 0.25s ease-out;
+}
+.pet-face {
+  transform: translate(var(--lx, 0px), var(--ly, 0px));
+  transition: transform 0.18s ease-out;
+}
+.pet-eye {
+  transform-origin: 46px 48px;
+  transition: transform 0.07s ease;
+}
+.pet-pointer {
+  transform-origin: 66px 39px;
+  transition: transform 0.25s ease;
+}
+.pet-arm-l {
+  transform-origin: 25.5px 96px;
+  transition: transform 0.3s ease;
+}
+.pet-arm-r {
+  transform-origin: 94.5px 96px;
+  transition: transform 0.3s ease;
+}
+.pet-bulb {
+  transition: opacity 0.3s ease, fill 0.3s ease;
+}
+.pet-happy,
+.pet-frown,
+.pet-hmm,
+.pet-mark {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.pet-smile,
+.pet-eye-dot {
+  transition: opacity 0.2s ease;
+}
+.pet-laptop {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.3s ease;
+}
+.pet-code {
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+.pet-caret {
+  opacity: 0;
+}
+.pet-think {
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.3s ease, transform 0.4s ease;
+}
+
+/* A blink closes both eyes, a wink the dot alone; a glance looks left, then right. */
+.pet.is-blink .pet-eye,
+.pet.is-wink .pet-eye {
+  transform: scaleY(0.12);
+}
+.pet.is-blink .pet-pointer {
+  transform: scaleY(0.78);
+}
+.pet.is-glance .pet-face {
+  animation: pet-glance 1.6s ease-in-out 1;
+}
+
+/* Thinking: a thought bubble, eyes up and half closed, a "hmm", a slow sway, the antenna glowing softly. */
+.pet.is-thinking .pet-think {
+  opacity: 1;
+  transform: none;
+  animation: pet-drift 3s ease-in-out infinite;
+}
+.pet.is-thinking .pet-dot {
+  animation: pet-think 1.4s ease-in-out infinite;
+}
+.pet.is-thinking .pet-d2 {
+  animation-delay: 0.2s;
+}
+.pet.is-thinking .pet-d3 {
+  animation-delay: 0.4s;
+}
+.pet.is-thinking .pet-face {
+  --lx: 3px;
+  --ly: -3px;
+}
+.pet.is-thinking .pet-eye {
+  transform: scaleY(0.7);
+}
+.pet.is-thinking .pet-smile {
+  opacity: 0;
+}
+.pet.is-thinking .pet-hmm {
+  opacity: 1;
+}
+.pet.is-thinking .pet-whole {
+  animation: pet-sway 3.2s ease-in-out infinite;
+}
+.pet.is-thinking .pet-bulb {
+  animation: pet-pulse 2.2s ease-in-out infinite;
+}
+
+/* Working: at a small laptop, typing in quick taps, code appearing; eyes on the work, the pointer eye clicking. */
+.pet.is-working .pet-laptop {
+  opacity: 1;
+  transform: none;
+}
+.pet.is-working .pet-arm-l {
+  animation: pet-type-l 0.26s ease-in-out infinite;
+}
+.pet.is-working .pet-arm-r {
+  animation: pet-type-r 0.26s ease-in-out infinite;
+  animation-delay: -0.13s;
+}
+.pet.is-working .pet-code {
+  animation: pet-write 2.4s steps(6, end) infinite;
+}
+.pet.is-working .pet-c2 {
+  animation-delay: 0.6s;
+}
+.pet.is-working .pet-c3 {
+  animation-delay: 1.2s;
+}
+.pet.is-working .pet-caret {
+  animation: pet-caret 0.8s steps(2, jump-none) infinite;
+}
+.pet.is-working .pet-pointer {
+  animation: pet-tap 0.9s ease-in-out infinite;
+}
+.pet.is-working .pet-ripple {
+  animation: pet-ripple 0.9s ease-out infinite;
+}
+.pet.is-working .pet-bulb {
+  animation: pet-pulse 1.2s ease-in-out infinite;
+}
+.pet.is-working .pet-face {
+  --ly: 3px;
+}
+
+/* Needing you: a wave, the antenna blinking, a small bob, a mark on the screen. */
+.pet.is-needs .pet-arm-r {
+  animation: pet-wave 0.9s ease-in-out infinite;
+}
+.pet.is-needs .pet-bulb {
+  animation: pet-blink-bulb 0.8s steps(2, jump-none) infinite;
+}
+.pet.is-needs .pet-whole {
+  animation: pet-bob 1.6s ease-in-out infinite;
+}
+.pet.is-needs .pet-pointer {
+  transform: translate(1px, -2px) rotate(-14deg);
+}
+.pet.is-needs .pet-mark {
+  opacity: 1;
+}
+.pet.is-needs .pet-smile {
+  opacity: 0;
+}
+
+/* Done: a hop every few seconds until the pet is clicked, arms out, happy eyes. */
+.pet.is-done .pet-whole {
+  animation: pet-hop 4.5s ease-out infinite;
+}
+.pet.is-done .pet-shadow {
+  animation: pet-squeeze 4.5s ease-out infinite;
+}
+.pet.is-done .pet-arm-l {
+  transform: rotate(34deg);
+}
+.pet.is-done .pet-arm-r {
+  transform: rotate(-34deg);
+}
+.pet.is-done .pet-eye-dot {
+  opacity: 0;
+}
+.pet.is-done .pet-happy {
+  opacity: 1;
+}
+
+/* Failed: a frown, the head tilted, the antenna dim. */
+.pet.is-failed .pet-smile {
+  opacity: 0;
+}
+.pet.is-failed .pet-frown {
+  opacity: 1;
+}
+.pet.is-failed .pet-head {
+  transform: rotate(-7deg);
+}
+.pet.is-failed .pet-whole {
+  transform: translateY(2px);
+}
+.pet.is-failed .pet-bulb {
+  fill: #8a8177;
+}
+.pet.is-failed .pet-bulb-spark {
+  opacity: 0.2;
+}
+.pet.is-failed .pet-pointer {
+  transform: rotate(18deg);
+}
+.pet.is-failed .pet-arm-l {
+  transform: rotate(-6deg);
+}
+.pet.is-failed .pet-arm-r {
+  transform: rotate(6deg);
+}
+
+/* The panel's home: a slow float. */
+.pet.is-float .pet-whole {
+  animation: pet-drift 5s ease-in-out infinite;
+}
+
+@keyframes pet-type-l {
+  0%,
+  100% {
+    transform: rotate(-40deg);
+  }
+  50% {
+    transform: rotate(-33deg);
+  }
+}
+@keyframes pet-type-r {
+  0%,
+  100% {
+    transform: rotate(40deg);
+  }
+  50% {
+    transform: rotate(33deg);
+  }
+}
+@keyframes pet-write {
+  0% {
+    transform: scaleX(0);
+  }
+  70%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+@keyframes pet-caret {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pet-tap {
+  0%,
+  55%,
+  100% {
+    transform: none;
+  }
+  70% {
+    transform: translate(1px, 1px) scale(0.86);
+  }
+}
+@keyframes pet-ripple {
+  0%,
+  62% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  70% {
+    opacity: 0.8;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+@keyframes pet-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes pet-blink-bulb {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.25;
+  }
+}
+@keyframes pet-wave {
+  0%,
+  100% {
+    transform: rotate(-168deg);
+  }
+  50% {
+    transform: rotate(-136deg);
+  }
+}
+@keyframes pet-bob {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes pet-hop {
+  0% {
+    transform: none;
+  }
+  6% {
+    transform: translateY(-14px);
+  }
+  11% {
+    transform: translateY(0) scale(1.06, 0.94);
+  }
+  16% {
+    transform: scale(0.97, 1.03);
+  }
+  20%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes pet-squeeze {
+  0% {
+    transform: none;
+  }
+  6% {
+    transform: scale(0.6);
+    opacity: 0.6;
+  }
+  11% {
+    transform: scale(1.1);
+  }
+  20%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes pet-glance {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25%,
+  40% {
+    transform: translate(-4px, 0);
+  }
+  60%,
+  75% {
+    transform: translate(4px, -1px);
+  }
+}
+@keyframes pet-think {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-1.5px);
+  }
+}
+@keyframes pet-drift {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+@keyframes pet-sway {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+/* Less motion asked for: the expressions stay (the frown, the wave's raised arm, the laptop), the movement goes. */
+@media (prefers-reduced-motion: reduce) {
+  .pet * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

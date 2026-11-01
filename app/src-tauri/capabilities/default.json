@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the pet's page may do: hear the core's events and move its own window.",
+  "windows": ["pet"],
+  "permissions": ["core:event:default", "core:window:allow-start-dragging"]
+}
