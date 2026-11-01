@@ -57,6 +57,8 @@ export function PetWindow() {
   const stroke = useRef({ x: 0, way: 0, turns: [] as number[] })
   const [closed, setClosed] = useState<string | null>(null)
   const [leaving, setLeaving] = useState<string | null>(null)
+  // "+N" switched on: the other sessions stay listed above the card, whichever session it shows.
+  const [held, setHeld] = useState(false)
 
   useEffect(() => {
     void core.view().then(setView)
@@ -165,7 +167,16 @@ export function PetWindow() {
           {approval ? (
             <ApprovalCard key={approval.id} approval={approval} more={view.approvals.length - 1} />
           ) : (
-            card && <SessionCard card={card} lines={prefs?.card === 'lines'} leaving={leaving === key} onClose={() => setClosed(key)} />
+            card && (
+              <SessionCard
+                card={card}
+                lines={prefs?.card === 'lines'}
+                leaving={leaving === key}
+                onClose={() => setClosed(key)}
+                held={held}
+                onHold={setHeld}
+              />
+            )
           )}
         </div>
       )}
@@ -213,9 +224,18 @@ function cardKey(card: Card) {
 }
 
 /** Which session, and what it is doing now (or the answer's first lines once done). A click opens the sessions. With
- *  other sessions at work, "+N" (hovered or clicked) lists them, and a click on one switches the card to it. */
-function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boolean; leaving: boolean; onClose: () => void }) {
-  const [list, setList] = useState(false)
+ *  other sessions at work, "+N" lists them while hovered, or until it is clicked off once clicked on; a click on one
+ *  switches the card to it. */
+function SessionCard({ card, lines, leaving, onClose, held, onHold }: {
+  card: Card
+  lines: boolean
+  leaving: boolean
+  onClose: () => void
+  held: boolean
+  onHold: (held: boolean) => void
+}) {
+  const [hovered, setList] = useState(false)
+  const list = (held || hovered) && card.others.length > 0
   const [room, setRoom] = useState<{ below: boolean; max: number } | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -241,6 +261,11 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
     clearTimeout(shut.current)
     shut.current = setTimeout(() => setList(false), LIST_LINGER_MS)
   }
+  const hold = () => {
+    clearTimeout(shut.current)
+    setList(false)
+    onHold(!held)
+  }
   const follow = (session: string) => {
     void core.follow(session)
     setList(false)
@@ -261,12 +286,13 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
       {card.others.length > 0 && (
         <button
           type="button"
-          className="card-more"
+          className={`card-more${held ? ' is-on' : ''}`}
+          aria-pressed={held}
           aria-expanded={list}
-          aria-label={`${card.others.length} more at work: switch to one`}
-          title="Switch to another session"
+          aria-label={`${card.others.length} more at work: keep them shown`}
+          title={held ? 'Show the others only on hover' : 'Keep the others shown'}
           onPointerEnter={open}
-          onClick={open}
+          onClick={hold}
         >
           +{card.others.length}
         </button>
