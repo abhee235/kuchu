@@ -4,9 +4,9 @@
 // and sends the sessions as one view; this page draws them, moves the pet, and plays its tones.
 
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { List, MessageCircleQuestion, Pin, PinOff, ShieldAlert, X } from 'lucide-react'
+import { List, MessageCircleQuestion, ShieldAlert, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { core, on, SIZES, type Approval, type Card, type Prefs, type View } from './api'
+import { core, on, SIZES, type Approval, type Card, type Line, type Prefs, type Progress, type View } from './api'
 import { Pet } from './pet/Pet'
 import { lookToward } from './pet/petMood'
 import { playTone } from './pet/petSound'
@@ -36,6 +36,11 @@ const PET_WITHIN_MS = 1500
 const TONE_GAP_MS = 1200
 /** The list of other sessions stays this long after the pointer leaves it. */
 const LIST_LINGER_MS = 300
+/** The list's tallest (it scrolls past this), its gap from the card, and the room it keeps from the window's edge for
+ *  its shadow. */
+const LIST_MAX_PX = 240
+const LIST_GAP_PX = 6
+const LIST_EDGE_PX = 8
 
 const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
 
@@ -211,7 +216,23 @@ function cardKey(card: Card) {
  *  other sessions at work, "+N" (hovered or clicked) lists them, and a click on one switches the card to it. */
 function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boolean; leaving: boolean; onClose: () => void }) {
   const [list, setList] = useState(false)
+  const [room, setRoom] = useState<{ below: boolean; max: number } | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const shut = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // The list stacks on the card, edge to edge: above it where the window has the room, else below if there is more
+  // room there, never past the window's edge (it scrolls instead). Measured before it is drawn, again as it grows.
+  useLayoutEffect(() => {
+    const box = cardRef.current?.getBoundingClientRect()
+    const el = listRef.current
+    if (!list || !box || !el) return setRoom(null)
+    const need = Math.min(el.scrollHeight, LIST_MAX_PX)
+    const above = box.top - LIST_GAP_PX - LIST_EDGE_PX
+    const below = window.innerHeight - box.bottom - LIST_GAP_PX - LIST_EDGE_PX
+    const under = above < need && below > above
+    const max = Math.max(0, Math.min(LIST_MAX_PX, under ? below : above))
+    setRoom((r) => (r?.below === under && r.max === max ? r : { below: under, max }))
+  })
   const open = () => {
     clearTimeout(shut.current)
     setList(true)
@@ -220,23 +241,13 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
     clearTimeout(shut.current)
     shut.current = setTimeout(() => setList(false), LIST_LINGER_MS)
   }
-  const follow = (session: string | null) => {
+  const follow = (session: string) => {
     void core.follow(session)
     setList(false)
   }
-  // Steps read up to the one under way, each marked running, done or failed, with what Claude said between them; an
-  // answer reads down from its first line.
-  const answer = card.mood === 'done'
-  const last = card.lines[card.lines.length - 1]
-  const rest = answer ? card.lines.filter((l) => l.text !== card.line) : last?.text === card.line ? card.lines.slice(0, -1) : card.lines
-  const more = (lines ? (answer ? rest.slice(0, 2) : rest.slice(-2)) : []).map((l, i) => (
-    <span key={i} className="card-line is-past">
-      {l.progress ? <StepMark progress={l.progress} /> : !answer && <SaidMark />}
-      <span className="card-text">{l.text}</span>
-    </span>
-  ))
   return (
     <div
+      ref={cardRef}
       className={`card${lines ? ' is-lines' : ''}${leaving ? ' is-leaving' : ''}`}
       role="status"
       aria-live="polite"
@@ -244,16 +255,8 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
       onPointerLeave={close}
     >
       <button type="button" className="card-body" onClick={() => void core.openSessions(card.session)} title="Your sessions">
-        <span className="card-title">
-          {card.pinned && <Pin className="card-pin" aria-label="Chosen" />}
-          {card.title}
-        </span>
-        {!answer && more}
-        <span className="card-line">
-          {card.progress && <StepMark progress={card.progress} />}
-          <span className="card-text">{card.line}</span>
-        </span>
-        {answer && more}
+        <span className="card-title">{card.title}</span>
+        <Steps line={card.line} progress={card.progress} lines={card.lines} few={lines} answer={card.mood === 'done'} />
       </button>
       {card.others.length > 0 && (
         <button
@@ -277,23 +280,53 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
         <X size={12} strokeWidth={3} />
       </button>
       {list && (
-        <div className="card-others" role="menu" aria-label="Sessions at work">
-          {card.pinned && (
-            <button type="button" role="menuitem" className="card-other is-latest" onClick={() => follow(null)}>
-              <PinOff />
-              <span className="card-other-name">Follow the latest</span>
-            </button>
-          )}
+        <div
+          ref={listRef}
+          className={`card-others${room?.below ? ' is-below' : ''}`}
+          style={room ? { maxHeight: room.max } : { visibility: 'hidden' }}
+          role="menu"
+          aria-label="Sessions at work"
+        >
           {card.others.map((o) => (
             <button key={o.session} type="button" role="menuitem" className="card-other" title={o.name} onClick={() => follow(o.session)}>
-              {o.mood === 'needs' ? <ShieldAlert className="card-other-needs" /> : <StepMark progress="running" />}
               <span className="card-other-name">{o.name}</span>
-              <span className="card-other-line">{o.line}</span>
+              <Steps line={o.line} progress={o.progress} lines={o.lines} few={lines} needs={o.mood === 'needs'} />
             </button>
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+/** A session's line, marked running, done or failed when it is a step (a shield when it waits on you). With "a few
+ *  lines", steps read up to the one under way, with what Claude said between them; an answer reads down from its first
+ *  line. */
+function Steps({ line, progress, lines, few, answer = false, needs = false }: {
+  line: string
+  progress: Progress | null
+  lines: Line[]
+  few: boolean
+  answer?: boolean
+  needs?: boolean
+}) {
+  const last = lines[lines.length - 1]
+  const rest = answer ? lines.filter((l) => l.text !== line) : last?.text === line ? lines.slice(0, -1) : lines
+  const more = (few ? (answer ? rest.slice(0, 2) : rest.slice(-2)) : []).map((l, i) => (
+    <span key={i} className="card-line is-past">
+      {l.progress ? <StepMark progress={l.progress} /> : !answer && <SaidMark />}
+      <span className="card-text">{l.text}</span>
+    </span>
+  ))
+  return (
+    <>
+      {!answer && more}
+      <span className="card-line">
+        {needs ? <ShieldAlert className="card-other-needs" /> : progress && <StepMark progress={progress} />}
+        <span className="card-text">{line}</span>
+      </span>
+      {answer && more}
+    </>
   )
 }
 

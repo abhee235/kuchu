@@ -278,41 +278,34 @@ html[data-window='settings'] body {
   background: var(--active);
   color: var(--fg);
 }
-.card-pin {
-  width: 12px;
-  height: 12px;
-  margin-right: 5px;
-  vertical-align: -1px;
-  color: var(--fg-3);
-}
+/* Stacked on the card, edge to edge: above it, or below when the window has more room there (PetWindow.tsx measures,
+   and caps its height to fit). Each session reads like the card: its name, then its line or its last few steps. */
 .card-others {
   position: absolute;
+  left: 0;
   right: 0;
-  bottom: calc(100% + 4px);
-  width: 280px;
-  max-height: 188px;
+  bottom: calc(100% + 6px);
+  max-height: 240px;
   overflow-y: auto;
   padding: 6px;
-  border-radius: 16px;
+  border-radius: 22px;
   background: var(--composer);
   box-shadow: var(--card-shadow);
   animation: card-in 0.16s ease-out both;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
-.stage.is-left .card-others {
-  right: auto;
-  left: 0;
+.card-others.is-below {
+  top: calc(100% + 6px);
+  bottom: auto;
 }
 .card-other {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
-  column-gap: 8px;
-  align-items: center;
+  gap: 1px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 7px 14px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 16px;
   background: transparent;
   color: var(--fg);
   text-align: left;
@@ -321,37 +314,19 @@ html[data-window='settings'] body {
 .card-other:hover {
   background: var(--hover);
 }
-.card-other > svg,
-.card-other > .mark {
-  grid-row: span 2;
-  justify-self: center;
-}
-.card-other.is-latest > svg {
-  grid-row: auto;
-  width: 14px;
-  height: 14px;
-  color: var(--fg-2);
-}
-.card-other-name,
-.card-other-line {
+.card-other-name {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-.card-other-name {
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 600;
-}
-.card-other-line {
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--fg-3);
+  font-size: 13.5px;
+  line-height: 1.3;
+  font-weight: 650;
 }
 .card-other-needs {
-  width: 15px;
-  height: 15px;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
   color: var(--amber);
 }
 

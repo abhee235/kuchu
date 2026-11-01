@@ -43,12 +43,15 @@ export interface Card {
   pinned: boolean
 }
 
-/** Another session at work, as the card lists it. */
+/** Another session at work, as the card lists it: with "a few lines", its steps too. */
 export interface Other {
   session: string
   name: string
   mood: PetMood
   line: string
+  /** Where `line` stands, when it is a step. */
+  progress: Progress | null
+  lines: Line[]
 }
 
 export interface Approval {

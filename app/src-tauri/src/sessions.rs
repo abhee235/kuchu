@@ -26,6 +26,9 @@ const SAID_KEPT: usize = 16;
 const MAX_NAME: usize = 60;
 /// A line on the card at most this long.
 const MAX_LINE: usize = 140;
+/// The line while Claude works out its next step: after a message, and between steps once every one has ended, so a
+/// card of finished steps never reads as a finished turn.
+const THINKING: &str = "Thinking…";
 
 #[derive(Clone, Copy, Serialize, PartialEq, Eq, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -134,13 +137,15 @@ pub struct Card {
     pub pinned: bool,
 }
 
-/// Another session at work, as the card lists it.
+/// Another session at work, as the card lists it: with "a few lines", its steps too.
 #[derive(Clone, Serialize, Debug, PartialEq)]
 pub struct Other {
     pub session: String,
     pub name: String,
     pub mood: Mood,
     pub line: String,
+    pub progress: Option<Progress>,
+    pub lines: Vec<Line>,
 }
 
 #[derive(Default)]
@@ -216,7 +221,7 @@ impl Sessions {
             "UserPromptSubmit" => {
                 s.mood = Mood::Thinking;
                 s.prompt = one_line(&text(p, "prompt"));
-                s.line = "Thinking…".into();
+                s.line = THINKING.into();
                 s.lines.clear();
                 s.ended = None;
                 s.turn = now;
@@ -234,10 +239,12 @@ impl Sessions {
                 }
                 finish_step(s, &text(p, "tool_use_id"), Progress::Done);
                 note_said(s, &text(p, "tool_use_id"));
+                between_steps(s);
             }
             "PostToolUseFailure" => {
                 finish_step(s, &text(p, "tool_use_id"), Progress::Failed);
                 note_said(s, &text(p, "tool_use_id"));
+                between_steps(s);
             }
             "PermissionRequest" => {
                 let step = step(&text(p, "tool_name"), p.get("tool_input").unwrap_or(&Value::Null));
@@ -398,7 +405,14 @@ impl Sessions {
             .iter()
             .filter(busy)
             .filter(|s| s.id != pick.id)
-            .map(|s| Other { session: s.id.clone(), name: s.name.clone(), mood: s.mood, line: s.line.clone() })
+            .map(|s| Other {
+                session: s.id.clone(),
+                name: s.name.clone(),
+                mood: s.mood,
+                line: s.line.clone(),
+                progress: progress_of(s),
+                lines: s.lines.clone(),
+            })
             .collect();
         Some(Card {
             session: pick.id.clone(),
@@ -406,7 +420,7 @@ impl Sessions {
             others,
             pinned: self.followed.as_deref() == Some(pick.id.as_str()),
             line: pick.line.clone(),
-            progress: pick.lines.last().filter(|l| l.text == pick.line).and_then(|l| l.progress),
+            progress: progress_of(pick),
             lines: pick.lines.clone(),
             mood: pick.mood,
             at: pick.ended.unwrap_or(pick.turn),
@@ -463,6 +477,21 @@ fn finish_step(s: &mut Session, tool: &str, progress: Progress) {
     let found = if tool.is_empty() { s.lines.iter_mut().rev().find(running) } else { s.lines.iter_mut().find(|l| l.tool == tool) };
     if let Some(line) = found {
         line.progress = Some(progress);
+    }
+}
+
+/// Where a session's line stands, when it is a step or Claude working out the next one.
+fn progress_of(s: &Session) -> Option<Progress> {
+    if s.line == THINKING && matches!(s.mood, Mood::Thinking | Mood::Working) {
+        return Some(Progress::Running);
+    }
+    s.lines.last().filter(|l| l.text == s.line).and_then(|l| l.progress)
+}
+
+/// Every step has ended but the turn has not: Claude is working out what comes next.
+fn between_steps(s: &mut Session) {
+    if s.mood == Mood::Working && s.lines.iter().all(|l| l.progress != Some(Progress::Running)) {
+        s.line = THINKING.into();
     }
 }
 
@@ -749,7 +778,7 @@ mod tests {
         // The failed Read as it started, then its failure: the step fails, found by its tool_use_id.
         s.apply("PreToolUse", &failure, 1);
         s.apply("PostToolUseFailure", &failure, 2);
-        assert_eq!(s.card().unwrap().progress, Some(Progress::Failed));
+        assert_eq!(s.card().unwrap().lines.last().unwrap().progress, Some(Progress::Failed));
         // A helper's start and stop change nothing shown: the helper's last message is not the session's answer.
         assert!(!s.apply("SubagentStart", &fixture("SubagentStart"), 3));
         assert!(!s.apply("SubagentStop", &fixture("SubagentStop"), 4));
@@ -867,7 +896,10 @@ mod tests {
         s.apply("PreToolUse", &fixture("PreToolUse"), 1);
         assert_eq!(s.card().unwrap().progress, Some(Progress::Running));
         s.apply("PostToolUse", &fixture("PostToolUse"), 2);
-        assert_eq!(s.card().unwrap().progress, Some(Progress::Done));
+        // The step is done but the turn is not: the card says Claude is still at it.
+        let card = s.card().unwrap();
+        assert_eq!(card.lines.last().unwrap().progress, Some(Progress::Done));
+        assert_eq!((card.line.as_str(), card.progress), (THINKING, Some(Progress::Running)));
         // Two at once, the second failing; a turn cut short leaves none running.
         let id = fixture("PreToolUse")["session_id"].as_str().unwrap().to_string();
         let call = |tool: &str| serde_json::json!({ "session_id": id, "tool_name": "Read", "tool_input": { "file_path": "a.rs" }, "tool_use_id": tool });
