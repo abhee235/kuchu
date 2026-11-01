@@ -412,8 +412,8 @@ fn show_settings(app: &AppHandle) {
     }
     let _ = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("index.html".into()))
         .title("Kuchu Settings")
-        .inner_size(680.0, 760.0)
-        .min_inner_size(520.0, 480.0)
+        .inner_size(880.0, 680.0)
+        .min_inner_size(700.0, 480.0)
         .center()
         .build();
 }

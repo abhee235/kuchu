@@ -21,6 +21,7 @@ const MAX_WAITING: usize = 5;
 pub struct Approval {
     pub id: u64,
     pub session: String,
+    /// What the session is called.
     pub project: String,
     /// "permission", "question" or "plan".
     pub kind: String,
@@ -159,7 +160,7 @@ impl Hub {
         let id = inner.next;
         inner.sessions.apply("PermissionRequest", request, now());
         let session = request.get("session_id").and_then(Value::as_str).unwrap_or("").to_string();
-        let project = inner.sessions.project(&session).unwrap_or_else(|| "Claude Code".into());
+        let project = inner.sessions.name(&session).unwrap_or_else(|| "Claude Code".into());
         let (shown_tx, shown_rx) = oneshot::channel();
         let (decide_tx, decide_rx) = oneshot::channel();
         inner.waiting.push(Waiting { card: card(id, session, project, request), request: request.clone(), shown: Some(shown_tx), decide: Some(decide_tx) });

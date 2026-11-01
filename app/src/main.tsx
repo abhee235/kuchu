@@ -6,6 +6,7 @@ import { Pet } from './pet/Pet'
 import { PetWindow } from './PetWindow'
 import { SessionsWindow } from './SessionsWindow'
 import { SettingsWindow } from './SettingsWindow'
+import '@fontsource-variable/geist'
 import './styles.css'
 
 // One page for every window, chosen by the window's name. `?icon`: the pet large and still on a clear page, to make

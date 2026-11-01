@@ -1,116 +1,146 @@
-// Kuchu's Settings: connecting it to Claude Code (the change to settings.json shown before it is made, a copy kept),
-// the pet's size, see-through and sounds, what shows beside it, what a click opens, and permission requests. Each
-// change reaches the pet at once.
+// Kuchu's Settings: the pet (size, see-through, sounds), what shows beside it and what a click opens, connecting to
+// Claude Code (the change to settings.json shown before it is made, a copy kept), and permission requests. Each change
+// reaches the pet at once.
 
+import { Bot, CircleAlert, CircleCheck, MessageSquareText, Plug, ShieldCheck, TriangleAlert, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { core, on, SIZES, type HookPlan, type HookReport, type Prefs } from './api'
 import { Pet } from './pet/Pet'
 import type { PetMood } from './pet/petMood'
 import { playTone, TONE_MOODS } from './pet/petSound'
 
+type Tab = 'pet' | 'beside' | 'claude' | 'requests'
+
+const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: 'pet', label: 'Pet', icon: <Bot /> },
+  { id: 'beside', label: 'Beside the pet', icon: <MessageSquareText /> },
+  { id: 'claude', label: 'Claude Code', icon: <Plug /> },
+  { id: 'requests', label: 'Permission requests', icon: <ShieldCheck /> },
+]
+
 export function SettingsWindow() {
   const [prefs, setPrefs] = useState<Prefs | null>(null)
+  const [hooks, setHooks] = useState<HookReport | null>(null)
+  const [tab, setTab] = useState<Tab>('pet')
   useEffect(() => {
     void core.prefs().then(setPrefs)
-    return on<Prefs>('prefs', setPrefs)
+    void core.hooksStatus().then((h) => {
+      setHooks(h)
+      if (h.state !== 'installed') setTab('claude')
+    })
+    const offs = [on<Prefs>('prefs', setPrefs), on<HookReport>('hooks', setHooks)]
+    return () => offs.forEach((off) => off())
   }, [])
   if (!prefs) return null
   const set = (patch: Partial<Prefs>) => void core.setPrefs(patch).then(setPrefs)
+  const current = TABS.find((t) => t.id === tab)!
 
   return (
-    <main className="settings">
-      <header className="settings-head">
-        <Pet size={56} mood="idle" />
-        <div>
-          <h1>Kuchu</h1>
-          <p className="muted">A desk pet for Claude Code: it shows what your sessions are doing, and asks you when one needs you.</p>
+    <div className="settings">
+      <nav className="settings-nav" role="tablist" aria-orientation="vertical">
+        <span className="brand">
+          <Pet size={24} mood="idle" />
+          Kuchu
+        </span>
+        {TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className="tab" onClick={() => setTab(t.id)}>
+            {t.icon}
+            {t.label}
+            {t.id === 'claude' && hooks && hooks.state !== 'installed' && <span className="state-dot" aria-label="Not connected" />}
+          </button>
+        ))}
+      </nav>
+
+      <section className="settings-pane" role="tabpanel" aria-label={current.label}>
+        <h2>{current.label}</h2>
+        <div className="settings-rows">
+          {tab === 'pet' && (
+            <>
+              <Row label="Size" desc="How big Kuchu is on your screen." stacked>
+                <div className="choices" role="radiogroup" aria-label="Size">
+                  {(['small', 'base', 'big'] as const).map((size) => (
+                    <button key={size} type="button" role="radio" aria-checked={prefs.size === size} className="choice" onClick={() => set({ size })}>
+                      <span className="choice-picture is-size">
+                        <Pet size={Math.round(SIZES[size] * 0.62)} mood="idle" />
+                      </span>
+                      <span className="choice-name">{size === 'small' ? 'Small' : size === 'base' ? 'Base' : 'Big'}</span>
+                      <span className="muted">{SIZES[size]} px</span>
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row label="See-through under the pointer" desc="Kuchu fades while your pointer is on it, so what is behind it shows. It still takes clicks and drags.">
+                <Toggle label="See-through under the pointer" on={prefs.seeThrough} set={(seeThrough) => set({ seeThrough })} />
+              </Row>
+              <Row label="Sounds" desc="A short tone when a session needs you, and when one is done or did not finish.">
+                <div className="inline">
+                  <button type="button" className="btn is-small" onClick={() => TONE_MOODS.forEach((m, i) => setTimeout(() => playTone(m), i * 750))}>
+                    <Volume2 />
+                    Hear them
+                  </button>
+                  <Toggle label="Sounds" on={prefs.sounds} set={(sounds) => set({ sounds })} />
+                </div>
+              </Row>
+            </>
+          )}
+
+          {tab === 'beside' && (
+            <>
+              <Row
+                label="What shows beside the pet"
+                desc="While a session works: what it is called and what it is doing now. Once done, the answer's first line. A click on it opens your sessions."
+                stacked
+              >
+                <div className="choices" role="radiogroup" aria-label="What shows beside the pet">
+                  {(
+                    [
+                      ['line', 'One line', 'Its name and its step.'],
+                      ['lines', 'A few lines', 'Its last steps, or the answer’s first lines.'],
+                      ['off', 'Nothing', 'Kuchu alone: its face says it all.'],
+                    ] as const
+                  ).map(([card, name, about]) => (
+                    <button key={card} type="button" role="radio" aria-checked={prefs.card === card} className="choice" onClick={() => set({ card })}>
+                      <CardPreview mode={card} />
+                      <span className="choice-name">{name}</span>
+                      <span className="muted">{about}</span>
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row label="Clicking Kuchu opens" desc="Ctrl+Alt+K opens your sessions from anywhere, and the tray icon always brings Kuchu back.">
+                <Segmented
+                  value={prefs.click}
+                  options={[
+                    ['sessions', 'Your sessions'],
+                    ['settings', 'Settings'],
+                  ]}
+                  set={(click) => set({ click })}
+                />
+              </Row>
+            </>
+          )}
+
+          {tab === 'claude' && <Connect report={hooks} onReport={setHooks} />}
+
+          {tab === 'requests' && (
+            <Row
+              label="Answer them on Kuchu"
+              desc="When Claude Code asks to run a command or change a file, Kuchu shows it with Allow and Deny. Nothing is allowed without your click. If you don't answer, Claude Code asks in its own window after about 100 seconds; “In Claude Code” hands it back at once."
+            >
+              <Toggle label="Answer them on Kuchu" on={prefs.approvals} set={(approvals) => set({ approvals })} />
+            </Row>
+          )}
         </div>
-      </header>
-
-      <Connect />
-
-      <section>
-        <h2>The pet</h2>
-        <Row label="Size" desc="How big Kuchu is on the screen." stacked>
-          <div className="choices is-three" role="radiogroup" aria-label="Size">
-            {(['small', 'base', 'big'] as const).map((size) => (
-              <button key={size} type="button" role="radio" aria-checked={prefs.size === size} className="choice" onClick={() => set({ size })}>
-                <span className="choice-picture is-size">
-                  <Pet size={Math.round(SIZES[size] * 0.6)} mood="idle" />
-                </span>
-                <span className="choice-name">{size === 'small' ? 'Small' : size === 'base' ? 'Base' : 'Big'}</span>
-                <span className="muted">{SIZES[size]} px</span>
-              </button>
-            ))}
-          </div>
-        </Row>
-        <Row label="See-through under the pointer" desc="Kuchu fades while your pointer is on it, so what is behind it shows. It still takes clicks and drags.">
-          <Toggle label="See-through under the pointer" on={prefs.seeThrough} set={(seeThrough) => set({ seeThrough })} />
-        </Row>
-        <Row label="Sounds" desc="A short tone when a session needs you, and when one is done or did not finish.">
-          <div className="inline">
-            <button type="button" className="btn" onClick={() => TONE_MOODS.forEach((m, i) => setTimeout(() => playTone(m), i * 750))}>
-              ♪ Hear them
-            </button>
-            <Toggle label="Sounds" on={prefs.sounds} set={(sounds) => set({ sounds })} />
-          </div>
-        </Row>
       </section>
-
-      <section>
-        <h2>What Claude Code is doing, beside the pet</h2>
-        <Row label="Beside the pet" desc="While a session works: its project and what it is doing now. Once done, the answer's first line. A click on it opens your sessions." stacked>
-          <div className="choices is-three" role="radiogroup" aria-label="Beside the pet">
-            {(
-              [
-                ['line', 'One line', 'The project and its step.'],
-                ['lines', 'A few lines', 'Its last steps, or the answer’s first lines.'],
-                ['off', 'Nothing', 'The pet alone: its face says it all.'],
-              ] as const
-            ).map(([card, name, about]) => (
-              <button key={card} type="button" role="radio" aria-checked={prefs.card === card} className="choice" onClick={() => set({ card })}>
-                <CardPreview mode={card} />
-                <span className="choice-name">{name}</span>
-                <span className="muted">{about}</span>
-              </button>
-            ))}
-          </div>
-        </Row>
-        <Row label="Clicking Kuchu opens" desc="Ctrl+Alt+K opens your sessions from anywhere, and the tray icon always brings Kuchu back.">
-          <Segmented
-            value={prefs.click}
-            options={[
-              ['sessions', 'Your sessions'],
-              ['settings', 'Settings'],
-            ]}
-            set={(click) => set({ click })}
-          />
-        </Row>
-      </section>
-
-      <section>
-        <h2>Permission requests</h2>
-        <Row
-          label="Answer them on Kuchu"
-          desc="When Claude Code asks to run a command or change a file, Kuchu shows it with Allow and Deny. Nothing is allowed without your click; if you don't answer, Claude Code asks in its own window after about 100 seconds, and “In Claude Code” hands it back at once."
-        >
-          <Toggle label="Answer them on Kuchu" on={prefs.approvals} set={(approvals) => set({ approvals })} />
-        </Row>
-      </section>
-    </main>
+    </div>
   )
 }
 
 /** Connecting Kuchu to Claude Code: the hooks' state, and the change to settings.json shown before it is made. */
-function Connect() {
-  const [report, setReport] = useState<HookReport | null>(null)
+function Connect({ report, onReport }: { report: HookReport | null; onReport: (r: HookReport) => void }) {
   const [plan, setPlan] = useState<HookPlan | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    void core.hooksStatus().then(setReport)
-    return on<HookReport>('hooks', setReport)
-  }, [])
 
   const look = (install: boolean) => {
     setError(null)
@@ -121,10 +151,10 @@ function Connect() {
     if (!plan) return
     core.hooksApply(plan.install, plan.fingerprint).then(
       ({ backup, report }) => {
-        setReport(report)
+        onReport(report)
         setPlan(null)
         setDone(
-          (plan.install ? 'Connected: Kuchu now hears Claude Code. New sessions show up at once.' : 'Disconnected: Kuchu’s hooks are gone from settings.json.') +
+          (plan.install ? 'Connected. New Claude Code sessions show up beside Kuchu at once.' : 'Disconnected. Kuchu’s hooks are gone from settings.json.') +
             (backup ? ` Your settings as they were are kept at ${backup}.` : ''),
         )
       },
@@ -133,40 +163,41 @@ function Connect() {
   }
 
   const state = report?.state
+  const Icon = state === 'installed' ? CircleCheck : state === 'unreadable' ? CircleAlert : TriangleAlert
   return (
-    <section className="connect">
-      <h2>Claude Code</h2>
+    <>
       <div className={`status is-${state ?? 'missing'}`}>
-        <span className="dot" aria-hidden="true" />
-        <div className="grow">
+        <Icon />
+        <div className="status-text">
           <strong>
             {state === 'installed'
               ? 'Connected'
               : state === 'outdated'
                 ? 'Connected, but out of date'
                 : state === 'unreadable'
-                  ? 'settings.json could not be read'
+                  ? 'Claude Code’s settings could not be read'
                   : 'Not connected yet'}
           </strong>
-          <span className="muted">
+          <span>
             {state === 'unreadable'
               ? report?.why
               : state === 'installed'
-                ? `Kuchu’s hooks are in ${report?.path}.`
-                : `Kuchu listens through hooks in ${report?.path ?? 'settings.json'}. You see the change before anything is written, and a copy of the file is kept first.`}
+                ? 'Every Claude Code session, in any terminal or editor, shows up beside Kuchu.'
+                : 'Kuchu listens through hooks in Claude Code’s settings. You see the change before anything is written, and a copy of the file is kept first.'}
           </span>
-          {report?.disabled && <span className="warn">disableAllHooks is on in this file: Claude Code runs no hooks at all, Kuchu’s included.</span>}
+          {report && <span className="muted">{report.path}</span>}
+          {report?.disabled && <span className="note-warn">disableAllHooks is on in this file: Claude Code runs no hooks at all, Kuchu’s included.</span>}
         </div>
         {!plan && state !== 'unreadable' && (
           <div className="inline">
-            {state !== 'installed' && (
-              <button type="button" className="btn is-primary" onClick={() => look(true)}>
-                {state === 'outdated' ? 'Update' : 'Connect'}
+            {state !== 'missing' && (
+              <button type="button" className="btn is-small" onClick={() => look(false)}>
+                Disconnect
               </button>
             )}
-            {state !== 'missing' && (
-              <button type="button" className="btn" onClick={() => look(false)}>
-                Disconnect
+            {state !== 'installed' && (
+              <button type="button" className="btn is-small is-primary" onClick={() => look(true)}>
+                {state === 'outdated' ? 'Update' : 'Connect'}
               </button>
             )}
           </div>
@@ -180,8 +211,7 @@ function Connect() {
           ) : (
             <>
               <p>
-                {plan.install ? 'These lines will be added to' : 'These lines will be taken out of'} <code>{plan.path}</code>. Nothing else of yours
-                changes.
+                {plan.install ? 'These lines will be added to' : 'These lines will be taken out of'} <code>{plan.path}</code>. Nothing else of yours changes.
                 {plan.respaced && ' The file is spaced differently from how Claude Code writes it, so it will be written its way.'}
               </p>
               <pre className="diff">
@@ -196,20 +226,20 @@ function Connect() {
             </>
           )}
           <div className="inline">
+            <button type="button" className="btn is-small" onClick={() => setPlan(null)}>
+              Cancel
+            </button>
             {!plan.unchanged && (
-              <button type="button" className="btn is-primary" onClick={confirm}>
+              <button type="button" className="btn is-small is-primary" onClick={confirm}>
                 {plan.install ? 'Connect' : 'Disconnect'}
               </button>
             )}
-            <button type="button" className="btn" onClick={() => setPlan(null)}>
-              Cancel
-            </button>
           </div>
         </div>
       )}
-      {done && <p className="ok">{done}</p>}
-      {error && <p className="warn">{error}</p>}
-    </section>
+      {done && <p className="note-ok">{done}</p>}
+      {error && <p className="note-warn">{error}</p>}
+    </>
   )
 }
 
@@ -235,10 +265,10 @@ function CardPreview({ mode }: { mode: 'line' | 'lines' | 'off' }) {
   const step = STEPS[i]!
   const past = mode === 'lines' ? STEPS.slice(Math.max(1, i - 1), i).filter((s) => s.mood === 'working') : []
   return (
-    <span className="choice-picture is-desk">
+    <span className="choice-picture">
       {mode !== 'off' && (
-        <span className="mini-card">
-          <span className="mini-title">my-app</span>
+        <span className={`mini-card${mode === 'lines' ? ' is-lines' : ''}`}>
+          <span className="mini-title">Fix the login bug</span>
           {past.map((s) => (
             <span key={s.line} className="mini-line is-past">
               {s.line}
@@ -250,7 +280,7 @@ function CardPreview({ mode }: { mode: 'line' | 'lines' | 'off' }) {
         </span>
       )}
       <span className="mini-pet">
-        <Pet size={44} mood={step.mood} />
+        <Pet size={46} mood={step.mood} />
       </span>
     </span>
   )
@@ -259,11 +289,11 @@ function CardPreview({ mode }: { mode: 'line' | 'lines' | 'off' }) {
 function Row({ label, desc, stacked, children }: { label: string; desc: string; stacked?: boolean; children: React.ReactNode }) {
   return (
     <div className={`row-setting${stacked ? ' is-stacked' : ''}`}>
-      <div className="row-text">
+      <div>
         <div className="row-label">{label}</div>
-        <div className="muted">{desc}</div>
+        <p className="row-desc">{desc}</p>
       </div>
-      <div className="row-control">{children}</div>
+      {children}
     </div>
   )
 }

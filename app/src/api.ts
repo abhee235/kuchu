@@ -6,6 +6,8 @@ import type { PetMood } from './pet/petMood'
 
 export interface Session {
   id: string
+  /** What the session is called: Claude Code's name for it, else its first message, else its folder. */
+  name: string
   project: string
   cwd: string
   mood: PetMood

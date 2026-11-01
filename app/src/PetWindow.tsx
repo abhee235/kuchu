@@ -4,6 +4,7 @@
 // and sends the sessions as one view; this page draws them, moves the pet, and plays its tones.
 
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { List, MessageCircleQuestion, ShieldAlert, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { core, on, SIZES, type Approval, type Card, type Prefs, type View } from './api'
 import { Pet } from './pet/Pet'
@@ -133,16 +134,13 @@ function cardKey(card: Card) {
   return `${card.session}:${card.mood}`
 }
 
-/** Which project, and what it is doing now (or the answer's first lines once done). A click opens the sessions. */
+/** Which session, and what it is doing now (or the answer's first lines once done). A click opens the sessions. */
 function SessionCard({ card, lines, onClose }: { card: Card; lines: boolean; onClose: () => void }) {
   const more = lines ? card.lines.filter((l) => l !== card.line).slice(-2) : []
   return (
-    <div className={`card is-${card.mood}`} role="status" aria-live="polite">
-      <button type="button" className="card-body" onClick={() => void core.openSessions()} title="Open the sessions">
-        <span className="card-title">
-          <span className="dot" aria-hidden="true" />
-          {card.title}
-        </span>
+    <div className={`card${lines ? ' is-lines' : ''}`} role="status" aria-live="polite">
+      <button type="button" className="card-body" onClick={() => void core.openSessions()} title="Your sessions">
+        <span className="card-title">{card.title}</span>
         {more.map((l, i) => (
           <span key={i} className="card-line is-past">
             {l}
@@ -150,8 +148,13 @@ function SessionCard({ card, lines, onClose }: { card: Card; lines: boolean; onC
         ))}
         <span className="card-line">{card.line}</span>
       </button>
+      <span className="card-actions">
+        <button type="button" aria-label="Your sessions" title="Your sessions" onClick={() => void core.openSessions()}>
+          <List size={16} />
+        </button>
+      </span>
       <button type="button" className="card-close" aria-label="Hide this" title="Hide this" onClick={onClose}>
-        ×
+        <X size={12} strokeWidth={3} />
       </button>
     </div>
   )
@@ -172,40 +175,39 @@ function ApprovalCard({ approval, more }: { approval: Approval; more: number }) 
     if (performance.now() - shownAt.current < SETTLING_MS) return
     void core.decide(approval.id, kind, answer)
   }
-  const heading =
-    approval.kind === 'question' ? 'Has a question' : approval.kind === 'plan' ? 'Has a plan ready' : approval.title
+  const what = approval.kind === 'question' ? approval.question?.text || 'Has a question for you' : approval.kind === 'plan' ? 'Has a plan ready' : approval.title
   return (
-    <div className="card approval" role="alertdialog" aria-label={`${approval.project}: ${heading}`}>
-      <div className="card-title">
-        <span className="dot" aria-hidden="true" />
-        {approval.project}
+    <div className="approval" role="alertdialog" aria-label={`${approval.project}: ${what}`}>
+      <div className="approval-head">
+        {approval.kind === 'question' ? <MessageCircleQuestion size={18} /> : <ShieldAlert size={18} />}
+        <span className="name">{approval.project}</span>
         {more > 0 && <span className="more">+{more} waiting</span>}
       </div>
-      <div className="approval-what">{approval.question ? approval.question.text : heading}</div>
+      <div className="approval-what">{what}</div>
       {approval.detail && approval.kind !== 'question' && <pre className="approval-detail">{approval.detail}</pre>}
       <div className="approval-actions">
         {approval.kind === 'question' && approval.question ? (
-          approval.question.options.map((o) => (
-            <button key={o} type="button" className="btn" onClick={() => choose('answer', o)}>
+          approval.question.options.map((o, i) => (
+            <button key={o} type="button" className={`btn is-small${i === 0 ? ' is-primary' : ''}`} onClick={() => choose('answer', o)}>
               {o}
             </button>
           ))
         ) : approval.kind === 'question' ? null : (
           <>
-            <button type="button" className="btn is-primary" onClick={() => choose('allow')}>
+            <button type="button" className="btn is-small is-primary" onClick={() => choose('allow')}>
               {approval.kind === 'plan' ? 'Approve plan' : 'Allow'}
             </button>
             {approval.always && (
-              <button type="button" className="btn" onClick={() => choose('always')}>
+              <button type="button" className="btn is-small" onClick={() => choose('always')}>
                 {approval.always}
               </button>
             )}
-            <button type="button" className="btn" onClick={() => choose('deny')}>
+            <button type="button" className="btn is-small" onClick={() => choose('deny')}>
               {approval.kind === 'plan' ? 'Keep planning' : 'Deny'}
             </button>
           </>
         )}
-        <button type="button" className="btn is-quiet" onClick={() => choose('terminal')} title="Answer it in Claude Code instead">
+        <button type="button" className="btn is-small is-quiet" onClick={() => choose('terminal')} title="Answer it in Claude Code instead">
           In Claude Code
         </button>
       </div>

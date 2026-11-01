@@ -12,6 +12,12 @@ const QUIET_MS: u64 = 30 * 60 * 1000;
 const FORGET_MS: u64 = 12 * 60 * 60 * 1000;
 /// Lines kept per session for the card's "a few lines".
 const KEPT_STEPS: usize = 3;
+/// A session's name is read again from its transcript at most this often.
+const NAME_EVERY_MS: u64 = 20_000;
+/// How much of the end of a transcript is read for the session's name.
+const NAME_TAIL: u64 = 128 * 1024;
+/// A session's first message, as its name until Claude Code gives it one, at most this long.
+const MAX_NAME: usize = 60;
 /// A line on the card at most this long.
 const MAX_LINE: usize = 140;
 
@@ -30,6 +36,9 @@ pub enum Mood {
 #[serde(rename_all = "camelCase")]
 pub struct Session {
     pub id: String,
+    /// What the session is called: the name Claude Code gave it (or the one it was renamed to), else its first
+    /// message, else its folder.
+    pub name: String,
     /// The project folder's name.
     pub project: String,
     pub cwd: String,
@@ -46,6 +55,26 @@ pub struct Session {
     /// Claude Code ended the session while its answer was unseen: it goes once the pet is clicked.
     #[serde(skip)]
     pub closed: bool,
+    #[serde(skip)]
+    transcript: String,
+    #[serde(skip)]
+    title: Option<String>,
+    #[serde(skip)]
+    first_prompt: String,
+    #[serde(skip)]
+    name_read: u64,
+}
+
+impl Session {
+    fn rename(&mut self) {
+        self.name = self.title.clone().filter(|t| !t.is_empty()).unwrap_or_else(|| {
+            if self.first_prompt.is_empty() {
+                self.project.clone()
+            } else {
+                self.first_prompt.clone()
+            }
+        });
+    }
 }
 
 /// What the pet's window shows.
@@ -89,6 +118,7 @@ impl Sessions {
         let cwd = text(p, "cwd");
         let s = self.all.entry(id.to_string()).or_insert_with(|| Session {
             id: id.to_string(),
+            name: project_of(&cwd),
             project: project_of(&cwd),
             cwd: cwd.clone(),
             mood: Mood::Idle,
@@ -98,11 +128,29 @@ impl Sessions {
             updated: now,
             ended: None,
             closed: false,
+            transcript: String::new(),
+            title: None,
+            first_prompt: String::new(),
+            name_read: 0,
         });
         if !cwd.is_empty() && cwd != s.cwd {
             s.project = project_of(&cwd);
             s.cwd = cwd;
         }
+        let transcript = text(p, "transcript_path");
+        if !transcript.is_empty() {
+            s.transcript = transcript;
+        }
+        if event == "UserPromptSubmit" && s.first_prompt.is_empty() {
+            s.first_prompt = cut_to(&one_line(&text(p, "prompt")), MAX_NAME);
+        }
+        if !s.transcript.is_empty() && now.saturating_sub(s.name_read) >= NAME_EVERY_MS {
+            s.name_read = now;
+            if let Some(title) = title_in(&s.transcript) {
+                s.title = Some(title);
+            }
+        }
+        s.rename();
         s.updated = now;
         match event {
             "SessionStart" => {}
@@ -239,7 +287,7 @@ impl Sessions {
         let others = all.iter().filter(|s| s.id != pick.id && matches!(s.mood, Mood::Thinking | Mood::Working | Mood::Needs)).count();
         Some(Card {
             session: pick.id.clone(),
-            title: if others > 0 { format!("{} · +{}", pick.project, others) } else { pick.project.clone() },
+            title: if others > 0 { format!("{} · +{}", pick.name, others) } else { pick.name.clone() },
             line: pick.line.clone(),
             lines: pick.lines.clone(),
             mood: pick.mood,
@@ -253,8 +301,9 @@ impl Sessions {
         all
     }
 
-    pub fn project(&self, id: &str) -> Option<String> {
-        self.all.get(id).map(|s| s.project.clone())
+    /// What a session is called (its name, else its first message, else its folder).
+    pub fn name(&self, id: &str) -> Option<String> {
+        self.all.get(id).map(|s| s.name.clone())
     }
 }
 
@@ -334,10 +383,43 @@ fn lower_first(s: &str) -> String {
 }
 
 fn cut(s: &str) -> String {
-    if s.chars().count() <= MAX_LINE {
+    cut_to(s, MAX_LINE)
+}
+
+fn cut_to(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
         return s.to_string();
     }
-    format!("{}…", s.chars().take(MAX_LINE - 1).collect::<String>().trim_end())
+    format!("{}…", s.chars().take(max - 1).collect::<String>().trim_end())
+}
+
+/// The session's name as Claude Code keeps it at the end of its transcript: the name it was renamed to, else the
+/// latest title Claude Code gave it. Only the end of the file is read (Claude Code writes the title again as it goes).
+pub fn title_in(transcript: &str) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(transcript).ok()?;
+    let len = file.metadata().ok()?.len();
+    file.seek(SeekFrom::Start(len.saturating_sub(NAME_TAIL))).ok()?;
+    let mut bytes = Vec::new();
+    file.take(NAME_TAIL).read_to_end(&mut bytes).ok()?;
+    let tail = String::from_utf8_lossy(&bytes);
+    let field = |line: &str, key: &str| -> Option<String> {
+        let v: Value = serde_json::from_str(line).ok()?;
+        let t = one_line(v.get(key)?.as_str()?);
+        (!t.is_empty()).then(|| cut_to(&t, MAX_NAME))
+    };
+    let mut given = None;
+    for line in tail.lines().rev() {
+        if line.contains("\"custom-title\"") {
+            if let Some(t) = field(line, "customTitle") {
+                return Some(t);
+            }
+        }
+        if given.is_none() && line.contains("\"ai-title\"") {
+            given = field(line, "aiTitle");
+        }
+    }
+    given
 }
 
 #[cfg(test)]
@@ -360,7 +442,8 @@ mod tests {
         s.apply("PreToolUse", &fixture("PreToolUse"), 3);
         assert_eq!(s.mood(), Mood::Working);
         let card = s.card().unwrap();
-        assert_eq!(card.title, "demo");
+        // No title in a transcript yet: the session is called by its first message.
+        assert!(card.title.starts_with("Run the shell command: echo kuchu"), "{}", card.title);
         assert!(card.line.starts_with("Running"), "{}", card.line);
         s.apply("PostToolUse", &fixture("PostToolUse"), 4);
         s.apply("Stop", &fixture("Stop"), 5);
@@ -437,6 +520,36 @@ mod tests {
         s.seen(2);
         assert!(!s.apply("SubagentStop", &serde_json::json!({ "session_id": "a" }), 3));
         assert_eq!(s.mood(), Mood::Idle);
+    }
+
+    #[test]
+    fn a_session_is_called_by_its_name_then_its_first_message_then_its_folder() {
+        let dir = std::env::temp_dir().join(format!("kuchu-names-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let transcript = dir.join("s.jsonl");
+        let t = transcript.display().to_string();
+        let mut s = Sessions::default();
+        let event = |prompt: &str| serde_json::json!({ "session_id": "a", "cwd": "/x/my-app", "transcript_path": t, "prompt": prompt });
+        s.apply("SessionStart", &event(""), 0);
+        assert_eq!(s.list()[0].name, "my-app");
+        s.apply("UserPromptSubmit", &event("Fix the   login bug\nplease"), NAME_EVERY_MS);
+        assert_eq!(s.list()[0].name, "Fix the login bug please");
+        std::fs::write(&transcript, concat!(
+            r#"{"type":"user","message":"x"}"#, "\n",
+            r#"{"type":"ai-title","aiTitle":"Login bug fix","sessionId":"a"}"#, "\n",
+            r#"{"type":"ai-title","aiTitle":"Login bug fixed with tests","sessionId":"a"}"#, "\n",
+        )).unwrap();
+        s.apply("PreToolUse", &event(""), 2 * NAME_EVERY_MS);
+        assert_eq!(s.list()[0].name, "Login bug fixed with tests");
+        assert_eq!(s.card().unwrap().title, "Login bug fixed with tests");
+        let mut text = std::fs::read_to_string(&transcript).unwrap();
+        text.push_str(r#"{"type":"custom-title","customTitle":"Auth","sessionId":"a"}"#);
+        text.push('\n');
+        text.push_str(r#"{"type":"ai-title","aiTitle":"Something newer","sessionId":"a"}"#);
+        std::fs::write(&transcript, text).unwrap();
+        s.apply("PostToolUse", &event(""), 3 * NAME_EVERY_MS);
+        assert_eq!(s.list()[0].name, "Auth");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
