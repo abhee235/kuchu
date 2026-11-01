@@ -1,10 +1,10 @@
-// Kuchu's Settings: the pet (size, see-through, sounds), what shows beside it and what a click opens, connecting to
-// Claude Code (the change to settings.json shown before it is made, a copy kept), and permission requests. Each change
-// reaches the pet at once.
+// Kuchu's Settings: the pet (size, see-through, sounds, starting at sign-in), what shows beside it and what a click
+// opens, connecting to Claude Code (the change to settings.json shown before it is made, a copy kept), and permission
+// requests. Each change reaches the pet at once.
 
 import { Bot, CircleAlert, CircleCheck, MessageSquareText, Plug, ShieldCheck, TriangleAlert, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { core, on, SIZES, type HookPlan, type HookReport, type Prefs } from './api'
+import { core, on, SIZES, type HookPlan, type HookReport, type Prefs, type Start } from './api'
 import { Pet } from './pet/Pet'
 import type { PetMood } from './pet/petMood'
 import { playTone, TONE_MOODS } from './pet/petSound'
@@ -88,6 +88,7 @@ export function SettingsWindow() {
                   <Toggle label="Sounds" on={prefs.sounds} set={(sounds) => set({ sounds })} />
                 </div>
               </Row>
+              <StartAtSignIn />
             </>
           )}
 
@@ -310,6 +311,30 @@ function Row({ label, desc, stacked, children }: { label: string; desc: string; 
       </div>
       {children}
     </div>
+  )
+}
+
+/** Starting at sign-in: your account's own startup entry, never a service. Read from the system each time, since it
+ *  can also be switched off there. */
+function StartAtSignIn() {
+  const [start, setStart] = useState<Start | null>(null)
+  const [why, setWhy] = useState<string | null>(null)
+  useEffect(() => void core.startAtSignIn().then(setStart), [])
+  if (!start) return null
+  const change = (on: boolean) => {
+    setWhy(null)
+    core.setStartAtSignIn(on).then(setStart, (e: unknown) => setWhy(String(e)))
+  }
+  const on = start.on && !start.paused && !start.elsewhere
+  const desc = start.paused
+    ? 'It was switched off in Windows’ startup apps. Switch it on here to start Kuchu when you sign in again.'
+    : start.elsewhere
+      ? `It starts another copy of Kuchu: ${start.elsewhere}. Switch it on here to start this one instead.`
+      : 'Kuchu opens by itself when you sign in, from your account’s own list of startup apps. It is never a service.'
+  return (
+    <Row label="Starts when you sign in" desc={why ?? desc}>
+      <Toggle label="Starts when you sign in" on={on} set={change} />
+    </Row>
   )
 }
 

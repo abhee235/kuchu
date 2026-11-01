@@ -20,3 +20,11 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 tokio = { version = "1", features = ["net", "io-util", "time", "sync", "macros", "rt", "process"] }
+dirs = "7"
+
+[target.'cfg(windows)'.dependencies]
+# One Kuchu per sign-in: a second start hands its arguments to the first. Windows only: on macOS the system keeps an
+# app to one copy, and the plugin's socket there sits in the shared /tmp.
+tauri-plugin-single-instance = "2"
+# Starting at sign-in: the current user's Run key.
+winreg = "0.56"

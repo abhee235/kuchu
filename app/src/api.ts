@@ -106,6 +106,15 @@ export interface Prefs {
   folders: string[]
 }
 
+/** Whether Kuchu starts when you sign in. */
+export interface Start {
+  on: boolean
+  /** The entry is there, but switched off in the system's own list of startup apps. */
+  paused: boolean
+  /** The program it starts, when it is another copy of Kuchu. */
+  elsewhere: string | null
+}
+
 export interface HookReport {
   state: 'installed' | 'missing' | 'outdated' | 'unreadable'
   why?: string | null
@@ -146,6 +155,8 @@ export const core = {
   stroll: (dx: number) => invoke<number>('stroll', { dx }),
   stopStroll: () => invoke('stop_stroll'),
   follow: (session: string | null) => invoke('follow', { session }),
+  startAtSignIn: () => invoke<Start>('start_at_sign_in'),
+  setStartAtSignIn: (on: boolean) => invoke<Start>('set_start_at_sign_in', { on }),
   hooksStatus: () => invoke<HookReport>('hooks_status'),
   hooksPlan: (install: boolean) => invoke<HookPlan>('hooks_plan', { install }),
   hooksApply: (install: boolean, fingerprint: string) => invoke<{ backup: string | null; report: HookReport }>('hooks_apply', { install, fingerprint }),

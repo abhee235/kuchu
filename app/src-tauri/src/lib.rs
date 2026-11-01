@@ -6,6 +6,7 @@ mod alive;
 mod chat;
 mod hooks;
 mod hub;
+mod install;
 mod prefs;
 mod sessions;
 
@@ -246,17 +247,35 @@ fn still_on_screen(window: &WebviewWindow, at: (i32, i32)) -> bool {
     window.monitor_from_point(at.0 as f64 + 40.0, at.1 as f64 + 40.0).ok().flatten().is_some()
 }
 
-/// The relay shipped beside Kuchu (or, while developing, the one cargo built).
-fn bundled_relay() -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    let dir = exe.parent()?;
-    [dir.join(hooks::RELAY_FILE), dir.join("..").join("release").join(hooks::RELAY_FILE), dir.join("..").join("debug").join(hooks::RELAY_FILE)]
-        .into_iter()
-        .find(|p| p.is_file())
+/// Kuchu was started again while it runs, and the second copy handed its arguments over and went: `--quit` ends this
+/// one (`kuchu quit`, `kuchu uninstall`), `--settings` shows Settings (`kuchu setup`), anything else (a second
+/// double-click) shows the pet and the sessions.
+fn again(app: &AppHandle, args: &[String]) {
+    if args.iter().any(|a| a == "--quit") {
+        app.exit(0);
+    } else if args.iter().any(|a| a == "--settings") {
+        show_settings(app);
+    } else {
+        if let Some(pet) = app.get_webview_window("pet") {
+            let _ = pet.show();
+        }
+        if !app.get_webview_window("sessions").is_some_and(|w| w.is_visible().unwrap_or(false)) {
+            toggle_sessions(app);
+        }
+    }
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    // `kuchu setup`, `status`, `quit`, `uninstall`: done without starting Kuchu.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(code) = install::command(&args) {
+        std::process::exit(code);
+    }
+    let builder = tauri::Builder::default();
+    // First of all, so that a second Kuchu hands its arguments over before it does anything else.
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| again(app, &args)));
+    builder
         .plugin(
             ShortcutBuilder::new()
                 .with_shortcuts([SHORTCUT])
@@ -289,6 +308,8 @@ pub fn run() {
             hooks_status,
             hooks_plan,
             hooks_apply,
+            start_at_sign_in,
+            set_start_at_sign_in,
             open_settings,
             open_sessions,
             take_open,
@@ -299,19 +320,18 @@ pub fn run() {
             chat_stop,
             chat_terminal,
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            // Asked to quit with no other Kuchu to hand it to: nothing to do.
+            if args.iter().any(|a| a == "--quit") {
+                std::process::exit(0);
+            }
             let config = app.path().app_config_dir()?;
             let prefs_path = prefs::path_in(config);
             let prefs = Prefs::load(&prefs_path);
             let hub = Hub::new(app.handle().clone(), prefs.approvals);
             let window = app.get_webview_window("pet").expect("the pet's window is in tauri.conf.json");
             let at = prefs.at.filter(|at| still_on_screen(&window, *at)).unwrap_or_else(|| first_place(&window, prefs.width()));
-            let relay = bundled_relay()
-                .ok_or_else(|| "The relay is missing beside Kuchu. Reinstall Kuchu.".to_string())
-                .and_then(|from| {
-                    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("bin");
-                    hooks::place_relay(&from, &dir).map_err(|e| format!("Kuchu could not put its relay in place: {e}"))
-                });
+            let relay = install::place_relay();
             let handle = app.handle().clone();
             let chats = Chats::new(app.handle().clone(), hub.clone(), Box::new(move || own_settings(&handle)));
             let kuchu = Arc::new(Kuchu {
@@ -388,10 +408,21 @@ pub fn run() {
                     chats.expire();
                 }
             });
+            // Started by `kuchu setup`: Settings open, where Kuchu is connected to Claude Code.
+            if args.iter().any(|a| a == "--settings") {
+                show_settings(app.handle());
+            }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("Kuchu could not start");
+        .build(tauri::generate_context!())
+        .expect("Kuchu could not start")
+        .run(|_app, _event| {
+            // Opened again while it runs (the system keeps an app to one copy on macOS).
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                again(_app, &[]);
+            }
+        });
 }
 
 /// Reads the pointer a few times a second while the pet shows: tells the page where it is (for the eyes and for
@@ -690,6 +721,17 @@ fn is_right(app: AppHandle) -> bool {
 
 fn relay_path(app: &AppHandle) -> Result<PathBuf, String> {
     kuchu(app).relay.lock().unwrap().clone()
+}
+
+/// Whether Kuchu starts when the person signs in.
+#[tauri::command]
+fn start_at_sign_in() -> install::Start {
+    install::start_at_sign_in()
+}
+
+#[tauri::command]
+fn set_start_at_sign_in(on: bool) -> Result<install::Start, String> {
+    install::set_start_at_sign_in(on)
 }
 
 #[tauri::command]
