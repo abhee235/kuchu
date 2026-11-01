@@ -1,7 +1,7 @@
 # A release, built only here and only from a version tag (v0.1.0, matching the version in tauri.conf.json): Kuchu and
-# its relay for Windows (x64, arm64) and macOS (Apple silicon, Intel), one archive each, named as INSTALL.md expects,
-# and SHA256SUMS for them all. It is left as a draft, to look over before it is published. The only action used is
-# checkout, pinned to a commit; the rest is the runners' own tools.
+# its relay for Windows (x64, arm64) and macOS (Apple silicon, Intel), one archive each, named as the README's Install
+# expects, and SHA256SUMS for them all. It is left as a draft, to look over before it is published. The only action
+# used is checkout, pinned to a commit; the rest is the runners' own tools.
 name: Release
 
 on:
@@ -25,7 +25,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" --draft --verify-tag --title "Kuchu ${TAG#v}" --notes "To install Kuchu, ask Claude Code to follow INSTALL.md."
+          gh release create "$TAG" --draft --verify-tag --title "Kuchu ${TAG#v}" --notes "To install Kuchu, say to Claude Code: Install Kuchu from https://github.com/abhee235/kuchu"
 
   build:
     needs: draft

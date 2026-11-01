@@ -1,5 +1,5 @@
 //! Kuchu on this account: the folders it keeps things in, starting when the person signs in, and the commands Claude
-//! Code runs to install it (INSTALL.md): `kuchu setup`, `kuchu status`, `kuchu quit` and `kuchu uninstall`.
+//! Code runs to install it (the README's Install): `kuchu setup`, `kuchu status`, `kuchu quit` and `kuchu uninstall`.
 //!
 //! Kuchu is always the person's own app. It starts at sign-in from their account's own entry (the current user's Run
 //! key on Windows, a LaunchAgent on macOS), never as a service or anything elevated. Claude Code's settings.json is
