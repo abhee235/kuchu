@@ -57,10 +57,15 @@ now, and a permission request can be answered from it.
 ## Build order
 
 0. **Record what Claude Code sends** ✅ (2026-11-01, Claude Code 2.1.310): see [docs/hooks.md](docs/hooks.md).
-1. **The pet on the screen:** the Tauri app, the robot, its window and tray; sizes, see-through, tones; its eyes
+1. **The pet on the screen** ✅: the Tauri app, the robot, its window and tray; sizes, see-through, tones; its eyes
    follow the pointer.
-2. **Sessions:** the relay and the pipe, a card per session, the safe hook install and uninstall.
-3. **Approvals:** permission cards, questions, plans.
+2. **Sessions** ✅: the relay and the pipe (a named pipe per user on Windows, a socket in a private folder elsewhere),
+   one record per session, the card beside the pet (one line, a few lines, or nothing), the sessions list (a click on
+   the pet, Ctrl+Alt+K, the tray), Settings, and connecting to Claude Code with the change shown and a copy kept.
+   Checked live on Claude Code 2.1.310: a session's steps on the card as it worked, then done.
+3. **Approvals** ✅: Allow, Deny, Claude Code's own "don't ask again" offer, and "In Claude Code" to hand it back;
+   questions with one choice; plans sent back when approved. Checked live: a Write asked for, allowed from the card,
+   and written. Questions and plans are checked against recordings before the first release.
 4. **Polish and shipping:** settings, the shortcut, several sessions, sleep and monitors, the installers (Windows,
    then macOS on GitHub's Mac machines), signing before the first public build.
 

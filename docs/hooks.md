@@ -36,5 +36,11 @@ recorded before the step that uses them.
 - **Allow**, checked on 2.1.310 (a Write that was blocked went through):
   `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}` on stdout, exit 0.
 - **No answer**: print nothing and exit 0; Claude Code asks as it would have.
-- Deny (with a `message`), "Always" (`updatedPermissions` from `permission_suggestions`), answers to a question and
-  plan approval (`updatedInput`) are checked in step 3.
+- **Allow from Kuchu**, checked end to end (2026-11-01): Claude Code asked to write a file, Kuchu's card showed it,
+  a click on Allow reached the relay, and the file was written.
+- **No answer** in a run without a terminal (`claude -p`): Claude Code treats it as a refusal and says so.
+- Deny (with a `message`), "Always" (`updatedPermissions` with Claude Code's first `permission_suggestions` entry),
+  answers to a question and plan approval (`updatedInput`) are built from the recorded shapes and covered by tests;
+  each is checked live before the first release.
+- A `claude -p` run ends its session right after `Stop`: a session that ends with its answer unseen stays until the
+  pet is clicked.
