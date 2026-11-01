@@ -1,22 +1,119 @@
-/* The pet's window is transparent: the page has no background of its own. */
+/* Kuchu's windows: the pet's (transparent: no background of its own), the sessions list and Settings. */
+
+:root {
+  --bg: #ffffff;
+  --panel: #fafafa;
+  --fg: #18181b;
+  --fg-2: #52525b;
+  --fg-3: #8a8a93;
+  --line: rgba(0, 0, 0, 0.09);
+  --hover: rgba(0, 0, 0, 0.05);
+  --chip: #f4f4f5;
+  --accent: #2563eb;
+  --accent-fg: #ffffff;
+  --card: #ffffff;
+  --card-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.07);
+  --thinking: #8b5cf6;
+  --working: #3b82f6;
+  --needs: #f59e0b;
+  --done: #16a34a;
+  --failed: #dc2626;
+  --idle: #a1a1aa;
+  --add: #dcfce7;
+  --add-fg: #166534;
+  --del: #fee2e2;
+  --del-fg: #991b1b;
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1.45;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #18181b;
+    --panel: #1f1f23;
+    --fg: #f4f4f5;
+    --fg-2: #c4c4cc;
+    --fg-3: #8e8e98;
+    --line: rgba(255, 255, 255, 0.1);
+    --hover: rgba(255, 255, 255, 0.07);
+    --chip: #27272a;
+    --accent: #3b82f6;
+    --card: #232327;
+    --card-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --add: #14361f;
+    --add-fg: #86efac;
+    --del: #3b1515;
+    --del-fg: #fca5a5;
+  }
+}
+
 html,
 body,
 #root {
   margin: 0;
   height: 100%;
-  overflow: hidden;
+}
+* {
+  box-sizing: border-box;
+}
+button {
+  font: inherit;
+  color: inherit;
+}
+html[data-window='pet'],
+html[data-window='pet'] body,
+html[data-window='icon'],
+html[data-window='icon'] body {
   background: transparent;
+  overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
 }
+html[data-window='sessions'] body,
+html[data-window='settings'] body {
+  background: var(--bg);
+}
+.muted {
+  color: var(--fg-3);
+  font-size: 12.5px;
+}
+.grow {
+  flex: 1;
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--idle);
+}
+.is-thinking .dot {
+  background: var(--thinking);
+}
+.is-working .dot {
+  background: var(--working);
+}
+.is-needs .dot,
+.approval .dot {
+  background: var(--needs);
+}
+.is-done .dot {
+  background: var(--done);
+}
+.is-failed .dot {
+  background: var(--failed);
+}
+
+/* ── The pet's window ────────────────────────────────────────────────────────────────────────────────────── */
 
 .stage {
   position: fixed;
   inset: 0;
 }
-
-/* The pet in the window's bottom-left corner: 16 px from the side, 14 px from the bottom (the core places the window
-   around it with room for the shadow). */
+/* The pet in a bottom corner: 16 px from the side, 14 px from the bottom. With a card it keeps the corner away from
+   the screen's edge, the card beside it. */
 .bubble {
   position: absolute;
   left: 16px;
@@ -27,12 +124,15 @@ body,
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.28));
   touch-action: none;
 }
+.stage.is-wide.is-right .bubble {
+  left: auto;
+  right: 16px;
+}
 .bubble:active {
   cursor: grabbing;
 }
-
-/* See-through: the pet fades while the pointer is on it, so what is behind it shows; held, it is solid again. "On it"
-   comes from the core, which knows where the pointer is even while clicks go through the window. */
+/* See-through: the pet fades while the pointer is on it; held, it is solid again. "On it" comes from the core, which
+   knows where the pointer is even while clicks go through the window. */
 .bubble .pet {
   transition: opacity 0.2s ease;
 }
@@ -41,6 +141,530 @@ body,
 }
 .bubble:active .pet {
   opacity: 1;
+}
+
+.beside {
+  position: absolute;
+  bottom: calc(14px + var(--pet-h) * 0.42);
+  width: 300px;
+}
+.stage.is-right .beside {
+  right: calc(12px + var(--pet-w));
+}
+.stage.is-left .beside {
+  left: calc(12px + var(--pet-w));
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px 10px 14px;
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--fg);
+  box-shadow: var(--card-shadow);
+  animation: card-in 0.2s ease-out both;
+}
+.card-body {
+  display: grid;
+  gap: 1px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 650;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.card-line {
+  font-size: 12.5px;
+  color: var(--fg-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding-left: 15px;
+}
+.card-line.is-past {
+  color: var(--fg-3);
+}
+.card-close {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.card:hover .card-close {
+  opacity: 1;
+}
+.card .more {
+  margin-left: auto;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--fg-3);
+}
+
+.approval {
+  gap: 8px;
+  padding: 12px 14px;
+}
+.approval-what {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.approval-detail {
+  margin: 0;
+  max-height: 84px;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--chip);
+  font: 12px/1.45 'Cascadia Code', ui-monospace, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}
+
+/* ── Buttons, switches ───────────────────────────────────────────────────────────────────────────────────── */
+
+.btn {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--hover);
+}
+.btn.is-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.btn.is-primary:hover {
+  opacity: 0.92;
+}
+.btn.is-quiet {
+  border-color: transparent;
+  color: var(--fg-3);
+}
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 16px;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.icon-btn:hover {
+  background: var(--hover);
+}
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 24px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #d4d4d8;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.toggle.is-on {
+  background: var(--accent);
+}
+.toggle .knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.toggle.is-on .knob {
+  transform: translateX(16px);
+}
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--chip);
+}
+.segmented button {
+  height: 28px;
+  padding: 0 12px;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.segmented button.is-on {
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── The sessions list ───────────────────────────────────────────────────────────────────────────────────── */
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--line);
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 46px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+}
+.notice {
+  display: grid;
+  gap: 2px;
+  margin: 10px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--needs) 45%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--needs) 10%, transparent);
+  text-align: left;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.list {
+  flex: 1;
+  margin: 0;
+  padding: 6px 8px;
+  overflow-y: auto;
+  list-style: none;
+}
+.row {
+  padding: 9px 8px;
+  border-radius: 10px;
+}
+.row:hover {
+  background: var(--hover);
+}
+.row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.row-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  font-size: 11.5px;
+  color: var(--fg-2);
+}
+.forget {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  opacity: 0;
+}
+.row:hover .forget,
+.forget:focus-visible {
+  opacity: 1;
+}
+.forget:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+.row-line,
+.row-prompt {
+  padding-left: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.row-line {
+  font-size: 13px;
+  color: var(--fg-2);
+}
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 24px;
+  text-align: center;
+}
+.empty p {
+  margin: 0;
+}
+.sheet-foot {
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+/* ── Settings ────────────────────────────────────────────────────────────────────────────────────────────── */
+
+.settings {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 24px 40px;
+}
+.settings-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+.settings-head h1 {
+  margin: 0;
+  font-size: 22px;
+}
+.settings-head p {
+  margin: 2px 0 0;
+}
+.settings section {
+  margin-top: 22px;
+}
+.settings h2 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+.row-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.row-setting.is-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.row-label {
+  font-weight: 600;
+}
+.choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  text-align: center;
+  cursor: pointer;
+}
+.choice:hover {
+  background: var(--hover);
+}
+.choice[aria-checked='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.choice-name {
+  font-weight: 600;
+}
+.choice-picture {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 96px;
+  border-radius: 10px;
+  background: var(--chip);
+  overflow: hidden;
+}
+.choice-picture.is-size {
+  padding-bottom: 6px;
+}
+.mini-card {
+  position: absolute;
+  top: 10px;
+  left: 8px;
+  right: 46px;
+  display: grid;
+  gap: 1px;
+  padding: 5px 8px;
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: var(--card-shadow);
+  text-align: left;
+}
+.mini-title {
+  font-size: 11px;
+  font-weight: 650;
+}
+.mini-line {
+  font-size: 10.5px;
+  color: var(--fg-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  animation: card-in 0.25s ease-out both;
+}
+.mini-line.is-past {
+  color: var(--fg-3);
+  animation: none;
+}
+.mini-pet {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+}
+.status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.status .dot {
+  margin-top: 6px;
+}
+.status > .grow {
+  display: grid;
+  gap: 2px;
+}
+.status.is-installed .dot {
+  background: var(--done);
+}
+.status.is-missing .dot,
+.status.is-outdated .dot {
+  background: var(--needs);
+}
+.status.is-unreadable .dot {
+  background: var(--failed);
+}
+.plan {
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.plan p {
+  margin: 0 0 8px;
+}
+.diff {
+  max-height: 260px;
+  margin: 0 0 8px;
+  padding: 8px 0;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--chip);
+  font: 12px/1.5 'Cascadia Code', ui-monospace, Consolas, monospace;
+}
+.diff-line {
+  display: block;
+  padding: 0 10px;
+  white-space: pre;
+}
+.diff-line.is-add {
+  background: var(--add);
+  color: var(--add-fg);
+}
+.diff-line.is-del {
+  background: var(--del);
+  color: var(--del-fg);
+}
+.diff-line.is-gap {
+  color: var(--fg-3);
+}
+.ok {
+  color: var(--done);
+}
+.warn {
+  color: var(--failed);
+}
+code {
+  font: 12.5px 'Cascadia Code', ui-monospace, Consolas, monospace;
 }
 
 .icon-stage {

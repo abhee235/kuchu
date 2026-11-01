@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the pet's page may do: hear the core's events and move its own window.",
-  "windows": ["pet"],
-  "permissions": ["core:event:default", "core:window:allow-start-dragging"]
+  "description": "What Kuchu's pages may do: hear the core's events, call its commands, and move the pet's window.",
+  "windows": ["pet", "sessions", "settings"],
+  "permissions": ["core:event:default", "core:window:allow-start-dragging", "core:window:allow-hide"]
 }
