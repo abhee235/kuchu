@@ -1,5 +1,7 @@
 # Kuchu
 
+**To install Kuchu, ask Claude Code to follow [INSTALL.md](INSTALL.md).**
+
 A small desk pet for Claude Code. It sits above your windows and shows what your sessions are doing: it thinks while
 Claude reads your message, works while tools run, waves when a session needs you and hops when one is done. Its card
 says which project and what is happening now, and a permission request can be answered from it.
@@ -21,6 +23,8 @@ Windows and macOS first; Linux later. Work in progress: see [PLAN.md](PLAN.md).
   and connecting to Claude Code: the change to `settings.json` is shown first, and a copy of the file is kept.
 - **Out of the way.** It never takes the focus, and clicks go through everywhere but the pet and its cards. The tray
   icon and Ctrl+Alt+K always bring it back.
+- **Yours alone.** Kuchu is installed for your account only and starts when you sign in, from your account's own list
+  of startup apps. It is never a service and never runs with administrator rights.
 
 ## How it works
 
@@ -34,7 +38,11 @@ Requirements: Rust (stable) and Node 20+.
 
 ```
 cargo build --release -p kuchu-relay
+cd app && npm ci && npx tauri build --no-bundle
 ```
+
+Both end up in `target/release/`. `target/release/kuchu setup` then does what an install does (see INSTALL.md), and
+`kuchu status` says how Kuchu stands.
 
 ## Licence
 
