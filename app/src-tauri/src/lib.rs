@@ -9,7 +9,7 @@ mod prefs;
 mod sessions;
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -36,6 +36,10 @@ const POLL: Duration = Duration::from_millis(40);
 const NEAR: f64 = 4.0;
 /// A drag is over once the window has not moved for this long.
 const SETTLE: Duration = Duration::from_millis(300);
+/// A stroll's pace (logical px a second, as the page expects), each step's time, and the pause before coming back.
+const STROLL_SPEED: f64 = 70.0;
+const FRAME: Duration = Duration::from_millis(16);
+const STROLL_PAUSE: Duration = Duration::from_millis(900);
 /// How long after losing the focus the sessions list checks it really has, before hiding.
 const BLUR_SETTLE: Duration = Duration::from_millis(150);
 /// The shortcut that opens the sessions list from anywhere.
@@ -87,6 +91,10 @@ struct Layout {
     moved: Mutex<Option<Instant>>,
     /// The pointer is on the pet or one of its cards (the window takes the mouse).
     taking: AtomicBool,
+    /// Which way the pet is walking (carried or strolling): -1 left, 1 right, 0 standing.
+    walking: AtomicI32,
+    /// Strolls started; one stops when this moves on (a newer one, or the pet taken in hand).
+    strolls: AtomicU64,
 }
 
 struct Kuchu {
@@ -150,6 +158,13 @@ impl Kuchu {
         let (w, h) = if self.layout.wide.load(Ordering::Relaxed) { (bw + CARD_W, box_of(self.width()).1 + CARD_H) } else { box_of(self.width()) };
         let x = if self.layout.wide.load(Ordering::Relaxed) && self.layout.right.load(Ordering::Relaxed) { w - SIDE - width } else { SIDE };
         Rect { x, y: h - BOTTOM - height, w: width, h: height }
+    }
+
+    /// Moves the window to where the pet is, its size as it is.
+    fn move_window(&self, window: &WebviewWindow) {
+        let scale = window.scale_factor().unwrap_or(1.0);
+        let (x, y, _, _) = self.window_rect(scale);
+        let _ = window.set_position(PhysicalPosition::new(x, y));
     }
 
     fn place(&self, window: &WebviewWindow) {
@@ -264,6 +279,8 @@ pub fn run() {
             set_wide,
             set_rects,
             is_right,
+            stroll,
+            stop_stroll,
             hooks_status,
             hooks_plan,
             hooks_apply,
@@ -295,7 +312,7 @@ pub fn run() {
             let kuchu = Arc::new(Kuchu {
                 prefs: Mutex::new(prefs),
                 prefs_path,
-                layout: Layout { pet: Mutex::new(at), wide: false.into(), right: true.into(), rects: Mutex::new(Vec::new()), moved: Mutex::new(None), taking: false.into() },
+                layout: Layout { pet: Mutex::new(at), wide: false.into(), right: true.into(), rects: Mutex::new(Vec::new()), moved: Mutex::new(None), taking: false.into(), walking: 0.into(), strolls: 0.into() },
                 hub: hub.clone(),
                 relay: Mutex::new(relay),
                 chats,
@@ -312,11 +329,24 @@ pub fn run() {
             {
                 let kuchu = kuchu.clone();
                 let w = window.clone();
+                let seen = Mutex::new(*kuchu.layout.pet.lock().unwrap());
                 window.on_window_event(move |event| {
                     if let WindowEvent::Moved(at) = event {
                         let scale = w.scale_factor().unwrap_or(1.0);
-                        *kuchu.layout.pet.lock().unwrap() = kuchu.pet_from_window(*at, scale);
+                        let now = kuchu.pet_from_window(*at, scale);
+                        *kuchu.layout.pet.lock().unwrap() = now;
                         *kuchu.layout.moved.lock().unwrap() = Some(Instant::now());
+                        // The pet itself moved (dragged, or strolling), not only its window around it: it walks that
+                        // way until it settles.
+                        let before = std::mem::replace(&mut *seen.lock().unwrap(), now);
+                        let (dx, dy) = (now.0 - before.0, now.1 - before.1);
+                        if dx != 0 || dy.abs() >= 2 {
+                            let was = kuchu.layout.walking.load(Ordering::Relaxed);
+                            let dir = if dx != 0 { dx.signum() } else if was != 0 { was } else { 1 };
+                            if kuchu.layout.walking.swap(dir, Ordering::Relaxed) != dir {
+                                let _ = w.emit("kuchu://walk", dir);
+                            }
+                        }
                     }
                 });
             }
@@ -358,6 +388,9 @@ fn follow_pointer(app: AppHandle, window: WebviewWindow, kuchu: Arc<Kuchu>) {
             if settled {
                 *kuchu.layout.moved.lock().unwrap() = None;
                 kuchu.settle(&window);
+                if kuchu.layout.walking.swap(0, Ordering::Relaxed) != 0 {
+                    let _ = window.emit("kuchu://walk", 0);
+                }
             }
             if !window.is_visible().unwrap_or(false) {
                 continue;
@@ -569,6 +602,59 @@ fn set_wide(app: AppHandle, wide: bool) {
 #[tauri::command]
 fn set_rects(app: AppHandle, rects: Vec<Rect>) {
     *kuchu(&app).layout.rects.lock().unwrap() = rects;
+}
+
+/// A short stroll and back, when Kuchu has nothing to do: it walks `dx` logical px along its screen (the page sends
+/// it toward the middle), stops a moment, and comes home. Returns how far it goes; 0 when it stays (a card shows, the
+/// pointer is on it, it is being moved, or there is no room).
+#[tauri::command]
+fn stroll(app: AppHandle, dx: f64) -> f64 {
+    let k = kuchu(&app);
+    let Some(window) = app.get_webview_window("pet") else { return 0.0 };
+    let busy = k.layout.wide.load(Ordering::Relaxed) || k.layout.taking.load(Ordering::Relaxed) || k.layout.moved.lock().unwrap().is_some();
+    if busy {
+        return 0.0;
+    }
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let home = *k.layout.pet.lock().unwrap();
+    let (bw, _) = box_of(k.width());
+    let Ok(Some(monitor)) = window.monitor_from_point(home.0 as f64 + bw * scale / 2.0, home.1 as f64) else { return 0.0 };
+    let area = monitor.work_area();
+    let (lo, hi) = (area.position.x as f64, area.position.x as f64 + area.size.width as f64 - bw * scale);
+    let to = (home.0 as f64 + dx * scale).clamp(lo, hi.max(lo)).round() as i32;
+    let far = to - home.0;
+    if (far.abs() as f64) < 4.0 * scale {
+        return 0.0;
+    }
+    let nth = k.layout.strolls.fetch_add(1, Ordering::Relaxed) + 1;
+    let step = (STROLL_SPEED * scale * FRAME.as_secs_f64()).max(1.0);
+    std::thread::spawn(move || {
+        let walk = |from: i32, to: i32| {
+            let n = ((to - from).abs() as f64 / step).ceil().max(1.0) as i32;
+            for i in 1..=n {
+                std::thread::sleep(FRAME);
+                if k.layout.strolls.load(Ordering::Relaxed) != nth {
+                    return false;
+                }
+                k.layout.pet.lock().unwrap().0 = from + ((to - from) as f64 * i as f64 / n as f64).round() as i32;
+                k.move_window(&window);
+            }
+            true
+        };
+        if walk(home.0, to) {
+            std::thread::sleep(STROLL_PAUSE);
+            if k.layout.strolls.load(Ordering::Relaxed) == nth {
+                walk(to, home.0);
+            }
+        }
+    });
+    far as f64 / scale
+}
+
+/// The pet taken in hand: a stroll under way stops where it is.
+#[tauri::command]
+fn stop_stroll(app: AppHandle) {
+    kuchu(&app).layout.strolls.fetch_add(1, Ordering::Relaxed);
 }
 
 #[tauri::command]

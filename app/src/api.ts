@@ -85,6 +85,8 @@ export interface Prefs {
   sounds: boolean
   click: 'sessions' | 'settings'
   approvals: boolean
+  /** With no work, Kuchu plays now and then and naps after a long quiet. */
+  lively: boolean
   /** Folders conversations were started in from Kuchu, the latest first. */
   folders: string[]
 }
@@ -126,6 +128,8 @@ export const core = {
   setWide: (wide: boolean) => invoke('set_wide', { wide }),
   setRects: (rects: { x: number; y: number; w: number; h: number }[]) => invoke('set_rects', { rects }),
   isRight: () => invoke<boolean>('is_right'),
+  stroll: (dx: number) => invoke<number>('stroll', { dx }),
+  stopStroll: () => invoke('stop_stroll'),
   hooksStatus: () => invoke<HookReport>('hooks_status'),
   hooksPlan: (install: boolean) => invoke<HookPlan>('hooks_plan', { install }),
   hooksApply: (install: boolean, fingerprint: string) => invoke<{ backup: string | null; report: HookReport }>('hooks_apply', { install, fingerprint }),

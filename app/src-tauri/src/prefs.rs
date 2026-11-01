@@ -20,6 +20,8 @@ pub struct Prefs {
     pub click: String,
     /// Permission requests are shown on Kuchu, with Allow and Deny.
     pub approvals: bool,
+    /// With no work, Kuchu plays now and then (stretches, yawns, strolls) and naps after a long quiet.
+    pub lively: bool,
     /// Where the pet was left (its box's top-left, physical px), so it comes back there.
     pub at: Option<(i32, i32)>,
     /// Folders conversations were started in from Kuchu, the latest first.
@@ -31,7 +33,7 @@ const FOLDERS: usize = 6;
 
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, sounds: true, click: "sessions".into(), approvals: true, at: None, folders: Vec::new() }
+        Prefs { size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, sounds: true, click: "sessions".into(), approvals: true, lively: true, at: None, folders: Vec::new() }
     }
 }
 

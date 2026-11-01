@@ -96,6 +96,17 @@
 }
 .pet-pointer {
   transform-origin: 66px 39px;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+.pet-leg-l {
+  transform-origin: 49.5px 124px;
+}
+.pet-leg-r {
+  transform-origin: 70.5px 124px;
+}
+/* Carried or strolling, it leans the way it goes, from its feet. */
+.pet svg {
+  transform-origin: 50% 92%;
   transition: transform 0.25s ease;
 }
 .pet-arm-l {
@@ -136,6 +147,54 @@
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.3s ease, transform 0.4s ease;
+}
+/* The faces of its idle life, hidden until a moment shows them. */
+.pet-shut,
+.pet-yawn,
+.pet-o,
+.pet-heart {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.pet-heart,
+.pet-love-heart {
+  fill: #ff6f8e;
+}
+.pet-heart,
+.pet-love-heart,
+.pet-yawn,
+.pet-z {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.pet-face-alt,
+.pet-scan,
+.pet-zs,
+.pet-notes,
+.pet-love,
+.pet-note {
+  opacity: 0;
+}
+.pet-dim {
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.pet-z {
+  fill: none;
+  stroke: #b3a796;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pet-note circle {
+  fill: #ee8a1e;
+}
+.pet-note path {
+  fill: none;
+  stroke: #ee8a1e;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* A blink closes both eyes, a wink the dot alone; a glance looks left, then right. */
@@ -294,6 +353,208 @@
 /* The panel's home: a slow float. */
 .pet.is-float .pet-whole {
   animation: pet-drift 5s ease-in-out infinite;
+}
+
+/* ── Its own life with no work (the pet beside your windows) ── */
+
+/* Eyes shut: napping, stretching, yawning. */
+.pet:is(.is-asleep, .is-m-stretch, .is-m-yawn) :is(.pet-eye-dot, .pet-pointer) {
+  opacity: 0;
+}
+.pet:is(.is-asleep, .is-m-stretch, .is-m-yawn) .pet-shut {
+  opacity: 1;
+}
+.pet:is(.is-asleep, .is-m-stretch, .is-m-yawn, .is-m-whistle, .is-m-tap) .pet-smile {
+  opacity: 0;
+}
+
+/* A stretch: both arms up, rising a little, a small "o". */
+.pet.is-m-stretch .pet-arm-l {
+  animation: pet-reach-l 2.4s ease-in-out;
+}
+.pet.is-m-stretch .pet-arm-r {
+  animation: pet-reach-r 2.4s ease-in-out;
+}
+.pet.is-m-stretch .pet-whole {
+  animation: pet-reach 2.4s ease-in-out;
+}
+.pet.is-m-stretch .pet-o {
+  opacity: 1;
+}
+
+/* A yawn: the mouth opening wide, the head back, the arms out. */
+.pet.is-m-yawn .pet-yawn {
+  opacity: 1;
+  animation: pet-yawn 2.6s ease-in-out both;
+}
+.pet.is-m-yawn .pet-head {
+  animation: pet-yawn-head 2.6s ease-in-out;
+}
+.pet.is-m-yawn .pet-arm-l {
+  transform: rotate(22deg);
+}
+.pet.is-m-yawn .pet-arm-r {
+  transform: rotate(-22deg);
+}
+
+/* Looking around: the head to one side, then the other, the eyes leading. */
+.pet.is-m-look .pet-head {
+  animation: pet-look-head 2.6s ease-in-out;
+}
+.pet.is-m-look .pet-face {
+  animation: pet-look-face 2.6s ease-in-out;
+}
+
+/* Bored: a foot tapping, eyes half closed, a flat mouth, the head on one side. */
+.pet.is-m-tap .pet-leg-r {
+  animation: pet-tap-foot 0.5s ease-in-out 6;
+}
+.pet.is-m-tap .pet-eye {
+  transform: scaleY(0.5);
+}
+.pet.is-m-tap .pet-pointer {
+  transform: rotate(14deg) scale(0.9);
+}
+.pet.is-m-tap .pet-hmm {
+  opacity: 1;
+}
+.pet.is-m-tap .pet-head {
+  transform: rotate(6deg);
+}
+.pet.is-m-tap .pet-arm-l {
+  transform: rotate(-12deg);
+}
+
+/* Its screen flips to another face, a line sweeping it, and back. */
+.pet.is-m-flip .pet-face {
+  animation: pet-flip-out 2.6s ease-in-out;
+}
+.pet.is-m-flip .pet-face-alt {
+  animation: pet-flip-in 2.6s ease-in-out;
+}
+.pet.is-m-flip .pet-scan {
+  animation: pet-scan 2.6s linear;
+}
+
+/* Whistling: a small "o", eyes up, notes rising, a sway. */
+.pet.is-m-whistle .pet-o {
+  opacity: 1;
+}
+.pet.is-m-whistle .pet-face {
+  --lx: 2px;
+  --ly: -2px;
+}
+.pet.is-m-whistle .pet-notes {
+  opacity: 1;
+}
+.pet.is-m-whistle .pet-note {
+  animation: pet-note 1.5s ease-out 2 both;
+}
+.pet.is-m-whistle .pet-note2 {
+  animation-delay: 0.7s;
+}
+.pet.is-m-whistle .pet-whole {
+  animation: pet-sway 1.5s ease-in-out 2;
+}
+
+/* Napping: the screen dim, eyes shut, the head dropped, slow breaths, a z now and then. */
+.pet.is-asleep .pet-dim {
+  opacity: 0.35;
+}
+.pet.is-asleep .pet-o {
+  opacity: 0.8;
+}
+.pet.is-asleep .pet-bulb {
+  opacity: 0.45;
+}
+.pet.is-asleep .pet-head {
+  transform: rotate(-6deg) translateY(1px);
+}
+.pet.is-asleep .pet-face {
+  --lx: 0px;
+  --ly: 1px;
+}
+.pet.is-asleep .pet-whole {
+  animation: pet-breathe 4.5s ease-in-out infinite;
+}
+.pet.is-asleep .pet-zs {
+  opacity: 1;
+}
+.pet.is-asleep .pet-z {
+  animation: pet-z 4.5s ease-out infinite both;
+}
+.pet.is-asleep .pet-z2 {
+  animation-delay: 1.5s;
+}
+.pet.is-asleep .pet-z3 {
+  animation-delay: 3s;
+}
+
+/* Under the pointer: a happy eye, a little perk. */
+.pet.is-hovered .pet-eye-dot {
+  opacity: 0;
+}
+.pet.is-hovered .pet-happy {
+  opacity: 1;
+}
+.pet.is-hovered .pet-whole {
+  animation: pet-perk 0.5s ease-out;
+}
+
+/* Petted: heart eyes beating, hearts rising, a wiggle. */
+.pet.is-petted :is(.pet-eye-dot, .pet-pointer, .pet-happy) {
+  opacity: 0;
+}
+.pet.is-petted .pet-heart {
+  opacity: 1;
+  animation: pet-beat 0.45s ease-in-out infinite;
+}
+.pet.is-petted .pet-love {
+  opacity: 1;
+}
+.pet.is-petted .pet-love-heart {
+  animation: pet-rise 1.6s ease-out both;
+}
+.pet.is-petted .pet-love2 {
+  animation-delay: 0.35s;
+}
+.pet.is-petted .pet-whole {
+  animation: pet-wiggle 0.6s ease-in-out 2;
+}
+
+/* Walking, carried or strolling: feet stepping in turn, arms swinging, a bob, leaning and looking the way it goes.
+   Last, so it wins over any mood's own moves. */
+.pet.is-walking .pet-leg-l {
+  animation: pet-step 0.44s ease-in-out infinite;
+}
+.pet.is-walking .pet-leg-r {
+  animation: pet-step 0.44s ease-in-out -0.22s infinite;
+}
+.pet.is-walking .pet-arm-l {
+  animation: pet-swing 0.44s ease-in-out infinite;
+}
+.pet.is-walking .pet-arm-r {
+  animation: pet-swing 0.44s ease-in-out -0.22s infinite;
+}
+.pet.is-walking .pet-whole {
+  animation: pet-stride 0.22s ease-in-out infinite alternate;
+}
+.pet.is-walking .pet-laptop {
+  opacity: 0;
+}
+.pet.is-walk-left svg {
+  transform: rotate(-5deg);
+}
+.pet.is-walk-right svg {
+  transform: rotate(5deg);
+}
+.pet.is-walk-left .pet-face {
+  --lx: -5px;
+  --ly: 0px;
+}
+.pet.is-walk-right .pet-face {
+  --lx: 5px;
+  --ly: 0px;
 }
 
 @keyframes pet-type-l {
@@ -467,6 +728,284 @@
   }
   50% {
     transform: rotate(2deg);
+  }
+}
+
+@keyframes pet-reach-l {
+  0%,
+  100% {
+    transform: none;
+  }
+  25%,
+  75% {
+    transform: rotate(160deg);
+  }
+}
+@keyframes pet-reach-r {
+  0%,
+  100% {
+    transform: none;
+  }
+  25%,
+  75% {
+    transform: rotate(-160deg);
+  }
+}
+@keyframes pet-reach {
+  0%,
+  100% {
+    transform: none;
+  }
+  30%,
+  70% {
+    transform: translateY(-3px) scaleY(1.03);
+  }
+}
+@keyframes pet-yawn {
+  0% {
+    transform: scale(0.3);
+  }
+  30%,
+  70% {
+    transform: scale(1.15, 1.3);
+  }
+  100% {
+    transform: scale(0.4);
+  }
+}
+@keyframes pet-yawn-head {
+  0%,
+  100% {
+    transform: none;
+  }
+  35%,
+  65% {
+    transform: rotate(-5deg) translateY(-1px);
+  }
+}
+@keyframes pet-look-head {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  40% {
+    transform: rotate(-8deg);
+  }
+  60%,
+  80% {
+    transform: rotate(8deg);
+  }
+}
+@keyframes pet-look-face {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  40% {
+    transform: translate(-6px, -1px);
+  }
+  60%,
+  80% {
+    transform: translate(6px, -1px);
+  }
+}
+@keyframes pet-tap-foot {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(-2px) rotate(-10deg);
+  }
+}
+/* The face slides off to the left, hidden while it goes round, and comes back from the right. */
+@keyframes pet-flip-out {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  12% {
+    transform: translateX(-80px);
+    opacity: 1;
+  }
+  12.5%,
+  84% {
+    opacity: 0;
+  }
+  84% {
+    transform: translateX(80px);
+  }
+  84.5% {
+    transform: translateX(80px);
+    opacity: 1;
+  }
+  96%,
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes pet-flip-in {
+  0%,
+  12% {
+    transform: translateX(80px);
+    opacity: 0;
+  }
+  12.5% {
+    opacity: 1;
+  }
+  24%,
+  76% {
+    transform: none;
+    opacity: 1;
+  }
+  88% {
+    transform: translateX(-80px);
+    opacity: 1;
+  }
+  88.5%,
+  100% {
+    transform: translateX(-80px);
+    opacity: 0;
+  }
+}
+@keyframes pet-scan {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  3% {
+    opacity: 0.5;
+  }
+  14% {
+    transform: translateY(48px);
+    opacity: 0.5;
+  }
+  16%,
+  78% {
+    transform: translateY(48px);
+    opacity: 0;
+  }
+  80% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  92% {
+    transform: translateY(48px);
+    opacity: 0.5;
+  }
+  94%,
+  100% {
+    transform: translateY(48px);
+    opacity: 0;
+  }
+}
+@keyframes pet-note {
+  0% {
+    transform: translate(0, 4px);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(8px, -18px) rotate(12deg);
+    opacity: 0;
+  }
+}
+@keyframes pet-z {
+  0% {
+    transform: translate(0, 4px) scale(0.7);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    transform: translate(6px, -8px) scale(1.1);
+    opacity: 0;
+  }
+}
+@keyframes pet-breathe {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: scale(1.012, 0.99);
+  }
+}
+@keyframes pet-perk {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(-3px);
+  }
+}
+@keyframes pet-beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+@keyframes pet-rise {
+  0% {
+    transform: translateY(6px) scale(0.6);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-14px) scale(1);
+    opacity: 0;
+  }
+}
+@keyframes pet-wiggle {
+  0%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: rotate(-4deg);
+  }
+  75% {
+    transform: rotate(4deg);
+  }
+}
+@keyframes pet-step {
+  0%,
+  50%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateY(-3.5px) rotate(-4deg);
+  }
+}
+@keyframes pet-swing {
+  0%,
+  100% {
+    transform: rotate(14deg);
+  }
+  50% {
+    transform: rotate(-14deg);
+  }
+}
+@keyframes pet-stride {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateY(-1.5px);
   }
 }
 

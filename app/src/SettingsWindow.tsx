@@ -73,6 +73,12 @@ export function SettingsWindow() {
               <Row label="See-through under the pointer" desc="Kuchu fades while your pointer is on it, so what is behind it shows. It still takes clicks and drags.">
                 <Toggle label="See-through under the pointer" on={prefs.seeThrough} set={(seeThrough) => set({ seeThrough })} />
               </Row>
+              <Row
+                label="Plays when there is no work"
+                desc="Now and then Kuchu stretches, yawns, looks around, taps a foot, flips its screen, whistles or takes a short walk. After a few quiet minutes it naps; your pointer or a session wakes it."
+              >
+                <Toggle label="Plays when there is no work" on={prefs.lively} set={(lively) => set({ lively })} />
+              </Row>
               <Row label="Sounds" desc="A short tone when a session needs you, and when one is done or did not finish.">
                 <div className="inline">
                   <button type="button" className="btn is-small" onClick={() => TONE_MOODS.forEach((m, i) => setTimeout(() => playTone(m), i * 750))}>

@@ -5,7 +5,7 @@
 
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { List, MessageCircleQuestion, ShieldAlert, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { core, on, SIZES, type Approval, type Card, type Prefs, type View } from './api'
 import { Pet } from './pet/Pet'
 import { lookToward } from './pet/petMood'
@@ -27,6 +27,11 @@ const SETTLING_MS = 600
 /** How long an answer stays beside the pet (unless Settings keeps it), then how long it takes to fade. */
 const ANSWER_MS = 8000
 const FADE_MS = 350
+/** The pointer this close to the pet's centre wakes it from a nap. */
+const NEAR_PX = 150
+/** Petting: the pointer turning back this many times over the pet within this long. */
+const PET_TURNS = 4
+const PET_WITHIN_MS = 1500
 
 const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
 
@@ -37,6 +42,10 @@ export function PetWindow() {
   const [look, setLook] = useState({ x: 0, y: 0 })
   const [over, setOver] = useState(false)
   const [onCard, setOnCard] = useState(false)
+  const [near, setNear] = useState(false)
+  const [walk, setWalk] = useState(0)
+  const [petted, setPetted] = useState<number | undefined>()
+  const stroke = useRef({ x: 0, way: 0, turns: [] as number[] })
   const [closed, setClosed] = useState<string | null>(null)
   const [leaving, setLeaving] = useState<string | null>(null)
 
@@ -52,7 +61,21 @@ export function PetWindow() {
         setLook(lookToward(p))
         setOver(p.over)
         setOnCard(p.card)
+        setNear(Math.hypot(p.dx, p.dy) < NEAR_PX)
+        // Petting: the pointer going to and fro over the pet.
+        const s = stroke.current
+        const way = Math.sign(p.dx - s.x)
+        s.x = p.dx
+        if (!p.over || way === 0) return
+        const now = performance.now()
+        if (s.way !== 0 && way !== s.way) s.turns = [...s.turns.filter((t) => now - t < PET_WITHIN_MS), now]
+        s.way = way
+        if (s.turns.length >= PET_TURNS) {
+          s.turns = []
+          setPetted(Date.now())
+        }
       }),
+      on<number>('walk', setWalk),
     ]
     return () => offs.forEach((off) => off())
   }, [])
@@ -110,6 +133,9 @@ export function PetWindow() {
     return () => window.removeEventListener('resize', again)
   }, [])
 
+  // A stroll goes toward the middle of the screen: left from the right half, right from the left.
+  const stroll = useCallback((d: number) => core.stroll(right ? -d : d), [right])
+
   const press = useRef<{ x: number; y: number } | null>(null)
   const width = SIZES[prefs?.size ?? 'base']
   const height = Math.round((width * 154) / 120)
@@ -133,7 +159,9 @@ export function PetWindow() {
         role="button"
         aria-label={`Kuchu: ${mood}`}
         onPointerDown={(e) => {
-          if (e.button === 0) press.current = { x: e.screenX, y: e.screenY }
+          if (e.button !== 0) return
+          press.current = { x: e.screenX, y: e.screenY }
+          if (walk) void core.stopStroll()
         }}
         onPointerMove={(e) => {
           const p = press.current
@@ -147,7 +175,17 @@ export function PetWindow() {
           void core.petClicked()
         }}
       >
-        <Pet size={width} mood={mood} look={look} />
+        <Pet
+          size={width}
+          mood={mood}
+          look={look}
+          lively={prefs?.lively ?? true}
+          near={near}
+          over={over}
+          walk={walk}
+          petted={petted}
+          stroll={stroll}
+        />
       </div>
     </div>
   )

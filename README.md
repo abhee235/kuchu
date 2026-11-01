@@ -14,6 +14,8 @@ Windows and macOS first; Linux later. Work in progress: see [PLAN.md](PLAN.md).
 - **Talk to Claude from Kuchu.** Start a conversation in a folder from the sessions list, answer it, stop it, or take
   it on in a terminal. Sessions started in a terminal or an editor are followed, not typed into: Claude Code takes
   their messages only there.
+- **A life of its own.** With no work it stretches, yawns, looks around, taps a foot, flips its screen, whistles or
+  takes a short walk, and naps after a few quiet minutes. It walks when you drag it and likes being petted.
 - **Its own Settings.** Size, see-through under the pointer, sounds, what shows beside the pet, what a click opens,
   and connecting to Claude Code: the change to `settings.json` is shown first, and a copy of the file is kept.
 - **Out of the way.** It never takes the focus, and clicks go through everywhere but the pet and its cards. The tray
