@@ -1,0 +1,8 @@
+[package]
+name = "kuchu-wire"
+version = "0.1.0"
+edition = "2021"
+description = "What the relay and Kuchu share: where they meet, and the time each step may take."
+license = "MIT"
+
+[dependencies]

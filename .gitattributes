@@ -1,0 +1,5 @@
+# Text files are kept with LF endings on every system Kuchu is built on.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.icns binary

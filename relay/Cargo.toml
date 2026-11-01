@@ -10,4 +10,5 @@ name = "kuchu-relay"
 path = "src/main.rs"
 
 [dependencies]
+kuchu-wire = { path = "../wire" }
 serde_json = "1"
