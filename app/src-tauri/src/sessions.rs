@@ -544,7 +544,8 @@ pub fn said_before(transcript: &str, tool: &str) -> Option<(String, String)> {
     None
 }
 
-/// The last `bytes` of a file, as text (a line cut at the start is dropped by whoever reads it).
+/// The last `bytes` of a file, as text (a line cut at the start is dropped by whoever reads it). Every read of a
+/// transcript goes through here, so what may be opened is decided in one place.
 fn tail_of(path: &str, bytes: u64) -> Option<String> {
     use std::io::{Read, Seek, SeekFrom};
     let mut file = std::fs::File::open(path).ok()?;
@@ -558,13 +559,7 @@ fn tail_of(path: &str, bytes: u64) -> Option<String> {
 /// The session's name as Claude Code keeps it at the end of its transcript: the name it was renamed to, else the
 /// latest title Claude Code gave it. Only the end of the file is read (Claude Code writes the title again as it goes).
 pub fn title_in(transcript: &str) -> Option<String> {
-    use std::io::{Read, Seek, SeekFrom};
-    let mut file = std::fs::File::open(transcript).ok()?;
-    let len = file.metadata().ok()?.len();
-    file.seek(SeekFrom::Start(len.saturating_sub(NAME_TAIL))).ok()?;
-    let mut bytes = Vec::new();
-    file.take(NAME_TAIL).read_to_end(&mut bytes).ok()?;
-    let tail = String::from_utf8_lossy(&bytes);
+    let tail = tail_of(transcript, NAME_TAIL)?;
     let field = |line: &str, key: &str| -> Option<String> {
         let v: Value = serde_json::from_str(line).ok()?;
         let t = one_line(v.get(key)?.as_str()?);
