@@ -9,7 +9,8 @@ Windows and macOS first; Linux later. Work in progress: see [PLAN.md](PLAN.md).
 ## What it does
 
 - **Every session, on its own card.** Beside the pet: the project and what Claude is doing now (or the answer's first
-  line once done, for a few seconds), in one line or a few. A click on the pet lists every session.
+  line once done, for a few seconds), in one line or a few. With several at work, "+N" lists the others and switches
+  the card to the one you pick. A click on the pet lists every session.
 - **Permission requests on the pet.** Allow, Deny, or hand it back to Claude Code. Nothing is allowed without a click.
 - **Talk to Claude from Kuchu.** Start a conversation in a folder from the sessions list, answer it, stop it, or take
   it on in a terminal. Sessions started in a terminal or an editor are followed, not typed into: Claude Code takes

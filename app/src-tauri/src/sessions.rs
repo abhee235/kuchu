@@ -117,6 +117,7 @@ impl Session {
 #[serde(rename_all = "camelCase")]
 pub struct Card {
     pub session: String,
+    /// What the session is called.
     pub title: String,
     pub line: String,
     /// Where `line` stands, when it is a step.
@@ -125,6 +126,19 @@ pub struct Card {
     pub mood: Mood,
     /// When its turn ended, or started while it is under way: a card hidden for one turn comes back for the next.
     pub at: u64,
+    /// The other sessions at work or waiting on you, the latest first: the card can be switched to any of them.
+    pub others: Vec<Other>,
+    /// The card shows this session because it was chosen, not because it is the latest.
+    pub pinned: bool,
+}
+
+/// Another session at work, as the card lists it.
+#[derive(Clone, Serialize, Debug, PartialEq)]
+pub struct Other {
+    pub session: String,
+    pub name: String,
+    pub mood: Mood,
+    pub line: String,
 }
 
 #[derive(Default)]
@@ -132,6 +146,8 @@ pub struct Sessions {
     all: HashMap<String, Session>,
     /// When the pet was last clicked: a done or failed session from before is seen.
     seen_at: u64,
+    /// The session the card was switched to: it stays there while that session works.
+    followed: Option<String>,
 }
 
 impl Sessions {
@@ -255,6 +271,10 @@ impl Sessions {
             }
             _ => return false,
         }
+        // The session the card was switched to is done with its turn: the card follows the latest again.
+        if matches!(event, "Stop" | "StopFailure") && self.followed.as_deref() == Some(id) {
+            self.followed = None;
+        }
         true
     }
 
@@ -340,21 +360,39 @@ impl Sessions {
     pub fn card(&self) -> Option<Card> {
         let mut all: Vec<&Session> = self.all.values().collect();
         all.sort_by_key(|s| std::cmp::Reverse(s.updated));
+        let busy = |s: &&&Session| matches!(s.mood, Mood::Thinking | Mood::Working | Mood::Needs);
+        let followed = self.followed.as_ref().and_then(|id| all.iter().filter(busy).find(|s| &s.id == id));
         let pick = all
             .iter()
             .find(|s| s.mood == Mood::Needs)
+            .or(followed)
             .or_else(|| all.iter().find(|s| matches!(s.mood, Mood::Thinking | Mood::Working)))
             .or_else(|| all.iter().find(|s| self.unseen(s)))?;
-        let others = all.iter().filter(|s| s.id != pick.id && matches!(s.mood, Mood::Thinking | Mood::Working | Mood::Needs)).count();
+        let others = all
+            .iter()
+            .filter(busy)
+            .filter(|s| s.id != pick.id)
+            .map(|s| Other { session: s.id.clone(), name: s.name.clone(), mood: s.mood, line: s.line.clone() })
+            .collect();
         Some(Card {
             session: pick.id.clone(),
-            title: if others > 0 { format!("{} · +{}", pick.name, others) } else { pick.name.clone() },
+            title: pick.name.clone(),
+            others,
+            pinned: self.followed.as_deref() == Some(pick.id.as_str()),
             line: pick.line.clone(),
             progress: pick.lines.last().filter(|l| l.text == pick.line).and_then(|l| l.progress),
             lines: pick.lines.clone(),
             mood: pick.mood,
             at: pick.ended.unwrap_or(pick.turn),
         })
+    }
+
+    /// The card switched to session `id` (it stays there while that session works), or back to the latest (`None`).
+    pub fn follow(&mut self, id: Option<String>) -> bool {
+        let id = id.filter(|id| self.all.contains_key(id));
+        let changed = self.followed != id;
+        self.followed = id;
+        changed
     }
 
     /// Every session, the latest first.
@@ -648,7 +686,8 @@ mod tests {
         let b = serde_json::json!({ "session_id": "b", "cwd": "/home/me/beta" });
         s.apply("UserPromptSubmit", &a, 1);
         s.apply("PreToolUse", &serde_json::json!({ "session_id": "b", "cwd": "/home/me/beta", "tool_name": "Read", "tool_input": { "file_path": "/home/me/beta/src/main.rs" } }), 2);
-        assert_eq!(s.card().unwrap().title, "beta · +1");
+        let card = s.card().unwrap();
+        assert_eq!((card.title.as_str(), card.others.len(), card.others[0].name.as_str()), ("beta", 1, "alpha"));
         assert_eq!(s.card().unwrap().line, "Reading main.rs");
         s.apply("Stop", &serde_json::json!({ "session_id": "b", "last_assistant_message": "## Fixed\nThe test passes." }), 3);
         // b is done, but a still thinks: the card follows the busy one.
@@ -657,6 +696,24 @@ mod tests {
         s.apply("SessionEnd", &a, 4);
         assert_eq!(s.card().unwrap().line, "Fixed");
         let _ = b;
+    }
+
+    #[test]
+    fn the_card_stays_on_a_chosen_session_while_it_works() {
+        let mut s = Sessions::default();
+        let tool = |id: &str, file: &str| serde_json::json!({ "session_id": id, "cwd": format!("/x/{id}"), "tool_name": "Read", "tool_input": { "file_path": file } });
+        for (i, id) in ["a", "b", "c"].iter().enumerate() {
+            s.apply("PreToolUse", &tool(id, "x.rs"), i as u64 + 1);
+        }
+        assert_eq!(s.card().unwrap().title, "c");
+        assert!(s.follow(Some("a".into())));
+        s.apply("PreToolUse", &tool("b", "y.rs"), 10);
+        let card = s.card().unwrap();
+        assert_eq!((card.title.as_str(), card.pinned, card.others.len()), ("a", true, 2));
+        // Its turn over, the card follows the latest again; a session that is gone cannot be chosen.
+        s.apply("Stop", &serde_json::json!({ "session_id": "a", "last_assistant_message": "ok" }), 11);
+        assert_eq!((s.card().unwrap().title.as_str(), s.card().unwrap().pinned), ("b", false));
+        assert!(!s.follow(Some("nobody".into())));
     }
 
     #[test]

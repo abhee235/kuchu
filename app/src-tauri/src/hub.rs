@@ -126,6 +126,13 @@ impl Hub {
         }
     }
 
+    /// The card switched to `session`, or back to the latest.
+    pub fn follow(&self, session: Option<String>) {
+        if self.inner.lock().unwrap().sessions.follow(session) {
+            self.publish();
+        }
+    }
+
     pub fn forget(&self, session: &str) {
         if self.inner.lock().unwrap().sessions.forget(session) {
             self.publish();

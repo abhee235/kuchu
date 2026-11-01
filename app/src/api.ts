@@ -37,6 +37,18 @@ export interface Card {
   mood: PetMood
   /** When its turn ended, or started while it is under way. */
   at: number
+  /** The other sessions at work or waiting on you, the latest first: the card can be switched to any of them. */
+  others: Other[]
+  /** The card shows this session because it was chosen, not because it is the latest. */
+  pinned: boolean
+}
+
+/** Another session at work, as the card lists it. */
+export interface Other {
+  session: string
+  name: string
+  mood: PetMood
+  line: string
 }
 
 export interface Approval {
@@ -130,6 +142,7 @@ export const core = {
   isRight: () => invoke<boolean>('is_right'),
   stroll: (dx: number) => invoke<number>('stroll', { dx }),
   stopStroll: () => invoke('stop_stroll'),
+  follow: (session: string | null) => invoke('follow', { session }),
   hooksStatus: () => invoke<HookReport>('hooks_status'),
   hooksPlan: (install: boolean) => invoke<HookPlan>('hooks_plan', { install }),
   hooksApply: (install: boolean, fingerprint: string) => invoke<{ backup: string | null; report: HookReport }>('hooks_apply', { install, fingerprint }),

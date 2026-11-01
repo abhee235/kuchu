@@ -4,7 +4,7 @@
 // and sends the sessions as one view; this page draws them, moves the pet, and plays its tones.
 
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { List, MessageCircleQuestion, ShieldAlert, X } from 'lucide-react'
+import { List, MessageCircleQuestion, Pin, PinOff, ShieldAlert, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { core, on, SIZES, type Approval, type Card, type Prefs, type View } from './api'
 import { Pet } from './pet/Pet'
@@ -34,6 +34,8 @@ const PET_TURNS = 4
 const PET_WITHIN_MS = 1500
 /** Tones closer together than this ring once. */
 const TONE_GAP_MS = 1200
+/** The list of other sessions stays this long after the pointer leaves it. */
+const LIST_LINGER_MS = 300
 
 const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
 
@@ -124,7 +126,8 @@ export function PetWindow() {
   const sent = useRef('')
   const [, setResized] = useState(0)
   useLayoutEffect(() => {
-    const parts = [petRef.current, sideRef.current].filter((el): el is HTMLDivElement => !!el)
+    // The list of other sessions opens above the card, outside it: it takes the mouse too.
+    const parts = [petRef.current, sideRef.current, ...document.querySelectorAll<HTMLElement>('.card-others')].filter((el): el is HTMLElement => !!el)
     const rects = parts.map((el) => {
       const r = el.getBoundingClientRect()
       return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }
@@ -204,8 +207,23 @@ function cardKey(card: Card) {
   return `${card.session}:${card.mood}:${card.at}`
 }
 
-/** Which session, and what it is doing now (or the answer's first lines once done). A click opens the sessions. */
+/** Which session, and what it is doing now (or the answer's first lines once done). A click opens the sessions. With
+ *  other sessions at work, "+N" (hovered or clicked) lists them, and a click on one switches the card to it. */
 function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boolean; leaving: boolean; onClose: () => void }) {
+  const [list, setList] = useState(false)
+  const shut = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const open = () => {
+    clearTimeout(shut.current)
+    setList(true)
+  }
+  const close = () => {
+    clearTimeout(shut.current)
+    shut.current = setTimeout(() => setList(false), LIST_LINGER_MS)
+  }
+  const follow = (session: string | null) => {
+    void core.follow(session)
+    setList(false)
+  }
   // Steps read up to the one under way, each marked running, done or failed, with what Claude said between them; an
   // answer reads down from its first line.
   const answer = card.mood === 'done'
@@ -218,9 +236,18 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
     </span>
   ))
   return (
-    <div className={`card${lines ? ' is-lines' : ''}${leaving ? ' is-leaving' : ''}`} role="status" aria-live="polite">
+    <div
+      className={`card${lines ? ' is-lines' : ''}${leaving ? ' is-leaving' : ''}`}
+      role="status"
+      aria-live="polite"
+      onPointerEnter={() => clearTimeout(shut.current)}
+      onPointerLeave={close}
+    >
       <button type="button" className="card-body" onClick={() => void core.openSessions(card.session)} title="Your sessions">
-        <span className="card-title">{card.title}</span>
+        <span className="card-title">
+          {card.pinned && <Pin className="card-pin" aria-label="Chosen" />}
+          {card.title}
+        </span>
         {!answer && more}
         <span className="card-line">
           {card.progress && <StepMark progress={card.progress} />}
@@ -228,6 +255,19 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
         </span>
         {answer && more}
       </button>
+      {card.others.length > 0 && (
+        <button
+          type="button"
+          className="card-more"
+          aria-expanded={list}
+          aria-label={`${card.others.length} more at work: switch to one`}
+          title="Switch to another session"
+          onPointerEnter={open}
+          onClick={open}
+        >
+          +{card.others.length}
+        </button>
+      )}
       <span className="card-actions">
         <button type="button" aria-label="Your sessions" title="Your sessions" onClick={() => void core.openSessions()}>
           <List size={16} />
@@ -236,6 +276,23 @@ function SessionCard({ card, lines, leaving, onClose }: { card: Card; lines: boo
       <button type="button" className="card-close" aria-label="Hide this" title="Hide this" onClick={onClose}>
         <X size={12} strokeWidth={3} />
       </button>
+      {list && (
+        <div className="card-others" role="menu" aria-label="Sessions at work">
+          {card.pinned && (
+            <button type="button" role="menuitem" className="card-other is-latest" onClick={() => follow(null)}>
+              <PinOff />
+              <span className="card-other-name">Follow the latest</span>
+            </button>
+          )}
+          {card.others.map((o) => (
+            <button key={o.session} type="button" role="menuitem" className="card-other" title={o.name} onClick={() => follow(o.session)}>
+              {o.mood === 'needs' ? <ShieldAlert className="card-other-needs" /> : <StepMark progress="running" />}
+              <span className="card-other-name">{o.name}</span>
+              <span className="card-other-line">{o.line}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

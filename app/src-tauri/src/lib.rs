@@ -281,6 +281,7 @@ pub fn run() {
             is_right,
             stroll,
             stop_stroll,
+            follow,
             hooks_status,
             hooks_plan,
             hooks_apply,
@@ -558,6 +559,12 @@ async fn pet_clicked(app: AppHandle) {
     } else {
         toggle_sessions(&app);
     }
+}
+
+/// The card switched to `session` (it stays there while that session works), or back to the latest.
+#[tauri::command]
+fn follow(app: AppHandle, session: Option<String>) {
+    kuchu(&app).hub.follow(session);
 }
 
 #[tauri::command]
