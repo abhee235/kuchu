@@ -743,6 +743,25 @@ mod tests {
     }
 
     #[test]
+    fn a_recorded_failure_helper_and_compaction_read_right() {
+        let mut s = Sessions::default();
+        let failure = fixture("PostToolUseFailure");
+        // The failed Read as it started, then its failure: the step fails, found by its tool_use_id.
+        s.apply("PreToolUse", &failure, 1);
+        s.apply("PostToolUseFailure", &failure, 2);
+        assert_eq!(s.card().unwrap().progress, Some(Progress::Failed));
+        // A helper's start and stop change nothing shown: the helper's last message is not the session's answer.
+        assert!(!s.apply("SubagentStart", &fixture("SubagentStart"), 3));
+        assert!(!s.apply("SubagentStop", &fixture("SubagentStop"), 4));
+        assert_eq!(s.mood(), Mood::Working);
+        // Compacting says so on the card, and the session starting again after it is the same session.
+        s.apply("PreCompact", &fixture("PreCompact"), 5);
+        assert_eq!(s.card().unwrap().line, "Making room in its memory…");
+        s.apply("SessionStart", &fixture("SessionStart-3"), 6);
+        assert_eq!(s.list().len(), 1);
+    }
+
+    #[test]
     fn claude_code_says_which_silent_sessions_still_run() {
         let mut s = Sessions::default();
         let tool = |id: &str| serde_json::json!({ "session_id": id, "cwd": format!("/x/{id}"), "tool_name": "Read", "tool_input": { "file_path": "a.rs" } });

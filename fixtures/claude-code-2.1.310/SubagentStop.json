@@ -1,0 +1,19 @@
+{
+  "agent_id": "a12ce051d58d09da0",
+  "agent_transcript_path": "C:\\Users\\you\\.claude\\projects\\C--Users-you-projects-demo\\4f2d6523-d71d-442f-8608-5a97ec0e4251\\subagents\\agent-a12ce051d58d09da0.jsonl",
+  "agent_type": "general-purpose",
+  "background_tasks": [],
+  "cwd": "C:\\Users\\you\\projects\\demo",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "SubagentStop",
+  "last_assistant_message": "kuchu",
+  "permission_mode": "default",
+  "prompt_id": "c688b25d-b295-4bce-be5d-60c01857f181",
+  "scratchpad_dir": "C:\\Users\\you\\AppData\\Local\\Temp\\claude\\C--Users-you-projects-demo\\4f2d6523-d71d-442f-8608-5a97ec0e4251\\scratchpad",
+  "session_crons": [],
+  "session_id": "4f2d6523-d71d-442f-8608-5a97ec0e4251",
+  "stop_hook_active": false,
+  "transcript_path": "C:\\Users\\you\\.claude\\projects\\C--Users-you-projects-demo\\4f2d6523-d71d-442f-8608-5a97ec0e4251.jsonl"
+}

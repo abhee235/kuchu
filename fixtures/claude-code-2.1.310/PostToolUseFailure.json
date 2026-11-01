@@ -1,0 +1,20 @@
+{
+  "cwd": "C:\\Users\\you\\projects\\demo",
+  "duration_ms": 3,
+  "effort": {
+    "level": "medium"
+  },
+  "error": "File does not exist. Note: your current working directory is C:\\Users\\you\\projects\\demo.",
+  "hook_event_name": "PostToolUseFailure",
+  "is_interrupt": false,
+  "permission_mode": "default",
+  "prompt_id": "48f4391e-58e9-4977-a43d-f98c52d71ac3",
+  "scratchpad_dir": "C:\\Users\\you\\AppData\\Local\\Temp\\claude\\C--Users-you-projects-demo\\a189e346-97c9-4ee0-ad8e-62062f0e6384\\scratchpad",
+  "session_id": "a189e346-97c9-4ee0-ad8e-62062f0e6384",
+  "tool_input": {
+    "file_path": "C:\\Users\\you\\projects\\demo\\missing-file-xyz.txt"
+  },
+  "tool_name": "Read",
+  "tool_use_id": "toolu_016a4TXr6a4AfENe2hjhH6uR",
+  "transcript_path": "C:\\Users\\you\\.claude\\projects\\C--Users-you-projects-demo\\a189e346-97c9-4ee0-ad8e-62062f0e6384.jsonl"
+}

@@ -19,10 +19,13 @@ message that started the work), `permission_mode` and `effort`.
 
 | Event | Also carries | Kuchu shows |
 |---|---|---|
-| SessionStart | `source` (`startup`, …) | a new session |
+| SessionStart | `source` (`startup`, `resume`, `compact`) | a new session (after compacting, the same one) |
 | UserPromptSubmit | `prompt` | thinking |
 | PreToolUse | `tool_name`, `tool_input`, `tool_use_id` | working: the tool and its target |
 | PostToolUse | `tool_response`, `duration_ms`, `tool_use_id` | the step done (`tool_response` is dropped by the relay) |
+| PostToolUseFailure | `error`, `is_interrupt`, `duration_ms`, `tool_use_id` | the step failed |
+| SubagentStart, SubagentStop | `agent_id`, `agent_type`; Stop also `last_assistant_message` (the helper's own) | nothing: a helper's end is not the session's |
+| PreCompact | `trigger` (`manual`, …), `custom_instructions` | "Making room in its memory…" |
 | PermissionRequest | `tool_name`, `tool_input`, `permission_suggestions` (no `tool_use_id`) | needs you: an approval card |
 | Stop | `last_assistant_message`, `background_tasks`, `session_crons`, `stop_hook_active` | done, with the answer's first line |
 | SessionEnd | `reason` | the session gone |
@@ -35,9 +38,11 @@ written just before the tool call with that `tool_use_id`. The transcript is wri
 this is tried when the tool starts and again when it ends. In some sessions Claude Code keeps a text as an empty
 thinking block instead; that text cannot be shown.
 
-Not seen yet (they need an interactive session or a particular case): Notification, PostToolUseFailure,
-StopFailure, SubagentStart, SubagentStop, PreCompact, and the AskUserQuestion and ExitPlanMode requests. They are
-recorded before the step that uses them.
+Recorded on 2.1.310 with `claude -p`: PostToolUseFailure (a Read of a missing file), SubagentStart and SubagentStop
+(a helper agent), PreCompact (`/compact` on a resumed session), and a PermissionRequest for a Read outside the folder
+(Claude Code offers an `addRules` suggestion). In `-p` runs, plan mode ends without a request and AskUserQuestion is
+not offered, so those two requests, Notification and StopFailure still need an interactive session to record.
+(From Git Bash, an argument like `/compact` is turned into a Windows path; run it from PowerShell.)
 
 ## Answering a permission request
 

@@ -1,0 +1,29 @@
+{
+  "cwd": "C:\\Users\\you\\projects\\demo",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PermissionRequest",
+  "permission_mode": "default",
+  "permission_suggestions": [
+    {
+      "behavior": "allow",
+      "destination": "session",
+      "rules": [
+        {
+          "ruleContent": "//c/Program Files/Git/**",
+          "toolName": "Read"
+        }
+      ],
+      "type": "addRules"
+    }
+  ],
+  "prompt_id": "0879ec1c-589b-472a-ba33-64beb5506e7d",
+  "scratchpad_dir": "C:\\Users\\you\\AppData\\Local\\Temp\\claude\\C--Users-you-projects-demo\\a189e346-97c9-4ee0-ad8e-62062f0e6384\\scratchpad",
+  "session_id": "a189e346-97c9-4ee0-ad8e-62062f0e6384",
+  "tool_input": {
+    "file_path": "C:\\Program Files\\Git\\compact"
+  },
+  "tool_name": "Read",
+  "transcript_path": "C:\\Users\\you\\.claude\\projects\\C--Users-you-projects-demo\\a189e346-97c9-4ee0-ad8e-62062f0e6384.jsonl"
+}

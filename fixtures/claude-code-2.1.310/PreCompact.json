@@ -1,0 +1,10 @@
+{
+  "custom_instructions": null,
+  "cwd": "C:\\Users\\you\\projects\\demo",
+  "hook_event_name": "PreCompact",
+  "prompt_id": "8d0a596d-5056-4d94-8008-635a9b81e6b2",
+  "scratchpad_dir": "C:\\Users\\you\\AppData\\Local\\Temp\\claude\\C--Users-you-projects-demo\\a189e346-97c9-4ee0-ad8e-62062f0e6384\\scratchpad",
+  "session_id": "a189e346-97c9-4ee0-ad8e-62062f0e6384",
+  "transcript_path": "C:\\Users\\you\\.claude\\projects\\C--Users-you-projects-demo\\a189e346-97c9-4ee0-ad8e-62062f0e6384.jsonl",
+  "trigger": "manual"
+}

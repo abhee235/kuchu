@@ -433,6 +433,9 @@ mod tests {
         assert_eq!(c.title, "Writing note.txt");
         assert!(c.detail.ends_with("note.txt"));
         assert_eq!(c.always.as_deref(), Some("Allow edits for now"));
+        // A read outside the session's folder: Claude Code offers a rule, not a mode.
+        let read = card(2, "s".into(), "demo".into(), &fixture("PermissionRequest-2"));
+        assert_eq!((read.title.as_str(), read.always.as_deref()), ("Reading compact", Some("Always allow")));
     }
 
     #[test]
