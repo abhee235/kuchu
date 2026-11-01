@@ -73,3 +73,12 @@ Kuchu runs one Claude Code process per conversation, measured on 2.1.310 (record
 - Closing stdin lets the process finish its turn and exit. A terminal takes the conversation on with
   `claude --resume <id>`; started from Kuchu, it must get the new console's own input and output (through `start`
   on Windows), or Claude Code finds no terminal and exits.
+
+## Sessions that stop without a word
+
+A session whose terminal is closed sends no SessionEnd, and one stopped with Esc sends no Stop. When a session Kuchu
+shows as busy has been silent for 15 seconds, Kuchu asks `claude agents --json` (measured on 2.1.310: about 0.2 s; it
+lists every running session, interactive, background or `-p`, with its `sessionId` and a `status` of `busy` or
+`idle`; recording in [`fixtures/claude-code-2.1.310/cli/`](../fixtures/claude-code-2.1.310/cli)). A session it no
+longer lists is gone; one it lists as idle is no longer busy. If Claude Code cannot be asked, nothing changes, and a
+silent session still falls back to idle after 30 minutes.

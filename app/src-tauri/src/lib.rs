@@ -2,6 +2,7 @@
 //! everywhere but the pet and its cards), the pointer read for the pet's eyes, the sessions list and Settings windows,
 //! the tray and the shortcut. The hub (`hub.rs`) takes the relay's events in; the pages in `app/src` draw it all.
 
+mod alive;
 mod chat;
 mod hooks;
 mod hub;
@@ -40,6 +41,9 @@ const SETTLE: Duration = Duration::from_millis(300);
 const STROLL_SPEED: f64 = 70.0;
 const FRAME: Duration = Duration::from_millis(16);
 const STROLL_PAUSE: Duration = Duration::from_millis(900);
+/// A busy session silent this long is checked with Claude Code, at most this often.
+const SILENT_MS: u64 = 15_000;
+const CHECK_EVERY: Duration = Duration::from_secs(15);
 /// How long after losing the focus the sessions list checks it really has, before hiding.
 const BLUR_SETTLE: Duration = Duration::from_millis(150);
 /// The shortcut that opens the sessions list from anywhere.
@@ -359,6 +363,21 @@ pub fn run() {
                 if let Err(why) = hub::serve(hub).await {
                     eprintln!("{why}");
                     app_handle.exit(0);
+                }
+            });
+            // Sessions busy but silent a while: does Claude Code still run them? (A closed terminal, or Esc, says
+            // nothing.) Asked only when there is such a session.
+            let hub = kuchu.hub.clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(CHECK_EVERY).await;
+                    let asked = hub.silent(SILENT_MS);
+                    if asked.is_empty() {
+                        continue;
+                    }
+                    if let Some(running) = alive::running().await {
+                        hub.check_running(&asked, &running, SILENT_MS);
+                    }
                 }
             });
             let (hub, chats) = (kuchu.hub.clone(), kuchu.chats.clone());

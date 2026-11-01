@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::oneshot;
 
+use crate::alive::Running;
 use crate::sessions::{step, Card, Mood, Session, Sessions};
 
 /// At most this many requests wait at once; more go straight back to the terminal.
@@ -122,6 +123,18 @@ impl Hub {
 
     pub fn stopped(&self, session: &str) {
         if self.inner.lock().unwrap().sessions.stopped(session, now()) {
+            self.publish();
+        }
+    }
+
+    /// Busy sessions silent for `quiet` ms: worth asking Claude Code whether they still run.
+    pub fn silent(&self, quiet: u64) -> Vec<String> {
+        self.inner.lock().unwrap().sessions.silent(now(), quiet)
+    }
+
+    /// Claude Code's answer about the sessions asked: those it no longer runs go, those it says are idle stop.
+    pub fn check_running(&self, asked: &[String], running: &[Running], quiet: u64) {
+        if self.inner.lock().unwrap().sessions.check_running(asked, running, now(), quiet) {
             self.publish();
         }
     }

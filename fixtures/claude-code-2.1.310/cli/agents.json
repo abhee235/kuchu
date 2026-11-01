@@ -1,0 +1,56 @@
+[
+  {
+    "pid": 1000,
+    "cwd": "C:\\Users\\you\\projects\\demo-1",
+    "kind": "interactive",
+    "startedAt": 1793513630053,
+    "sessionId": "9564d32e-cff6-482b-8927-5f2ef7692c72",
+    "name": "demo-1",
+    "status": "idle"
+  },
+  {
+    "pid": 1001,
+    "cwd": "C:\\Users\\you\\projects\\demo-2",
+    "kind": "interactive",
+    "startedAt": 1793513634194,
+    "sessionId": "b2fba967-cd61-40e0-b03a-75bcf726fd16",
+    "name": "demo-2",
+    "status": "idle"
+  },
+  {
+    "pid": 1002,
+    "cwd": "C:\\Users\\you\\projects\\demo-3",
+    "kind": "interactive",
+    "startedAt": 1793513666201,
+    "sessionId": "37d6b797-ee56-4a6e-b2a3-f2d10a911f0f",
+    "name": "demo-3",
+    "status": "idle"
+  },
+  {
+    "pid": 1003,
+    "cwd": "C:\\Users\\you\\projects\\demo-4",
+    "kind": "interactive",
+    "startedAt": 1793541812565,
+    "sessionId": "9f033ece-faf9-41ac-9962-5799dcd3be3f",
+    "name": "demo-4",
+    "status": "busy"
+  },
+  {
+    "pid": 1004,
+    "cwd": "C:\\Users\\you\\projects\\demo-5",
+    "kind": "interactive",
+    "startedAt": 1793547142662,
+    "sessionId": "2d9c336b-af6e-4024-8713-704dbbab47b2",
+    "name": "demo-5",
+    "status": "idle"
+  },
+  {
+    "pid": 1005,
+    "cwd": "C:\\Users\\you\\projects\\demo-6",
+    "kind": "interactive",
+    "startedAt": 1793552957636,
+    "sessionId": "a1bded0b-323b-4fec-9bc6-4240ed1c4a12",
+    "name": "demo-6",
+    "status": "busy"
+  }
+]

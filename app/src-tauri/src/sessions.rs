@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::alive::Running;
+
 /// A session silent this long while it was working is taken as gone quiet (a closed terminal sends nothing).
 const QUIET_MS: u64 = 30 * 60 * 1000;
 /// A session silent this long is forgotten.
@@ -311,6 +313,30 @@ impl Sessions {
             }
             _ => false,
         }
+    }
+
+    /// Busy sessions that have sent nothing for `quiet` ms: worth asking Claude Code whether they still run.
+    pub fn silent(&self, now: u64, quiet: u64) -> Vec<String> {
+        let busy = |s: &&Session| matches!(s.mood, Mood::Thinking | Mood::Working | Mood::Needs);
+        self.all.values().filter(busy).filter(|s| now.saturating_sub(s.updated) >= quiet).map(|s| s.id.clone()).collect()
+    }
+
+    /// What Claude Code says still runs, for the sessions asked about (if still silent): one it no longer lists had its
+    /// terminal closed and is forgotten; one it lists as idle was stopped without a Stop (Esc) and is busy no more.
+    pub fn check_running(&mut self, asked: &[String], running: &[Running], now: u64, quiet: u64) -> bool {
+        let mut changed = false;
+        for id in asked {
+            let Some(s) = self.all.get(id) else { continue };
+            if now.saturating_sub(s.updated) < quiet {
+                continue;
+            }
+            match running.iter().find(|r| &r.id == id) {
+                None => changed |= self.all.remove(id).is_some(),
+                Some(r) if !r.busy && matches!(s.mood, Mood::Thinking | Mood::Working) => changed |= self.stopped(id, now),
+                Some(_) => {}
+            }
+        }
+        changed
     }
 
     /// Forgets a session (from the list: one whose terminal was closed mid-turn sends nothing more).
@@ -714,6 +740,29 @@ mod tests {
         s.apply("Stop", &serde_json::json!({ "session_id": "a", "last_assistant_message": "ok" }), 11);
         assert_eq!((s.card().unwrap().title.as_str(), s.card().unwrap().pinned), ("b", false));
         assert!(!s.follow(Some("nobody".into())));
+    }
+
+    #[test]
+    fn claude_code_says_which_silent_sessions_still_run() {
+        let mut s = Sessions::default();
+        let tool = |id: &str| serde_json::json!({ "session_id": id, "cwd": format!("/x/{id}"), "tool_name": "Read", "tool_input": { "file_path": "a.rs" } });
+        for id in ["closed", "stopped", "long", "chatty"] {
+            s.apply("PreToolUse", &tool(id), 0);
+        }
+        s.apply("PreToolUse", &tool("chatty"), 20_000);
+        let mut asked = s.silent(20_000, 15_000);
+        asked.sort();
+        assert_eq!(asked, ["closed", "long", "stopped"]);
+        // "chatty" spoke while Claude Code was asked: its answer is not taken for it.
+        s.apply("PreToolUse", &tool("long"), 21_000);
+        let running = [Running { id: "stopped".into(), busy: false }, Running { id: "long".into(), busy: true }, Running { id: "chatty".into(), busy: true }];
+        assert!(s.check_running(&asked, &running, 22_000, 15_000));
+        let left: Vec<(String, Mood)> = {
+            let mut l: Vec<_> = s.list().into_iter().map(|x| (x.id, x.mood)).collect();
+            l.sort_by(|a, b| a.0.cmp(&b.0));
+            l
+        };
+        assert_eq!(left, [("chatty".into(), Mood::Working), ("long".into(), Mood::Working), ("stopped".into(), Mood::Idle)]);
     }
 
     #[test]
