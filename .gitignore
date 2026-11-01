@@ -4,3 +4,4 @@ dist/
 *.log
 /fixtures/raw/
 app/src-tauri/gen/
+app/src-tauri/binaries/
