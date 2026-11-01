@@ -3,10 +3,12 @@
 // so nothing runs in between), a thought bubble while a session thinks, typing at a small laptop while it works, a wave
 // when it needs you, three hops when a session is done and a happy face until the pet is clicked, a frown when one
 // failed.
-// The pet beside your windows (`lively`) also has a life of its own when there is no work: now and then it stretches,
-// yawns, looks around, taps a foot, flips its screen to another face, whistles, or takes a short walk; after a long
-// while with nothing happening it naps until your pointer comes near or a session starts. It walks while it is
-// dragged, smiles under the pointer, and gets heart eyes when petted (the pointer moved to and fro over it).
+// The pet beside your windows (`lively`) also has a life of its own when there is no work, in short scenes, each with
+// a wind-up, the action and a settle: a yawn behind its hand, a stretch on tiptoe, checking its watch and sighing, a
+// little dance, its antenna springing, a look around, its screen flipping to another face, or a short walk. After a
+// long while with nothing happening it nods off and naps, until your pointer comes near or a session starts; it wakes
+// with a start and a yawn. It walks while it is dragged, smiles under the pointer, and gets heart eyes when petted (the
+// pointer moved to and fro over it).
 // Its eyes and head follow the pointer. Asked for less motion, it keeps its expressions and drops the movement.
 
 import { useEffect, useId, useRef, useState } from 'react'
@@ -20,11 +22,15 @@ const POINTER = 'M66 39 v13.2 l3.5 -3.1 l2.4 5.4 l2.3 -1 l-2.3 -5.2 h4.25 Z'
 /** A heart, 12 wide, its centre at 0, 0. */
 const HEART = 'M0 -1.6 C-1.2 -5.6 -6 -4.8 -6 -1.2 C-6 1.8 -2.4 4.2 0 6 C2.4 4.2 6 1.8 6 -1.2 C6 -4.8 1.2 -5.6 0 -1.6 Z'
 
-/** What Kuchu does now and then with no work, and how long each takes (ms). A stroll lasts as long as its walk. */
-const ACTIVITIES = { stretch: 2400, yawn: 2600, look: 2600, tap: 3200, flip: 2600, whistle: 3000, stroll: 0 } as const
-type Activity = keyof typeof ACTIVITIES | 'pace'
-/** One activity every 20 to 45 seconds. */
-const EVERY_MS = [20_000, 45_000] as const
+/** What Kuchu does now and then with no work, and how long each scene takes (ms, as pet.css plays it). A stroll
+ *  lasts as long as its walk. */
+const ACTIVITIES = { stretch: 3800, yawn: 4400, look: 2600, bored: 4600, flip: 2600, dance: 3800, boing: 3000, stroll: 0 } as const
+/** Besides those: walking on the spot, nodding off before a nap, and the start of waking. */
+type Activity = keyof typeof ACTIVITIES | 'pace' | 'drowsy' | 'startle'
+const DROWSY_MS = 5000
+const STARTLE_MS = 1200
+/** One scene every 15 to 35 seconds. */
+const EVERY_MS = [15_000, 35_000] as const
 /** Idle this long with nothing near it, it naps. */
 const NAP_AFTER_MS = 4 * 60_000
 /** Walking on the spot (no room for a stroll): each way this long. */
@@ -59,13 +65,14 @@ function useMoment(on: boolean, idle: boolean): string | null {
   return now
 }
 
-/** Kuchu's own life while there is no work: an activity now and then (never the same twice running), a nap after a
- *  long quiet, and a yawn when woken. `stroll` walks it `dx` px and back, and says how far it really went. */
+/** Kuchu's own life while there is no work: a scene now and then (never the same twice running), nodding off into a
+ *  nap after a long quiet, and a start and a yawn when woken. `stroll` walks it `dx` px and back, and says how far it
+ *  really went. */
 function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<number>) {
   const [activity, setActivity] = useState<Activity | null>(null)
   const [pace, setPace] = useState(0)
   const [asleep, setAsleep] = useState(false)
-  const [waking, setWaking] = useState(false)
+  const [waking, setWaking] = useState<Activity | null>(null)
   const quietSince = useRef(Date.now())
   const nearNow = useRef(near)
   nearNow.current = near
@@ -75,9 +82,13 @@ function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<nu
     if (asleep && (near || !on)) {
       setAsleep(false)
       if (!on) return
-      setWaking(true)
-      const t = setTimeout(() => setWaking(false), ACTIVITIES.yawn)
-      return () => clearTimeout(t)
+      setWaking('startle')
+      const yawn = setTimeout(() => setWaking('yawn'), STARTLE_MS)
+      const done = setTimeout(() => setWaking(null), STARTLE_MS + ACTIVITIES.yawn)
+      return () => {
+        clearTimeout(yawn)
+        clearTimeout(done)
+      }
     }
   }, [near, on, asleep])
 
@@ -98,7 +109,11 @@ function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<nu
     const next = () =>
       after(EVERY_MS[0] + Math.random() * (EVERY_MS[1] - EVERY_MS[0]), async () => {
         if (document.visibilityState !== 'visible') return next()
-        if (!nearNow.current && Date.now() - quietSince.current >= NAP_AFTER_MS) return setAsleep(true)
+        if (!nearNow.current && Date.now() - quietSince.current >= NAP_AFTER_MS) {
+          // It nods off first, catching itself twice, then sleeps.
+          setActivity('drowsy')
+          return after(DROWSY_MS, () => setAsleep(true))
+        }
         const choices = (Object.keys(ACTIVITIES) as Activity[]).filter((a) => a !== last && (a !== 'stroll' || (stroll && !still)))
         const pick = choices[Math.floor(Math.random() * choices.length)]!
         last = pick
@@ -129,7 +144,7 @@ function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<nu
     }
   }, [on, asleep, stroll])
 
-  return { activity: waking ? 'yawn' : activity, pace, asleep }
+  return { activity: waking ?? activity, pace, asleep }
 }
 
 /** Heart eyes for a moment after each petting. */
@@ -330,9 +345,11 @@ export function Pet({
           {/* The head: antenna, side lights, shell, the screen and its glass, the face. */}
           <g className="pet-head">
             <rect className="pet-joint" x="52" y="84" width="16" height="7" rx="3" />
-            <line x1="60" y1="16" x2="60" y2="7" stroke="#cfc5b6" strokeWidth="3" strokeLinecap="round" />
-            <circle className="pet-bulb" cx="60" cy="5" r="4.6" fill={u('ball')} />
-            <circle className="pet-spark pet-bulb-spark" cx="58.6" cy="3.6" r="1.2" />
+            <g className="pet-antenna">
+              <line x1="60" y1="16" x2="60" y2="7" stroke="#cfc5b6" strokeWidth="3" strokeLinecap="round" />
+              <circle className="pet-bulb" cx="60" cy="5" r="4.6" fill={u('ball')} />
+              <circle className="pet-spark pet-bulb-spark" cx="58.6" cy="3.6" r="1.2" />
+            </g>
             <circle cx="11" cy="52" r="6.2" fill={u('ball')} />
             <circle cx="109" cy="52" r="6.2" fill={u('ball')} />
             <circle className="pet-spark" cx="9.3" cy="50" r="1.3" />
@@ -384,6 +401,13 @@ export function Pet({
               </g>
               <rect className="pet-scan" x="25" y="26" width="70" height="2.5" fill="#fff6ea" />
               <rect className="pet-dim" x="25" y="26" width="70" height="50" fill="#000" />
+            </g>
+            {/* A hand to its mouth (the yawn): a forearm in front of the face; the arms themselves are behind the
+                head. */}
+            <g className="pet-hand">
+              <rect className="pet-shell" x="60.5" y="63" width="11" height="25" rx="5.5" fill={u('capsule')} />
+              <ellipse className="pet-shell" cx="66" cy="64.5" rx="6.6" ry="5.4" fill={u('capsule')} />
+              <circle cx="66" cy="65.5" r="2.1" fill={u('ball')} />
             </g>
           </g>
         </g>
