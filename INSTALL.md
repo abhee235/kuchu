@@ -10,9 +10,9 @@ Two things are the person's, not yours:
   **Connect** after Kuchu has shown them the change. That click is how Kuchu gets connected.
 - **What gets installed.** If a checksum does not match, stop: delete the download and tell them. Never skip the check.
 
-Releases are on the Releases page of the repository this file is in; below, `<repo>` stands for that repository's
-address (`https://github.com/<owner>/<name>`). If it has no release yet, Kuchu cannot be installed this way: say so,
-and point to "Build" in the README.
+Kuchu's home is https://github.com/abhee235/kuchu, and its releases are at
+https://github.com/abhee235/kuchu/releases. Install the latest release as below. If there is no release yet (the
+download fails with a 404), build it from source instead: see [From source](#from-source).
 
 ## What is in a release
 
@@ -35,7 +35,7 @@ Run this in Bash (Claude Code's shell on Windows is Git Bash).
 ```bash
 set -euo pipefail
 case "${PROCESSOR_IDENTIFIER:-}" in ARM*) asset=kuchu-windows-arm64.zip ;; *) asset=kuchu-windows-x64.zip ;; esac
-repo="<repo>"
+repo="https://github.com/abhee235/kuchu"
 work="$(mktemp -d)"
 curl -fsSL -o "$work/$asset" "$repo/releases/latest/download/$asset"
 curl -fsSL -o "$work/SHA256SUMS" "$repo/releases/latest/download/SHA256SUMS"
@@ -57,7 +57,7 @@ Kuchu's commands write only into a pipe, as above. From PowerShell, add `| Out-S
 ```bash
 set -euo pipefail
 case "$(uname -m)" in arm64) asset=kuchu-macos-arm64.tar.gz ;; *) asset=kuchu-macos-x64.tar.gz ;; esac
-repo="<repo>"
+repo="https://github.com/abhee235/kuchu"
 work="$(mktemp -d)"
 curl -fsSL -o "$work/$asset" "$repo/releases/latest/download/$asset"
 curl -fsSL -o "$work/SHA256SUMS" "$repo/releases/latest/download/SHA256SUMS"
@@ -69,6 +69,53 @@ mkdir -p "$HOME/Applications"
 rm -rf "$app"
 tar -xzf "$work/$asset" -C "$HOME/Applications"
 rm -rf "$work"
+"$app/Contents/MacOS/kuchu" setup
+```
+
+## From source
+
+While there is no release, or when the person asks for it, build Kuchu from its code. That needs Git, Rust (stable,
+from rustup) and Node 20 or later, and on Windows the Visual Studio C++ build tools, on macOS Xcode's command line
+tools. Check with `git --version`, `cargo --version` and `node --version`. If any is missing, tell the person what is
+needed and ask before installing it: these are large tools to put on their computer. The build takes a few minutes.
+
+Windows, in Bash:
+
+```bash
+set -euo pipefail
+work="$(mktemp -d)"
+git clone --depth 1 https://github.com/abhee235/kuchu "$work/kuchu"
+cd "$work/kuchu"
+cargo build --release --locked -p kuchu-relay
+(cd app && npm ci && npx tauri build --no-bundle -- --locked)
+
+dest="$(cygpath -u "$LOCALAPPDATA")/Programs/Kuchu"
+[ -x "$dest/kuchu.exe" ] && "$dest/kuchu.exe" quit || true
+mkdir -p "$dest"
+cp target/release/kuchu.exe target/release/kuchu-relay.exe LICENSE LICENSE-ASSETS.md "$dest/"
+cd / && rm -rf "$work"
+"$dest/kuchu.exe" setup
+```
+
+macOS:
+
+```bash
+set -euo pipefail
+work="$(mktemp -d)"
+git clone --depth 1 https://github.com/abhee235/kuchu "$work/kuchu"
+cd "$work/kuchu"
+cargo build --release --locked -p kuchu-relay
+mkdir -p app/src-tauri/binaries
+cp target/release/kuchu-relay "app/src-tauri/binaries/kuchu-relay-$(rustc -vV | sed -n 's/^host: //p')"
+config='{"bundle":{"externalBin":["binaries/kuchu-relay"],"macOS":{"signingIdentity":"-"}}}'
+(cd app && npm ci && npx tauri build --bundles app --config "$config" -- --locked)
+
+app="$HOME/Applications/Kuchu.app"
+[ -x "$app/Contents/MacOS/kuchu" ] && "$app/Contents/MacOS/kuchu" quit || true
+mkdir -p "$HOME/Applications"
+rm -rf "$app"
+cp -R target/release/bundle/macos/Kuchu.app "$HOME/Applications/"
+cd / && rm -rf "$work"
 "$app/Contents/MacOS/kuchu" setup
 ```
 

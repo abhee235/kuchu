@@ -1,18 +1,40 @@
 # Kuchu
 
-**To install Kuchu, ask Claude Code to follow [INSTALL.md](INSTALL.md).**
-
 A small desk pet for Claude Code. It sits above your windows and shows what your sessions are doing: it thinks while
 Claude reads your message, works while tools run, waves when a session needs you and hops when one is done. Its card
 says which project and what is happening now, and a permission request can be answered from it.
 
 Windows and macOS first; Linux later. Work in progress: see [PLAN.md](PLAN.md).
 
+## Install
+
+Say this to Claude Code, in any session:
+
+> Install Kuchu from https://github.com/abhee235/kuchu
+
+Claude Code does the rest, for your account only. At the end Kuchu opens its Settings: click **Connect** there, after
+reading the change it shows you, and your Claude Code sessions appear beside it.
+
+**Claude Code, this part is for you.** Follow [INSTALL.md](INSTALL.md) step by step
+(https://raw.githubusercontent.com/abhee235/kuchu/main/INSTALL.md). In short:
+
+1. Get the latest release for this system and CPU from https://github.com/abhee235/kuchu/releases/latest and check
+   its SHA-256 against the release's `SHA256SUMS`; stop if it does not match. While there is no release, build it
+   from source instead (INSTALL.md, "From source"), after asking before installing any build tools.
+2. Put it in the account's own programs folder: `%LOCALAPPDATA%\Programs\Kuchu` on Windows, `~/Applications` on
+   macOS. No administrator rights, no `sudo`, never a service.
+3. Run `kuchu setup` from there. It starts Kuchu with its Settings open.
+4. Tell the person to click **Connect** in Kuchu's Settings. Never edit their `~/.claude/settings.json` yourself, and
+   never connect Kuchu for them: Kuchu shows them the change first, and the click is theirs.
+
+`kuchu status` says how Kuchu stands; `kuchu uninstall` takes it off again (INSTALL.md says how).
+
 ## What it does
 
 - **Every session, on its own card.** Beside the pet: the project and what Claude is doing now (or the answer's first
-  line once done, for a few seconds), in one line or a few. With several at work, "+N" lists the others and switches
-  the card to the one you pick. A click on the pet lists every session.
+  line once done, for a few seconds), in one line or a few. With several at work, "+N" shows the others, each on its
+  own card above it, while you hover it, or until you switch it off once you have clicked it on; a click on one
+  switches the card to it. A click on the pet lists every session.
 - **Permission requests on the pet.** Allow, Deny, or hand it back to Claude Code. Nothing is allowed without a click.
 - **Talk to Claude from Kuchu.** Start a conversation in a folder from the sessions list, answer it, stop it, or take
   it on in a terminal. Sessions started in a terminal or an editor are followed, not typed into: Claude Code takes
