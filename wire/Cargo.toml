@@ -8,12 +8,13 @@ license = "MIT"
 [dependencies]
 
 # Opening the pipe: the flag that keeps whoever holds the name from acting as the relay, and reading who made the pipe.
+# Making it: a descriptor for this account alone, and the client's account read from its process.
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Threading"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Pipes", "Win32_System_Threading"] }
 
-# The tests make a pipe of their own to open.
+# The tests make a pipe of their own to open, and read its access list back.
 [target.'cfg(windows)'.dev-dependencies]
-windows-sys = { version = "0.61", features = ["Win32_System_Pipes"] }
+windows-sys = { version = "0.61", features = ["Win32_System_SystemServices"] }
 
 # Who is at the other end of the socket.
 [target.'cfg(unix)'.dependencies]

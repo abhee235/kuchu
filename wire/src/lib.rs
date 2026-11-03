@@ -7,9 +7,14 @@
 //!
 //! The pipe is opened only through `open`, which speaks to nothing but a pipe this account made: a pipe's name can be
 //! taken by any program on the machine, and whatever answers under Kuchu's name would otherwise see every event and
-//! answer every request.
+//! answer every request. Kuchu makes the pipe for this account alone (`OnlyMe`) and hears only a client that runs as
+//! this account (`client_is_me`).
 
 use std::time::{Duration, Instant};
+
+#[cfg(windows)]
+pub use owner::OnlyMe;
+pub use owner::client_is_me;
 
 /// The protocol's version, in every message.
 pub const VERSION: u32 = 1;
@@ -134,16 +139,20 @@ pub fn open_at(path: &str, budget: Duration) -> Pipe {
     }
 }
 
-/// Who made the pipe: the owner of the pipe object, against the account this process runs as.
+/// Who made the pipe, and who is at its other end, against the account this process runs as; and how Kuchu makes a
+/// pipe that this account alone can open.
 #[cfg(windows)]
 mod owner {
+    use std::ffi::c_void;
     use std::os::windows::io::RawHandle;
     use std::ptr::null_mut;
 
+    use windows_sys::core::PWSTR;
     use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, ERROR_SUCCESS, HANDLE};
-    use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_KERNEL_OBJECT};
-    use windows_sys::Win32::Security::{EqualSid, GetTokenInformation, TokenUser, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, TOKEN_QUERY, TOKEN_USER};
-    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+    use windows_sys::Win32::Security::Authorization::{ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, GetSecurityInfo, SDDL_REVISION_1, SE_KERNEL_OBJECT};
+    use windows_sys::Win32::Security::{EqualSid, GetTokenInformation, TokenUser, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER};
+    use windows_sys::Win32::System::Pipes::GetNamedPipeClientProcessId;
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION};
 
     /// Whether the pipe behind `handle` was made by this account.
     pub fn is_me(handle: RawHandle) -> bool {
@@ -164,8 +173,47 @@ mod owner {
         }
     }
 
-    /// The account this process runs as: the user of its token, kept in the buffer the system fills.
-    pub struct Me(Vec<u8>);
+    /// Whether the process at the client end of the pipe instance `server` runs as this account. The pipe is made so
+    /// that no other account can open it; this is the check on the other side of that door.
+    pub fn client_is_me(server: RawHandle) -> bool {
+        // Safety: a connected server handle; the client's process is opened for its token's user, then closed.
+        unsafe {
+            let mut pid = 0u32;
+            if GetNamedPipeClientProcessId(server as HANDLE, &mut pid) == 0 {
+                return false;
+            }
+            let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+            if process.is_null() {
+                return false;
+            }
+            let client = user_of(process);
+            CloseHandle(process);
+            match (client, me()) {
+                (Some(client), Some(me)) => EqualSid(client.sid(), me.sid()) != 0,
+                _ => false,
+            }
+        }
+    }
+
+    /// Bytes the system fills, kept 8-byte aligned: they hold structures with pointers in them.
+    struct Aligned(Vec<u64>);
+
+    impl Aligned {
+        fn zeroed(bytes: usize) -> Aligned {
+            Aligned(vec![0; bytes.div_ceil(8)])
+        }
+
+        fn as_ptr(&self) -> *const u8 {
+            self.0.as_ptr().cast()
+        }
+
+        fn as_mut_ptr(&mut self) -> *mut u8 {
+            self.0.as_mut_ptr().cast()
+        }
+    }
+
+    /// An account: the user of a process's token, kept in the buffer the system fills.
+    pub struct Me(Aligned);
 
     impl Me {
         pub fn sid(&self) -> PSID {
@@ -174,19 +222,66 @@ mod owner {
         }
     }
 
+    /// The account this process runs as.
     pub fn me() -> Option<Me> {
-        // Safety: the token is asked for its size, then read into a buffer of that size, then closed.
-        unsafe {
-            let mut token: HANDLE = null_mut();
-            if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
-                return None;
+        // Safety: the pseudo-handle of this process is always valid.
+        unsafe { user_of(GetCurrentProcess()) }
+    }
+
+    /// The account `process` runs as. Safety: an open process handle with permission to be queried.
+    unsafe fn user_of(process: HANDLE) -> Option<Me> {
+        // The token is asked for its size, then read into a buffer of that size, then closed.
+        let mut token: HANDLE = null_mut();
+        if OpenProcessToken(process, TOKEN_QUERY, &mut token) == 0 {
+            return None;
+        }
+        let mut len = 0u32;
+        GetTokenInformation(token, TokenUser, null_mut(), 0, &mut len);
+        let mut buf = Aligned::zeroed(len as usize);
+        let read = len > 0 && GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) != 0;
+        CloseHandle(token);
+        read.then_some(Me(buf))
+    }
+
+    /// A security descriptor that lets this account open what it is put on, and nobody else: how Kuchu makes its
+    /// pipe, so that no other account can send it events or hold the name's next instance.
+    pub struct OnlyMe(Aligned);
+
+    impl OnlyMe {
+        pub fn new() -> Option<OnlyMe> {
+            let me = me()?;
+            // Safety: the SID is rendered as text and freed; the descriptor is built from that text, copied and freed.
+            unsafe {
+                let mut text: PWSTR = null_mut();
+                if ConvertSidToStringSidW(me.sid(), &mut text) == 0 {
+                    return None;
+                }
+                let len = (0..).take_while(|&i| *text.add(i) != 0).count();
+                let sid = String::from_utf16_lossy(std::slice::from_raw_parts(text, len));
+                LocalFree(text.cast());
+                // D: the access list; P: protected, inheriting nothing; one entry: allow (A) all access (GA) to this
+                // account. Not even the system's own accounts are named: nothing but Kuchu and its relay opens it.
+                let sddl: Vec<u16> = format!("D:P(A;;GA;;;{sid})").encode_utf16().chain([0]).collect();
+                let (mut descriptor, mut size): (PSECURITY_DESCRIPTOR, u32) = (null_mut(), 0);
+                if ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.as_ptr(), SDDL_REVISION_1, &mut descriptor, &mut size) == 0 {
+                    return None;
+                }
+                let mut copy = Aligned::zeroed(size as usize);
+                std::ptr::copy_nonoverlapping(descriptor as *const u8, copy.as_mut_ptr(), size as usize);
+                LocalFree(descriptor);
+                Some(OnlyMe(copy))
             }
-            let mut len = 0u32;
-            GetTokenInformation(token, TokenUser, null_mut(), 0, &mut len);
-            let mut buf = vec![0u8; len as usize];
-            let read = len > 0 && GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) != 0;
-            CloseHandle(token);
-            read.then_some(Me(buf))
+        }
+
+        /// Runs `make` with the attributes (a `SECURITY_ATTRIBUTES`) that put this descriptor on what it creates, as
+        /// `CreateNamedPipeW` takes them.
+        pub fn with_attributes<T>(&self, make: impl FnOnce(*mut c_void) -> T) -> T {
+            let mut attributes = SECURITY_ATTRIBUTES {
+                nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+                lpSecurityDescriptor: self.0.as_ptr() as *mut c_void,
+                bInheritHandle: 0,
+            };
+            make(&mut attributes as *mut SECURITY_ATTRIBUTES as *mut c_void)
         }
     }
 }
@@ -194,12 +289,17 @@ mod owner {
 /// Who is at the other end of the socket, against the account this process runs as.
 #[cfg(unix)]
 mod owner {
-    use std::os::unix::io::AsRawFd;
+    use std::os::unix::io::{AsRawFd, RawFd};
     use std::os::unix::net::UnixStream;
 
     pub fn is_me(stream: &UnixStream) -> bool {
-        // Safety: a connected socket's descriptor; getuid cannot fail.
-        peer_uid(stream.as_raw_fd()).is_some_and(|uid| uid == unsafe { libc::getuid() })
+        client_is_me(stream.as_raw_fd())
+    }
+
+    /// Whether the process at the other end of the connected socket `fd` runs as this account.
+    pub fn client_is_me(fd: RawFd) -> bool {
+        // Safety: getuid cannot fail.
+        peer_uid(fd).is_some_and(|uid| uid == unsafe { libc::getuid() })
     }
 
     #[cfg(target_os = "linux")]
@@ -266,6 +366,50 @@ mod tests {
         drop(client);
         unsafe { CloseHandle(server) };
         assert!(matches!(open_at(&name, Duration::ZERO), Pipe::Nobody));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_pipe_is_made_for_this_account_alone() {
+        use std::ffi::c_void;
+        use std::ptr::null_mut;
+        use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, ERROR_SUCCESS, INVALID_HANDLE_VALUE};
+        use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_KERNEL_OBJECT};
+        use windows_sys::Win32::Security::{AclSizeInformation, EqualSid, GetAce, GetAclInformation, ACCESS_ALLOWED_ACE, ACL, ACL_SIZE_INFORMATION, DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
+        use windows_sys::Win32::Storage::FileSystem::{FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_ACCESS_DUPLEX};
+        use windows_sys::Win32::System::Pipes::{CreateNamedPipeW, PIPE_TYPE_BYTE};
+        use windows_sys::Win32::System::SystemServices::ACCESS_ALLOWED_ACE_TYPE;
+
+        // A pipe made as Kuchu makes its own.
+        let name = format!(r"\\.\pipe\kuchu-test-only-{}", std::process::id());
+        let wide: Vec<u16> = name.encode_utf16().chain([0]).collect();
+        let only_me = OnlyMe::new().expect("this account's descriptor");
+        let server = only_me.with_attributes(|attributes| unsafe {
+            CreateNamedPipeW(wide.as_ptr(), PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_TYPE_BYTE, 1, 4096, 4096, 0, attributes as *const SECURITY_ATTRIBUTES)
+        });
+        assert_ne!(server, INVALID_HANDLE_VALUE);
+
+        // Its access list has one entry: this account, allowed.
+        let me = owner::me().unwrap();
+        unsafe {
+            let (mut dacl, mut descriptor): (*mut ACL, PSECURITY_DESCRIPTOR) = (null_mut(), null_mut());
+            assert_eq!(GetSecurityInfo(server, SE_KERNEL_OBJECT, DACL_SECURITY_INFORMATION, null_mut(), null_mut(), &mut dacl, null_mut(), &mut descriptor), ERROR_SUCCESS);
+            let mut info = ACL_SIZE_INFORMATION { AceCount: 0, AclBytesInUse: 0, AclBytesFree: 0 };
+            assert_ne!(GetAclInformation(dacl, (&mut info as *mut ACL_SIZE_INFORMATION).cast(), std::mem::size_of::<ACL_SIZE_INFORMATION>() as u32, AclSizeInformation), 0);
+            assert_eq!(info.AceCount, 1);
+            let mut ace: *mut c_void = null_mut();
+            assert_ne!(GetAce(dacl, 0, &mut ace), 0);
+            let ace = &*(ace as *const ACCESS_ALLOWED_ACE);
+            assert_eq!(ace.Header.AceType as u32, ACCESS_ALLOWED_ACE_TYPE);
+            assert_ne!(EqualSid((&ace.SidStart as *const u32).cast_mut().cast(), me.sid()), 0);
+            LocalFree(descriptor);
+        }
+
+        // A client of this account opens it, and is seen as this account from the server's side.
+        let Pipe::Kuchu(client) = open_at(&name, Duration::ZERO) else { panic!("this account's pipe should open as Kuchu's") };
+        assert!(client_is_me(server));
+        drop(client);
+        unsafe { CloseHandle(server) };
     }
 
     #[cfg(unix)]

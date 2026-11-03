@@ -387,7 +387,9 @@ pub fn run() {
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(why) = hub::serve(hub).await {
-                    eprintln!("{why}");
+                    use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+                    // Said in a box: a windowed app's stderr goes nowhere.
+                    app_handle.dialog().message(why).title("Kuchu").kind(MessageDialogKind::Error).blocking_show();
                     app_handle.exit(0);
                 }
             });

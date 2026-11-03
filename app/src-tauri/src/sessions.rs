@@ -12,6 +12,9 @@ use crate::alive::Running;
 const QUIET_MS: u64 = 30 * 60 * 1000;
 /// A session silent this long is forgotten.
 const FORGET_MS: u64 = 12 * 60 * 60 * 1000;
+/// At most this many sessions are followed (each is listed in every view); past that the one silent longest goes to
+/// make room for a new one.
+const MAX_SESSIONS: usize = 32;
 /// Lines kept per session for the card's "a few lines".
 const KEPT_STEPS: usize = 3;
 /// A session's name is read again from its transcript at most this often.
@@ -178,6 +181,11 @@ impl Sessions {
             return false;
         }
         let cwd = text(p, "cwd");
+        if !self.all.contains_key(id) && self.all.len() >= MAX_SESSIONS {
+            if let Some(oldest) = self.all.values().min_by_key(|s| s.updated).map(|s| s.id.clone()) {
+                self.all.remove(&oldest);
+            }
+        }
         let s = self.all.entry(id.to_string()).or_insert_with(|| Session {
             id: id.to_string(),
             name: project_of(&cwd),
@@ -822,6 +830,19 @@ mod tests {
         assert_eq!(s.mood(), Mood::Idle);
         assert!(s.expire(FORGET_MS));
         assert!(s.list().is_empty());
+    }
+
+    #[test]
+    fn only_so_many_sessions_are_followed_the_quietest_making_room() {
+        let mut s = Sessions::default();
+        for i in 0..MAX_SESSIONS + 1 {
+            s.apply("SessionStart", &serde_json::json!({ "session_id": format!("s{i}"), "cwd": "/x/a" }), i as u64);
+        }
+        let ids: Vec<String> = s.list().into_iter().map(|s| s.id).collect();
+        assert_eq!(ids.len(), MAX_SESSIONS);
+        assert!(!ids.contains(&"s0".to_string()));
+        assert!(ids.contains(&"s1".to_string()));
+        assert!(ids.contains(&format!("s{MAX_SESSIONS}")));
     }
 
     #[test]

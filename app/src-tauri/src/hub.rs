@@ -2,19 +2,23 @@
 //! requests waiting for a click. Every change is sent to the windows as one view.
 
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use kuchu_wire::Pipe;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Semaphore};
 
 use crate::alive::Running;
 use crate::sessions::{step, Card, Mood, Session, Sessions};
 
 /// At most this many requests wait at once; more go straight back to the terminal.
 const MAX_WAITING: usize = 5;
+/// At most this many connections are taken in at once (each costs a task and up to a line of 1 MiB); more are closed
+/// unread, so a flood of connections cannot tie Kuchu up. Real hooks come one or a few at a time per session.
+const MAX_CONNECTIONS: usize = 64;
 
 /// A permission request as a card shows it.
 #[derive(Serialize, Clone, Debug)]
@@ -229,8 +233,7 @@ impl Hub {
             return;
         }
         let Ok(message) = serde_json::from_slice::<Value>(&line) else { return };
-        let event = message.get("event").and_then(Value::as_str).unwrap_or("");
-        let payload = message.get("payload").cloned().unwrap_or(Value::Null);
+        let Some((event, payload)) = accepted(&message) else { return };
         if event != "PermissionRequest" {
             self.event(event, &payload);
             return;
@@ -247,6 +250,15 @@ impl Hub {
             let _ = w.flush().await;
         }
     }
+}
+
+/// The event and payload of a message in Kuchu's own protocol; none for anything else, which is dropped unread.
+fn accepted(message: &Value) -> Option<(&str, Value)> {
+    if message.get("v").and_then(Value::as_u64) != Some(kuchu_wire::VERSION as u64) {
+        return None;
+    }
+    let event = message.get("event")?.as_str()?;
+    Some((event, message.get("payload").cloned().unwrap_or(Value::Null)))
 }
 
 /// The tone an event rings, for each session on its own (the pet's mood is everyone's: one session done while another
@@ -376,53 +388,86 @@ fn decision(request: &Value, choice: &Choice) -> Option<Value> {
     }
 }
 
-/// Listens for relays for as long as Kuchu runs. A failed connection never stops it.
+/// Listens for relays for as long as Kuchu runs. A failed connection never stops it. Only a process of this account
+/// is heard, and only so many at once; any other connection is closed unread, which leaves its request to the
+/// terminal.
 pub async fn serve(hub: Arc<Hub>) -> Result<(), String> {
+    let permits = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     #[cfg(windows)]
     {
+        use std::os::windows::io::AsRawHandle;
         use tokio::net::windows::named_pipe::ServerOptions;
         let name = kuchu_wire::address();
-        let mut server = ServerOptions::new()
-            .first_pipe_instance(true)
-            .reject_remote_clients(true)
-            .create(&name)
-            .map_err(|e| format!("Kuchu could not open its pipe (is another Kuchu running?): {e}"))?;
+        // Made for this account alone: no other account can open it, send it events, or hold the name's next instance.
+        let only_me = kuchu_wire::OnlyMe::new().ok_or("Kuchu could not read which account it runs as.")?;
+        let make = |first: bool| {
+            let mut options = ServerOptions::new();
+            options.first_pipe_instance(first).reject_remote_clients(true);
+            // Safety: the attributes point into `only_me`, which outlives the call.
+            only_me.with_attributes(|attributes| unsafe { options.create_with_security_attributes_raw(&name, attributes) })
+        };
+        let mut server = make(true).map_err(|_| taken())?;
         loop {
             if server.connect().await.is_err() {
-                if let Ok(next) = ServerOptions::new().reject_remote_clients(true).create(&name) {
+                if let Ok(next) = make(false) {
                     server = next;
                 }
                 continue;
             }
             let next = loop {
-                match ServerOptions::new().reject_remote_clients(true).create(&name) {
+                match make(false) {
                     Ok(next) => break next,
-                    Err(_) => tokio::time::sleep(std::time::Duration::from_millis(50)).await,
+                    Err(_) => tokio::time::sleep(Duration::from_millis(50)).await,
                 }
             };
             let connected = std::mem::replace(&mut server, next);
-            tokio::spawn(hub.clone().handle(connected));
+            let me = kuchu_wire::client_is_me(connected.as_raw_handle());
+            take_in(&hub, &permits, connected, me);
         }
     }
     #[cfg(not(windows))]
     {
         use std::os::unix::fs::PermissionsExt;
+        use std::os::unix::io::AsRawFd;
         let path = std::path::PathBuf::from(kuchu_wire::address());
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
             let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
         }
-        if std::os::unix::net::UnixStream::connect(&path).is_ok() {
-            return Err("Another Kuchu is already running.".into());
+        if matches!(kuchu_wire::open(Duration::ZERO), Pipe::Kuchu(_) | Pipe::Busy) {
+            return Err(taken());
         }
         let _ = std::fs::remove_file(&path);
         let listener = tokio::net::UnixListener::bind(&path).map_err(|e| e.to_string())?;
         let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
         loop {
             if let Ok((stream, _)) = listener.accept().await {
-                tokio::spawn(hub.clone().handle(stream));
+                let me = kuchu_wire::client_is_me(stream.as_raw_fd());
+                take_in(&hub, &permits, stream, me);
             }
         }
+    }
+}
+
+/// A connection just made: heard if it is this account's (`me`) and there is room, else closed unread.
+fn take_in<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(hub: &Arc<Hub>, permits: &Arc<Semaphore>, stream: S, me: bool) {
+    if !me {
+        return;
+    }
+    let Ok(permit) = permits.clone().try_acquire_owned() else { return };
+    let hub = hub.clone();
+    tokio::spawn(async move {
+        let _permit = permit;
+        hub.handle(stream).await;
+    });
+}
+
+/// Why the pipe could not be made, for the person.
+fn taken() -> String {
+    match kuchu_wire::open(Duration::ZERO) {
+        Pipe::Kuchu(_) | Pipe::Busy => "Another Kuchu is already running, or another program of this account holds its pipe.".into(),
+        Pipe::Someone => "Another account's program holds Kuchu's pipe. No session can reach Kuchu until it is gone.".into(),
+        Pipe::Nobody => "Kuchu could not open its pipe.".into(),
     }
 }
 
@@ -446,6 +491,18 @@ mod tests {
         assert_eq!(tone_for("Notification", &json!({ "notification_type": "permission_prompt" })), Some(Mood::Needs));
         assert_eq!(tone_for("Notification", &json!({ "notification_type": "idle_prompt" })), None);
         assert_eq!(tone_for("PreToolUse", &fixture("PreToolUse")), None);
+    }
+
+    #[test]
+    fn only_the_protocols_own_messages_are_heard() {
+        let message = json!({ "v": 1, "event": "Stop", "payload": { "session_id": "a" } });
+        let (event, payload) = accepted(&message).unwrap();
+        assert_eq!((event, payload["session_id"].as_str()), ("Stop", Some("a")));
+        assert!(accepted(&json!({ "v": 2, "event": "Stop", "payload": {} })).is_none());
+        assert!(accepted(&json!({ "v": "1", "event": "Stop", "payload": {} })).is_none());
+        assert!(accepted(&json!({ "event": "Stop", "payload": {} })).is_none());
+        assert!(accepted(&json!({ "v": 1, "payload": {} })).is_none());
+        assert!(accepted(&json!([1, "Stop"])).is_none());
     }
 
     #[test]

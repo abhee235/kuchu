@@ -76,6 +76,16 @@ be hung or filled up from outside. **Low**: a nuisance, or something that only m
 On macOS and Linux the socket lives in `~/.kuchu/` (0700) as a 0600 file, so T1 and T4 reduce to "the same
 account", which is out of scope. T2 and T3 apply there as they do on Windows.
 
+What fix 2 did: the pipe is made with `D:P(A;;GA;;;<own SID>)` (`wire::OnlyMe`), so no other account can open it or
+hold its next instance; each connection's client process must run as this account (`wire::client_is_me`, from
+`GetNamedPipeClientProcessId` and the process's token, `SO_PEERCRED` or `getpeereid` on Unix) or is closed unread;
+a message without `v` 1 is dropped; at most 32 sessions are followed (the quietest goes) and 64 connections are open
+at once; a pipe that cannot be made is said in a box, naming whether a Kuchu or program of this account, or another
+account's program, holds it. What it left out, and why: checking the client's image against the relay's path proves
+nothing, since a program of this account can run the relay itself with any input; a cap on waiting requests per
+session adds nothing to the cap of five, since session ids are free to invent; a rate limit beyond the connection
+cap would only slow this account's own programs. The account is the boundary; inside it, nothing is checked.
+
 ### 2. The relay (relay/main.rs)
 
 | | Threat | Severity | Stands today | To do |
@@ -207,10 +217,10 @@ Each is one small commit with its tests.
 
 | | Piece | Severity | Status |
 |---|---|---|---|
-| T1 | Pipe: name taken first | High | Open |
-| T2 | Pipe: anyone can send events | Medium | Open |
-| T3 | Pipe: many connections | Low | Open |
-| T4 | Pipe: another account reads | Low | Open (closed by T1's DACL) |
+| T1 | Pipe: name taken first | High | Fixed on branch `security` (fix 2), awaiting review |
+| T2 | Pipe: anyone can send events | Medium | Fixed on branch `security` (fix 2), awaiting review; see what fix 2 left out |
+| T3 | Pipe: many connections | Low | Cap in with fix 2; closes with its stress test |
+| T4 | Pipe: another account reads | Low | Fixed on branch `security` (fix 2): T1's DACL |
 | T5 | Relay: impersonation on open | High | Fixed on branch `security` (fix 1), awaiting review |
 | T6 | Relay: trusts whoever answers | High | Fixed on branch `security` (fix 1), awaiting review |
 | T7 | Relay: record mode in release builds | Low | Open |
