@@ -255,7 +255,7 @@ pub fn set_start_at_sign_in(on: bool) -> Result<Start, String> {
 pub fn command(args: &[String]) -> Option<i32> {
     let first = args.first()?;
     let code = match first.as_str() {
-        "setup" => done(setup()),
+        "setup" => done(setup(!args.iter().any(|a| a == "--no-start"))),
         "status" => {
             status();
             0
@@ -297,11 +297,15 @@ fn done(result: Result<(), String>) -> i32 {
     }
 }
 
-fn setup() -> Result<(), String> {
+/// `now`: start Kuchu as well, with its Settings open. The Windows installer does not: its last page offers to start
+/// Kuchu, and Kuchu's first start opens Settings anyway.
+fn setup(now: bool) -> Result<(), String> {
     let relay = place_relay()?;
     let start = set_start_at_sign_in(true);
     let report = hooks::status(&hooks::settings_path(), &relay);
-    start_kuchu(&["--settings"])?;
+    if now {
+        start_kuchu(&["--settings"])?;
+    }
     let mut lines = vec![
         "Kuchu is set up.".to_string(),
         format!("  Kuchu:      {}", this_program()?.display()),
@@ -314,6 +318,7 @@ fn setup() -> Result<(), String> {
         String::new(),
     ];
     lines.push(match report.state.as_str() {
+        _ if !now => "Start Kuchu; its Settings connect it to Claude Code, with the change shown first.".to_string(),
         "installed" => "Kuchu is running, and connected to Claude Code: every session shows beside it.".to_string(),
         "outdated" => format!(
             "Kuchu is running, with its Settings open. Kuchu's hooks in {} are from an older install: click Update \

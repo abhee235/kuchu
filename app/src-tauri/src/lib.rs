@@ -327,7 +327,13 @@ pub fn run() {
             }
             let config = app.path().app_config_dir()?;
             let prefs_path = prefs::path_in(config);
+            // Kuchu's very first start (installed, or unzipped and opened): its settings are written once, and
+            // Settings opens, where it is connected to Claude Code.
+            let first = !prefs_path.exists();
             let prefs = Prefs::load(&prefs_path);
+            if first {
+                prefs.save(&prefs_path);
+            }
             let hub = Hub::new(app.handle().clone(), prefs.approvals);
             let window = app.get_webview_window("pet").expect("the pet's window is in tauri.conf.json");
             let at = prefs.at.filter(|at| still_on_screen(&window, *at)).unwrap_or_else(|| first_place(&window, prefs.width()));
@@ -408,8 +414,8 @@ pub fn run() {
                     chats.expire();
                 }
             });
-            // Started by `kuchu setup`: Settings open, where Kuchu is connected to Claude Code.
-            if args.iter().any(|a| a == "--settings") {
+            // Started by `kuchu setup`, or for the first time: Settings open, where Kuchu is connected to Claude Code.
+            if first || args.iter().any(|a| a == "--settings") {
                 show_settings(app.handle());
             }
             Ok(())
