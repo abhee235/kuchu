@@ -52,6 +52,9 @@ not offered, so those two requests, Notification and StopFailure still need an i
 - **Allow from Kuchu**, checked end to end (2026-11-01): Claude Code asked to write a file, Kuchu's card showed it,
   a click on Allow reached the relay, and the file was written.
 - **No answer** in a run without a terminal (`claude -p`): Claude Code treats it as a refusal and says so.
+- **Answered in Claude Code's own window** while the card shows (seen 2026-11-03, a question in the editor): Claude
+  Code goes on, but the relay's connection stays open, and the card stayed with it. The card now goes when that
+  call's PostToolUse or PostToolUseFailure arrives, or the turn ends.
 - Deny (with a `message`), "Always" (`updatedPermissions` with Claude Code's first `permission_suggestions` entry),
   answers to a question and plan approval (`updatedInput`) are built from the recorded shapes and covered by tests;
   each is checked live before the first release.

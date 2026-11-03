@@ -106,7 +106,14 @@ impl Hub {
     }
 
     pub fn event(&self, event: &str, payload: &Value) {
-        let changed = self.inner.lock().unwrap().sessions.apply(event, payload, now());
+        let mut inner = self.inner.lock().unwrap();
+        // A request answered in Claude Code's own window: its wait ends with no answer, and its card goes.
+        for w in inner.waiting.iter_mut().filter(|w| answered_elsewhere(event, payload, &w.request)) {
+            w.shown.take();
+            w.decide.take();
+        }
+        let changed = inner.sessions.apply(event, payload, now());
+        drop(inner);
         if changed {
             self.publish();
         }
@@ -251,6 +258,22 @@ fn tone_for(event: &str, payload: &Value) -> Option<Mood> {
         "StopFailure" => Some(Mood::Failed),
         "Notification" if payload.get("notification_type").and_then(Value::as_str) == Some("permission_prompt") => Some(Mood::Needs),
         _ => None,
+    }
+}
+
+/// Whether `event` shows that Claude Code no longer waits on `request`: the call ran or failed (answered in Claude
+/// Code's own window), or the turn is over. The relay's connection can stay open after that, and the card with it.
+/// The call is matched by its step's line, which the relay's cutting of long text leaves whole.
+fn answered_elsewhere(event: &str, payload: &Value, request: &Value) -> bool {
+    let text = |v: &Value, key: &str| v.get(key).and_then(Value::as_str).unwrap_or("").to_string();
+    let call = |v: &Value| (text(v, "tool_name"), step(&text(v, "tool_name"), v.get("tool_input").unwrap_or(&Value::Null)));
+    if text(payload, "session_id") != text(request, "session_id") {
+        return false;
+    }
+    match event {
+        "PostToolUse" | "PostToolUseFailure" => call(payload) == call(request),
+        "UserPromptSubmit" | "Stop" | "StopFailure" | "SessionEnd" => true,
+        _ => false,
     }
 }
 
@@ -446,6 +469,26 @@ mod tests {
         assert_eq!(decision(&request, &choice("terminal")), None);
         let always = decision(&request, &choice("always")).unwrap();
         assert_eq!(always["updatedPermissions"][0]["mode"], "acceptEdits");
+    }
+
+    #[test]
+    fn a_card_goes_once_its_request_is_answered_in_claude_code() {
+        let request = fixture("PermissionRequest");
+        let mut ran = request.clone();
+        ran["hook_event_name"] = json!("PostToolUse");
+        // The file's text as the relay sends it in an ordinary event: cut.
+        ran["tool_input"]["content"] = json!("cut…");
+        assert!(answered_elsewhere("PostToolUse", &ran, &request));
+        assert!(answered_elsewhere("PostToolUseFailure", &ran, &request));
+        assert!(answered_elsewhere("Stop", &json!({ "session_id": request["session_id"] }), &request));
+        // Another call, another session, or a call only starting: the card stays.
+        let mut other = ran.clone();
+        other["tool_input"]["file_path"] = json!("other.txt");
+        assert!(!answered_elsewhere("PostToolUse", &other, &request));
+        let mut elsewhere = ran.clone();
+        elsewhere["session_id"] = json!("another");
+        assert!(!answered_elsewhere("PostToolUse", &elsewhere, &request));
+        assert!(!answered_elsewhere("PreToolUse", &ran, &request));
     }
 
     #[test]
