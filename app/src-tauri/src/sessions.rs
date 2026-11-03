@@ -227,7 +227,7 @@ impl Sessions {
             "SessionStart" => {}
             "UserPromptSubmit" => {
                 s.mood = Mood::Thinking;
-                s.prompt = one_line(&text(p, "prompt"));
+                s.prompt = plain(&one_line(&text(p, "prompt")));
                 s.line = THINKING.into();
                 s.lines.clear();
                 s.ended = None;
