@@ -118,7 +118,12 @@
   transition: transform 0.3s ease;
 }
 .pet-bulb {
-  transition: opacity 0.3s ease, fill 0.3s ease;
+  transition: fill 0.3s ease;
+}
+/* The light's ember red, over the orange: the light changes colour, and never lets what is behind it show through. */
+.pet-bulb-ember {
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 .pet-happy,
 .pet-frown,
@@ -240,8 +245,8 @@
 .pet.is-thinking .pet-whole {
   animation: pet-sway 3.2s ease-in-out infinite;
 }
-.pet.is-thinking .pet-bulb {
-  animation: pet-pulse 2.2s ease-in-out infinite;
+.pet.is-thinking .pet-bulb-ember {
+  animation: pet-ember 2.2s ease-in-out infinite;
 }
 
 /* Working: at a small laptop, typing in quick taps, code appearing; eyes on the work, the pointer eye clicking. */
@@ -274,8 +279,8 @@
 .pet.is-working .pet-ripple {
   animation: pet-ripple 0.9s ease-out infinite;
 }
-.pet.is-working .pet-bulb {
-  animation: pet-pulse 1.2s ease-in-out infinite;
+.pet.is-working .pet-bulb-ember {
+  animation: pet-ember 1.2s ease-in-out infinite;
 }
 .pet.is-working .pet-face {
   --ly: 3px;
@@ -285,8 +290,8 @@
 .pet.is-needs .pet-arm-r {
   animation: pet-wave 0.9s ease-in-out infinite;
 }
-.pet.is-needs .pet-bulb {
-  animation: pet-blink-bulb 0.8s steps(2, jump-none) infinite;
+.pet.is-needs .pet-bulb-ember {
+  animation: pet-ember-blink 0.8s steps(2, jump-none) infinite;
 }
 .pet.is-needs .pet-whole {
   animation: pet-bob 1.6s ease-in-out infinite;
@@ -1340,8 +1345,8 @@
 .pet.is-asleep .pet-o {
   opacity: 0.8;
 }
-.pet.is-asleep .pet-bulb {
-  opacity: 0.45;
+.pet.is-asleep .pet-bulb-ember {
+  opacity: 0.85;
 }
 .pet.is-asleep .pet-head {
   transform: rotate(-6deg) translateY(1px);
@@ -1493,21 +1498,21 @@
     transform: scale(1.6);
   }
 }
-@keyframes pet-pulse {
+@keyframes pet-ember {
   0%,
   100% {
-    opacity: 1;
+    opacity: 0;
   }
   50% {
-    opacity: 0.35;
-  }
-}
-@keyframes pet-blink-bulb {
-  0% {
     opacity: 1;
   }
+}
+@keyframes pet-ember-blink {
+  0% {
+    opacity: 0;
+  }
   100% {
-    opacity: 0.25;
+    opacity: 1;
   }
 }
 @keyframes pet-wave {

@@ -256,6 +256,12 @@ export function Pet({
             <stop offset="0.45" stopColor="#f29a33" />
             <stop offset="1" stopColor="#b85d10" />
           </radialGradient>
+          {/* The antenna's light, glowing from its orange to a deep ember red and back. */}
+          <radialGradient id={`${id}ember`} cx="0.35" cy="0.3" r="0.75">
+            <stop offset="0" stopColor="#ff9f73" />
+            <stop offset="0.45" stopColor="#d9461a" />
+            <stop offset="1" stopColor="#8c2307" />
+          </radialGradient>
           <radialGradient id={`${id}led`} cx="0.4" cy="0.35" r="0.7">
             <stop offset="0" stopColor="#ffffff" />
             <stop offset="1" stopColor="#ffe7c8" />
@@ -348,6 +354,7 @@ export function Pet({
             <g className="pet-antenna">
               <line x1="60" y1="16" x2="60" y2="7" stroke="#cfc5b6" strokeWidth="3" strokeLinecap="round" />
               <circle className="pet-bulb" cx="60" cy="5" r="4.6" fill={u('ball')} />
+              <circle className="pet-bulb-ember" cx="60" cy="5" r="4.6" fill={u('ember')} />
               <circle className="pet-spark pet-bulb-spark" cx="58.6" cy="3.6" r="1.2" />
             </g>
             <circle cx="11" cy="52" r="6.2" fill={u('ball')} />
