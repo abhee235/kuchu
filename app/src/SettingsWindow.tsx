@@ -75,7 +75,7 @@ export function SettingsWindow() {
               </Row>
               <Row
                 label="Plays when there is no work"
-                desc="Now and then Kuchu stretches, yawns, looks around, taps a foot, flips its screen, whistles or takes a short walk. After a few quiet minutes it naps; your pointer or a session wakes it."
+                desc="Now and then Kuchu stretches, yawns, looks around, taps a foot, flips its screen, whistles, glitches, pops its head up or takes a short walk. After a few quiet minutes it naps; your pointer or a session wakes it."
               >
                 <Toggle label="Plays when there is no work" on={prefs.lively} set={(lively) => set({ lively })} />
               </Row>

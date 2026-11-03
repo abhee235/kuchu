@@ -218,6 +218,7 @@ export function PetWindow() {
           over={over}
           walk={walk}
           petted={petted}
+          asked={Math.max(0, ...view.sessions.map((s) => s.turn ?? 0))}
           stroll={stroll}
         />
       </div>
