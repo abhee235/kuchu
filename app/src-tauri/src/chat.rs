@@ -29,6 +29,9 @@ const STOP_GRACE: Duration = Duration::from_secs(5);
 const SEND_EVERY: Duration = Duration::from_millis(60);
 /// The end of what Claude Code wrote to stderr, kept for saying why it stopped.
 const ERR_TAIL: usize = 2000;
+/// A conversation keeps at most this many entries; the oldest go first. Every change sends the whole conversation
+/// to the pages, so this bounds that too.
+const MAX_ENTRIES: usize = 400;
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -215,6 +218,85 @@ struct Run {
     pid: u32,
     /// Which run this is, so a late word from an older process is not taken for this one's.
     nth: u64,
+    /// The job its process is in, so it is ended by handle, with everything it started.
+    #[cfg(windows)]
+    job: Option<Arc<Job>>,
+}
+
+impl Run {
+    /// What ends the process and everything it started (its tools' processes too), to be called once the lock is let
+    /// go: `taskkill` and `kill` are programs to start and wait for.
+    fn ender(&self) -> impl FnOnce() + Send + 'static {
+        let pid = self.pid;
+        #[cfg(windows)]
+        let job = self.job.clone();
+        move || {
+            #[cfg(windows)]
+            {
+                if let Some(job) = job {
+                    return job.end();
+                }
+                // Not in a job (it could not be made): by number, which another process could have by now.
+                use std::os::windows::process::CommandExt;
+                let _ = std::process::Command::new("taskkill").args(["/PID", &pid.to_string(), "/T", "/F"]).creation_flags(CREATE_NO_WINDOW).status();
+            }
+            #[cfg(unix)]
+            {
+                // The process leads its own group (`process_group(0)`): the group is ended.
+                let _ = std::process::Command::new("kill").args(["-TERM", &format!("-{pid}")]).status();
+            }
+        }
+    }
+}
+
+/// A job a conversation's process is put in, so that ending the conversation ends the process and everything it
+/// started, by handle rather than by a number another process may have by then. Closing the job ends nothing: a
+/// process let go finishes by itself once its input closes.
+#[cfg(windows)]
+struct Job(windows_sys::Win32::Foundation::HANDLE);
+
+// Safety: the handle is a job object of this process, owned here alone, and closed once.
+#[cfg(windows)]
+unsafe impl Send for Job {}
+#[cfg(windows)]
+unsafe impl Sync for Job {}
+
+#[cfg(windows)]
+impl Job {
+    /// A new job with `process` in it; none if the system refuses (a process already in a job that allows no nesting).
+    fn holding(process: std::os::windows::io::RawHandle) -> Option<Job> {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::JobObjects::{AssignProcessToJobObject, CreateJobObjectW};
+        // Safety: an unnamed job with default attributes; `process` is an open handle to the child.
+        unsafe {
+            let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+            if job.is_null() {
+                return None;
+            }
+            if AssignProcessToJobObject(job, process) == 0 {
+                CloseHandle(job);
+                return None;
+            }
+            Some(Job(job))
+        }
+    }
+
+    fn end(&self) {
+        // Safety: the job handle is open until `drop`.
+        unsafe {
+            windows_sys::Win32::System::JobObjects::TerminateJobObject(self.0, 1);
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for Job {
+    fn drop(&mut self) {
+        // Safety: closed once, here.
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(self.0);
+        }
+    }
 }
 
 struct Held {
@@ -290,6 +372,7 @@ impl Chats {
         let run = held.run.as_ref().expect("just started");
         run.input.send(line).map_err(|_| "Claude Code stopped before the message reached it. Send it again.".to_string())?;
         held.chat.entries.push(Entry::You { text: text.to_string() });
+        trim(&mut held.chat);
         held.chat.status = Status::Working;
         held.chat.updated = now();
         held.stopping = false;
@@ -309,15 +392,16 @@ impl Chats {
         held.stopping = true;
         let ask = json!({ "type": "control_request", "request_id": format!("kuchu-stop-{}", now()), "request": { "subtype": "interrupt" } });
         let _ = run.input.send(ask.to_string());
-        let (pid, nth) = (run.pid, run.nth);
+        let nth = run.nth;
         drop(all);
         let chats = self.clone();
         let id = id.to_string();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(STOP_GRACE).await;
-            let still = chats.all.hold().get(&id).is_some_and(|h| h.chat.status == Status::Working && h.run.as_ref().is_some_and(|r| r.nth == nth));
-            if still {
-                end_process(pid);
+            // Still the same run, still working: ended, by its own handle, once the lock is let go.
+            let end = chats.all.hold().get(&id).filter(|h| h.chat.status == Status::Working).and_then(|h| h.run.as_ref()).filter(|r| r.nth == nth).map(Run::ender);
+            if let Some(end) = end {
+                end();
             }
         });
     }
@@ -347,8 +431,8 @@ impl Chats {
     /// Forgets a conversation; a turn under way is ended with it.
     pub fn forget(&self, id: &str) -> bool {
         let Some(held) = self.all.hold().remove(id) else { return false };
-        if let Some(run) = held.run.filter(|_| held.chat.status == Status::Working) {
-            end_process(run.pid);
+        if let Some(run) = held.run.as_ref().filter(|_| held.chat.status == Status::Working) {
+            run.ender()();
         }
         let _ = self.app.emit("kuchu://chat-gone", id);
         true
@@ -380,6 +464,8 @@ impl Chats {
         cmd.process_group(0);
         let mut child = cmd.spawn().map_err(|e| format!("Kuchu could not start Claude Code ({}): {e}", claude.display()))?;
         let pid = child.id().unwrap_or(0);
+        #[cfg(windows)]
+        let job = child.raw_handle().and_then(Job::holding).map(Arc::new);
         let nth = self.runs.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
         let (input, mut lines_in) = mpsc::unbounded_channel::<String>();
 
@@ -422,7 +508,13 @@ impl Chats {
             let code = child.wait().await.ok().and_then(|s| s.code());
             chats.exited(&id, nth, code);
         });
-        Ok(Run { input, pid, nth })
+        Ok(Run {
+            input,
+            pid,
+            nth,
+            #[cfg(windows)]
+            job,
+        })
     }
 
     /// One line from a conversation's process.
@@ -433,6 +525,7 @@ impl Chats {
             return;
         }
         let change = held.reader.take(&mut held.chat, o);
+        trim(&mut held.chat);
         held.began |= change.began;
         if change.ended.is_some() {
             held.quiet_since = Instant::now();
@@ -526,40 +619,17 @@ pub fn find_claude() -> Option<PathBuf> {
     usual.into_iter().find(|p| p.is_file())
 }
 
-/// Ends a conversation's process and everything it started (its tools' processes too).
-fn end_process(pid: u32) {
-    if pid == 0 {
-        return;
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        let _ = std::process::Command::new("taskkill").args(["/PID", &pid.to_string(), "/T", "/F"]).creation_flags(CREATE_NO_WINDOW).status();
-    }
-    #[cfg(unix)]
-    {
-        let _ = std::process::Command::new("kill").args(["-TERM", &format!("-{pid}")]).status();
-    }
+/// Keeps a conversation to its last `MAX_ENTRIES` entries.
+fn trim(chat: &mut Chat) {
+    let extra = chat.entries.len().saturating_sub(MAX_ENTRIES);
+    chat.entries.drain(..extra);
 }
 
 /// Opens a terminal in `cwd` with Claude Code taking up session `id`.
 fn open_terminal(claude: &Path, cwd: &str, id: &str) -> Result<(), String> {
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        // Through `start`, so Claude Code gets the new console's own input and output (a process Kuchu starts directly
-        // would get Kuchu's, find no terminal, and quit). Windows opens it in the person's default terminal.
-        std::process::Command::new("cmd")
-            .raw_arg(format!("/d /c start \"\" /d \"{cwd}\" \"{}\" --resume {id}", claude.display()))
-            .env_remove("CLAUDECODE")
-            .env_remove("CLAUDE_CODE_ENTRYPOINT")
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn()
-            .map(drop)
-            .map_err(|e| format!("Kuchu could not open a terminal: {e}"))
+        terminal_command(claude, cwd, id).spawn().map(drop).map_err(|e| format!("Kuchu could not open a terminal: {e}"))
     }
     #[cfg(target_os = "macos")]
     {
@@ -579,6 +649,28 @@ fn open_terminal(claude: &Path, cwd: &str, id: &str) -> Result<(), String> {
             .map(drop)
             .map_err(|e| format!("Kuchu could not open a terminal: {e}"))
     }
+}
+
+/// The command that opens the terminal on Windows: through `start`, so Claude Code gets the new console's own input
+/// and output (a process Kuchu starts directly would get Kuchu's, find no terminal, and quit); Windows opens it in the
+/// person's default terminal. The folder and Claude Code's path reach cmd as variables, expanded once: a `%` in a
+/// folder's name is just a `%`, and with delayed expansion off (`/v:off`, whatever the registry says) so is a `!`.
+/// Each stands in double quotes, which no Windows name can hold, so an `&` or `^` in it stays a character of the name.
+/// The session id is Kuchu's own hex.
+#[cfg(windows)]
+fn terminal_command(claude: &Path, cwd: &str, id: &str) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    let mut cmd = std::process::Command::new("cmd");
+    cmd.raw_arg(format!("/d /v:off /c start \"\" /d \"%KUCHU_CWD%\" \"%KUCHU_CLAUDE%\" --resume {id}"))
+        .env("KUCHU_CWD", cwd)
+        .env("KUCHU_CLAUDE", claude)
+        .env_remove("CLAUDECODE")
+        .env_remove("CLAUDE_CODE_ENTRYPOINT")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW);
+    cmd
 }
 
 /// A new session id (a version 4 UUID). The randomness is the standard library's per-process hash keys, which is
@@ -680,6 +772,55 @@ mod tests {
         // Stopped before t1 came back: it did not finish.
         r.take(&mut chat, &json!({ "type": "result", "subtype": "error_during_execution", "terminal_reason": "aborted_streaming" }));
         assert_eq!(progress(&chat)[..2], [Some(Progress::Failed), Some(Progress::Failed)]);
+    }
+
+    #[test]
+    fn a_conversation_keeps_its_last_entries_only() {
+        let mut chat = blank();
+        for i in 0..MAX_ENTRIES + 50 {
+            chat.entries.push(Entry::You { text: i.to_string() });
+            trim(&mut chat);
+        }
+        assert_eq!(chat.entries.len(), MAX_ENTRIES);
+        assert_eq!(chat.entries.first(), Some(&Entry::You { text: "50".into() }));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_folder_never_reaches_the_shell_as_part_of_the_line() {
+        let cmd = terminal_command(Path::new(r"C:\Users\Ana María\claude.exe"), r"C:\work\100%done & more", "0123-abcd");
+        let line: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert!(line.iter().all(|a| !a.contains("100%done") && !a.contains("Ana")), "{line:?}");
+        assert!(line.iter().any(|a| a.starts_with("/d /v:off /c ") && a.contains("\"%KUCHU_CWD%\"") && a.contains("--resume 0123-abcd")));
+        let env: Vec<(String, Option<String>)> = cmd.get_envs().map(|(k, v)| (k.to_string_lossy().into_owned(), v.map(|v| v.to_string_lossy().into_owned()))).collect();
+        assert!(env.contains(&("KUCHU_CWD".into(), Some(r"C:\work\100%done & more".into()))));
+        assert!(env.contains(&("CLAUDECODE".into(), None)));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn cmd_reads_a_folder_passed_that_way_as_it_is() {
+        use std::os::windows::process::CommandExt;
+        // As `terminal_command` passes it: a variable, in double quotes, delayed expansion off.
+        let folder = r"C:\work\100%PATH%done & !PATH! ^x";
+        let out = std::process::Command::new("cmd").raw_arg("/d /v:off /c echo \"%KUCHU_CWD%\"").env("KUCHU_CWD", folder).output().unwrap();
+        assert_eq!(String::from_utf8_lossy(&out.stdout).trim_end(), format!("\"{folder}\""));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_process_in_a_job_is_ended_by_handle_with_what_it_started() {
+        use std::os::windows::io::AsRawHandle;
+        use std::os::windows::process::CommandExt;
+        // A shell that starts a child of its own and waits: ending the job ends both.
+        let mut shell = std::process::Command::new("cmd").args(["/d", "/c", "ping -n 30 127.0.0.1 > nul"]).creation_flags(CREATE_NO_WINDOW).spawn().unwrap();
+        let job = Job::holding(shell.as_raw_handle()).expect("a job for this process");
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(shell.try_wait().unwrap().is_none(), "still running before the end");
+        job.end();
+        let status = shell.wait().unwrap();
+        assert_eq!(status.code(), Some(1));
+        drop(job);
     }
 
     #[test]

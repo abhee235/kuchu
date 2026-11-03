@@ -166,6 +166,22 @@ else (an older place: "outdated"). A hook that merely mentions the relay is the 
 | T24 | **Growth.** A conversation's entries grow without bound and the whole conversation is sent to the pages on every change. | Low | Sent at most every 60 ms. | Cap entries kept per conversation; send only what changed. |
 | T35 | **Kuchu runs `claude` on its own.** While a busy session has been silent, Kuchu runs `claude agents --json` every 15 s, the first `claude` on `PATH`, with no click behind it; until 84d6f8f Claude Code was only ever started from a click. A relative or empty `PATH` entry would make that a program next to wherever Kuchu was started. | Low | Same account, so out of scope; what it prints is read as a list and nothing else; a hang is cut at 10 s and the process ended. | Skip relative `PATH` entries; resolve `claude` once at start and say in Settings which one. |
 
+What fix 6 did: the hand-off still goes through `cmd /c start` (a process started directly would not get the new
+console's input and output), but the folder and Claude Code's path reach cmd as environment variables
+(`%KUCHU_CWD%`, `%KUCHU_CLAUDE%`), each in double quotes, with delayed expansion off (`/v:off`). Cmd expands them
+once, so a `%` or a `!` in either is just that; it does read what they expand to, and the quotes, which no Windows
+name can hold, keep an `&` or a `^` a character of the name. One test shows neither is on the line
+(`terminal_command`), another has cmd echo such a folder back as it is. Each conversation's process is put in a
+job object as it starts (`Job::holding`); a stop that runs out of its five seconds, or forgetting a busy
+conversation, ends the job by handle (`TerminateJobObject`), once the lock on the conversations is let go: the
+process and everything it started, never a number another process has by then (if the system refuses the job,
+`taskkill` by number stays as the fallback). Closing the job ends nothing: a process let go still finishes by itself
+once its input closes. On Unix the process leads its own group and the group is ended, as before. A conversation
+keeps its last 400 entries (`MAX_ENTRIES`); the whole conversation is still sent on each change, now bounded by
+that. What it left out: the process joins its job a moment after it starts, so a program it starts in that moment
+(cmd.exe starting node, for a `claude.cmd` installed with npm) would stay outside it. Kuchu wins that race in
+practice; starting the process suspended and joining it first is the full answer.
+
 ### 7. The pages (app/src, tauri.conf.json)
 
 | | Threat | Severity | Stands today | To do |
@@ -275,10 +291,10 @@ Each is one small commit with its tests.
 | T18 | settings.json: "ours" is a substring | Low | Fixed on branch `security` (fix 5), awaiting review |
 | T19 | settings.json: written while changed | Low | Watching: the fingerprint and the rename hold |
 | T20 | Conversations: typed text reaches stdin | Low | Watching: one JSON line per message |
-| T21 | Conversations: hand-off through `cmd /c start` | Low | Open |
-| T22 | Conversations: ending a turn by pid | Low | Open |
+| T21 | Conversations: hand-off through `cmd /c start` | Low | Fixed on branch `security` (fix 6), awaiting review; see what fix 6 did |
+| T22 | Conversations: ending a turn by pid | Low | Fixed on branch `security` (fix 6) on Windows; Unix stays by group |
 | T23 | Conversations: finding `claude` | Low | Accepted: the same account's `PATH` is theirs |
-| T24 | Conversations: growth | Low | Open |
+| T24 | Conversations: growth | Low | Fixed on branch `security` (fix 6): entries capped; whole sent, bounded by the cap |
 | T25 | Pages: script in a page | High if ever | Watching: no HTML from text, strict CSP; the grep test to add |
 | T26 | On disk: the relay's path is the person's | Medium | Accepted for a per-user install; a per-machine install offered later |
 | T27 | Never a service | High (design) | Fixed in be8f21a, 75153eb, aaa38b2, 50c1f9a; its check goes in with fix 7 |
