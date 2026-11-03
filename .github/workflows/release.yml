@@ -1,7 +1,8 @@
 # A release, built only here and only from a version tag (v0.1.0, matching the version in tauri.conf.json): Kuchu and
 # its relay for Windows (x64, arm64: an installer and a zip each) and macOS (Apple silicon, Intel: an archive each),
-# named as the README's Install expects, and SHA256SUMS for them all. It is left as a draft, to look over before it is published. The only action
-# used is checkout, pinned to a commit; the rest is the runners' own tools.
+# named as the README's Install expects, and SHA256SUMS for them all. It is left as a draft, to look over before it is
+# published. Once Partner Center's identity is set, also the Microsoft Store's packages, kept with the run. Actions are
+# pinned to a commit; the rest is the runners' own tools.
 name: Release
 
 on:
@@ -35,8 +36,8 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: windows-latest, target: x86_64-pc-windows-msvc, asset: kuchu-windows-x64.zip, setup: kuchu-windows-x64-setup.exe }
-          - { os: windows-latest, target: aarch64-pc-windows-msvc, asset: kuchu-windows-arm64.zip, setup: kuchu-windows-arm64-setup.exe }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, asset: kuchu-windows-x64.zip, setup: kuchu-windows-x64-setup.exe, store: x64 }
+          - { os: windows-latest, target: aarch64-pc-windows-msvc, asset: kuchu-windows-arm64.zip, setup: kuchu-windows-arm64-setup.exe, store: arm64 }
           - { os: macos-latest, target: aarch64-apple-darwin, asset: kuchu-macos-arm64.tar.gz }
           - { os: macos-latest, target: x86_64-apple-darwin, asset: kuchu-macos-x64.tar.gz }
     runs-on: ${{ matrix.os }}
@@ -77,6 +78,24 @@ jobs:
           cp "target/$TARGET/release/kuchu.exe" "target/$TARGET/release/kuchu-relay.exe" LICENSE LICENSE-ASSETS.md out/kuchu/
           (cd out/kuchu && 7z a -tzip "../$ASSET" .)
           rm -rf out/kuchu
+
+      # For Partner Center, not for the release: an unsigned package nobody else can install. Runs once the package's
+      # identity from Partner Center is set as the repository's variables STORE_NAME, STORE_PUBLISHER and
+      # STORE_PUBLISHER_NAME.
+      - name: Kuchu for the Microsoft Store (Windows)
+        if: runner.os == 'Windows' && vars.STORE_NAME != ''
+        env:
+          STORE_NAME: ${{ vars.STORE_NAME }}
+          STORE_PUBLISHER: ${{ vars.STORE_PUBLISHER }}
+          STORE_PUBLISHER_NAME: ${{ vars.STORE_PUBLISHER_NAME }}
+        run: bash app/src-tauri/windows/store/pack.sh store "$TARGET:${{ matrix.store }}"
+
+      - name: The Store package, kept with this run
+        if: runner.os == 'Windows' && vars.STORE_NAME != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: store-${{ matrix.store }}
+          path: store/msix/*.msix
 
       - name: Kuchu.app, its relay inside, signed ad hoc (macOS)
         if: runner.os == 'macOS'
