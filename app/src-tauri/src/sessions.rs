@@ -88,8 +88,7 @@ pub struct Session {
     pub updated: u64,
     /// When its last turn ended, for "done until the pet is clicked".
     pub ended: Option<u64>,
-    /// When its current turn started (its last message), so each turn's card is its own.
-    #[serde(skip)]
+    /// When its current turn started (its last message), so each turn's card is its own, and the pet waves hello.
     turn: u64,
     /// Claude Code ended the session while its answer was unseen: it goes once the pet is clicked.
     #[serde(skip)]
@@ -794,6 +793,18 @@ mod tests {
         assert_eq!(s.card().unwrap().line, "Writing note.txt");
         assert!(s.forget(request["session_id"].as_str().unwrap()));
         assert_eq!(s.card(), None);
+    }
+
+    #[test]
+    fn the_page_learns_when_a_message_was_sent_so_the_pet_can_wave() {
+        let mut s = Sessions::default();
+        s.apply("UserPromptSubmit", &fixture("UserPromptSubmit"), 7);
+        s.apply("PreToolUse", &fixture("PreToolUse"), 9);
+        let sent = |s: &Sessions| serde_json::to_value(&s.list()[0]).unwrap()["turn"].clone();
+        // Work on that message does not move it; the next message does.
+        assert_eq!(sent(&s), 7);
+        s.apply("UserPromptSubmit", &fixture("UserPromptSubmit"), 12);
+        assert_eq!(sent(&s), 12);
     }
 
     #[test]

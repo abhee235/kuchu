@@ -16,6 +16,8 @@ export interface Session {
   prompt: string
   updated: number
   ended?: number | null
+  /** When its last message was sent: the pet waves hello. */
+  turn: number
 }
 
 /** Where a step stands: its tool running, finished, or failed (or cut short). */
