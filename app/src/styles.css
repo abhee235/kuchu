@@ -1481,4 +1481,11 @@ html[data-window='pose'] body {
   height: 100vh;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 24px;
+}
+/* Which mood or scene the preview is playing. */
+.pose-name {
+  font-size: var(--text-caption);
+  color: var(--fg-3);
 }
