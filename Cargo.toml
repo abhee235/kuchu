@@ -3,9 +3,9 @@ resolver = "2"
 members = ["wire", "relay", "app/src-tauri"]
 
 [profile.release]
-# The relay starts on every hook event, so it is built small and quick to load.
+# The relay starts on every hook event, so it is built small and quick to load. A panic unwinds rather than aborting,
+# so the relay can catch one and still exit 0, and one of Kuchu's tasks can fail without taking Kuchu with it.
 opt-level = "z"
 lto = true
 codegen-units = 1
 strip = true
-panic = "abort"

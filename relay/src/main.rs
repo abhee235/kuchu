@@ -1,10 +1,12 @@
 //! Kuchu's hook relay. Claude Code runs it on each hook event with the event's JSON on stdin:
 //!
 //!   kuchu-relay <event>                    hand the event to Kuchu
-//!   kuchu-relay record <event> [probe]     keep the event as it came, to learn what Claude Code sends
+//!   kuchu-relay record <event> [probe]     keep the event as it came, to learn what Claude Code sends (only in a
+//!                                          relay built with `--features record`: a release relay has no such mode)
 //!
 //! It never holds Claude Code up: all the work runs on a second thread while the first waits with a deadline (2 s, or
-//! 110 s for a permission request), it reaches Kuchu within 300 ms or gives up, and every path ends with exit code 0.
+//! 110 s for a permission request), it reaches Kuchu within 300 ms or gives up, and every path ends with exit code 0,
+//! a panic included.
 //! It speaks only to a pipe this account made (`kuchu_wire::open`), and prints only one thing: Kuchu's answer to a
 //! permission request, checked against the request and in the shape Claude Code reads. Anything else (no answer,
 //! Kuchu closed, a timeout, a garbled reply, an answer the request never offered) prints nothing, and Claude Code asks
@@ -12,6 +14,7 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::sync::mpsc;
+#[cfg(feature = "record")]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use kuchu_wire::Pipe;
@@ -25,12 +28,19 @@ const MAX_REQUEST: usize = 512 * 1024;
 const DROPPED: &[&str] = &["tool_response", "tool_output"];
 
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    match args.first().map(String::as_str) {
-        Some("record") => record(&args[1..]),
-        Some(event) => relay(event),
-        None => {}
-    }
+    // Whatever goes wrong inside, nothing is printed but a decision and the exit code is 0: a hook that fails loudly
+    // would be shown to the person, or stop Claude Code. (The worker thread's panic, if any, is its own: the first
+    // thread then runs out of time and prints nothing.)
+    std::panic::set_hook(Box::new(|_| {}));
+    let _ = std::panic::catch_unwind(|| {
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        match args.first().map(String::as_str) {
+            #[cfg(feature = "record")]
+            Some("record") => record(&args[1..]),
+            Some(event) => relay(event),
+            None => {}
+        }
+    });
 }
 
 fn relay(event: &str) {
@@ -145,6 +155,8 @@ fn cut(value: Value) -> Value {
 
 /// `record`: one JSON line per event in `KUCHU_RECORD` (default: kuchu-record.jsonl in the temp folder), with the
 /// probe (`"$0"` in the hook command: the shell's name under bash), a few environment variables, and the payload.
+/// Built only with the `record` feature: a relay that can write what sessions say to disk is never shipped.
+#[cfg(feature = "record")]
 fn record(args: &[String]) {
     const ENV_KEYS: &[&str] = &[
         "CLAUDE_CODE_ENTRYPOINT",

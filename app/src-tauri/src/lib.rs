@@ -253,17 +253,36 @@ fn still_on_screen(window: &WebviewWindow, at: (i32, i32)) -> bool {
 /// one (`kuchu quit`, `kuchu uninstall`), `--settings` shows Settings (`kuchu setup`), anything else (a second
 /// double-click) shows the pet and the sessions.
 fn again(app: &AppHandle, args: &[String]) {
+    match handed(args) {
+        Handed::Quit => app.exit(0),
+        Handed::Settings => show_settings(app),
+        Handed::Show => {
+            if let Some(pet) = app.get_webview_window("pet") {
+                let _ = pet.show();
+            }
+            if !app.get_webview_window("sessions").is_some_and(|w| w.is_visible().unwrap_or(false)) {
+                toggle_sessions(app);
+            }
+        }
+    }
+}
+
+/// What a second Kuchu's arguments ask of the running one. Never more than these: the hand-off is a window message
+/// any program in the session can send, so nothing it can say decides, writes, or starts Claude Code.
+#[derive(Debug, PartialEq)]
+enum Handed {
+    Quit,
+    Settings,
+    Show,
+}
+
+fn handed(args: &[String]) -> Handed {
     if args.iter().any(|a| a == "--quit") {
-        app.exit(0);
+        Handed::Quit
     } else if args.iter().any(|a| a == "--settings") {
-        show_settings(app);
+        Handed::Settings
     } else {
-        if let Some(pet) = app.get_webview_window("pet") {
-            let _ = pet.show();
-        }
-        if !app.get_webview_window("sessions").is_some_and(|w| w.is_visible().unwrap_or(false)) {
-            toggle_sessions(app);
-        }
+        Handed::Show
     }
 }
 
@@ -922,6 +941,16 @@ fn tray(app: &AppHandle) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_second_kuchu_can_only_ask_to_quit_show_settings_or_show() {
+        let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(handed(&args(&["--quit"])), Handed::Quit);
+        assert_eq!(handed(&args(&["--settings"])), Handed::Settings);
+        assert_eq!(handed(&args(&[])), Handed::Show);
+        assert_eq!(handed(&args(&["--resume", "x", "--decide", "allow"])), Handed::Show);
+        assert_eq!(handed(&args(&["--quit", "--settings"])), Handed::Quit);
+    }
 
     fn apart(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> bool {
         a.0 + a.2 <= b.0 || b.0 + b.2 <= a.0 || a.1 + a.3 <= b.1 || b.1 + b.3 <= a.1

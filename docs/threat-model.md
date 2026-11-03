@@ -198,6 +198,16 @@ practice; starting the process suspended and joining it first is the full answer
 | T34 | **The release and its checksum share an origin.** The README's install downloads the archive and `SHA256SUMS` from the same release page, so the check catches a broken download, not a swapped release; and `releases/latest` moves, so whoever can publish a release reaches every person who asks Claude Code to install or update Kuchu. | Medium | The workflow alone builds releases, from a tag, and leaves a draft to look over first; the README tells Claude Code to stop on a mismatch, never to skip the check, never to use administrator rights, and never to touch `settings.json`. | Provenance attested by the workflow for each file, and verified at install when `gh` is there (`gh attestation verify`); code signing (T28), which ties the file to a key the release page cannot change. |
 | T36 | **A second channel: the single-instance hand-off.** On Windows a second `kuchu.exe` hands its arguments to the running one through a window message, which any process in the session can send: `--quit` ends Kuchu, `--settings` opens Settings, anything else shows the pet. | Low | Same account, so out of scope; the arguments do nothing but quit or show windows; nothing is decided, written or started. | Keep it to those; never add an argument that decides, writes or starts Claude Code. A test pins `again` to them. |
 
+What fix 7 did: `kuchu-relay record` exists only in a relay built with `--features record` (T7); a test reads
+`tauri.conf.json`, the Store manifest and the installer's steps and fails if the install is not per-user or anything
+names a service (T27); a workflow runs `cargo audit` and `npm audit` on every push, pull request and week (T33); the
+release workflow attests provenance for every file and for `SHA256SUMS`, and the README's install verifies it with
+`gh attestation verify` when GitHub's CLI is signed in, stopping if it fails (T34; proven by the next release);
+`claude` is looked for in absolute `PATH` entries only, and `kuchu status` names the program found (T35); the
+single-instance hand-off's arguments are three (`handed`: quit, settings, show) and a test pins them (T36). What it
+left out, and why: signing (T28) needs a Windows and an Apple signing identity, which is a purchase and an account,
+not code; Settings naming the `claude` found (T35) is a page change for later.
+
 ### 9. Availability
 
 Kuchu being slow or dead must never slow Claude Code down (the relay fails open, in silence) and should rarely
@@ -208,11 +218,10 @@ happen.
 | T29 | **One panic ends Kuchu.** The workspace's release profile aborts on panic, and every lock is `lock().unwrap()`: a panic while a lock is held poisons it and the next `unwrap` panics too. | Medium | No `unsafe`; serde_json bounds nesting; every cut is on a character boundary. | Locks are taken with the poison swallowed; tasks that take untrusted input catch unwinds; the hub cannot be hung from outside (T15). A test feeds every fixture, and malformed JSON, through `Sessions::apply` and the relay. |
 | T30 | **Kuchu is gone and nobody knows.** Hooks then do nothing, which is right, but the person loses the pet without a word. | Low | Nothing. | Autostart restarts it at login; a crash leaves a note in Kuchu's own folder (never a payload). |
 
-What fix 3 did for T29: every lock is taken through `locks::Hold::hold`, which takes a poisoned lock all the same;
-a test feeds every recorded payload, and garbage of every shape, through `Sessions::apply_with`. What stands: the
-workspace's release profile has `panic = "abort"`, so in a release build any panic still ends Kuchu at once (and the
-relay with a non-zero exit, against its own rule), whatever the locks do; whether the app and the relay should
-unwind instead, with the relay catching the unwind to keep its exit code, is decided with fix 7.
+What fixes 3 and 7 did for T29: every lock is taken through `locks::Hold::hold`, which takes a poisoned lock all the
+same; a test feeds every recorded payload, and garbage of every shape, through `Sessions::apply_with`. The release
+profile no longer aborts on a panic: a panic unwinds, so a task of Kuchu's can fail on its own, and the relay's
+`main` catches one, prints nothing (its panic hook is silent) and exits 0, as its rule says.
 
 ### 10. What Kuchu keeps and shows
 
@@ -277,7 +286,7 @@ Each is one small commit with its tests.
 | T4 | Pipe: another account reads | Low | Fixed on branch `security` (fix 2): T1's DACL |
 | T5 | Relay: impersonation on open | High | Fixed on branch `security` (fix 1), awaiting review |
 | T6 | Relay: trusts whoever answers | High | Fixed on branch `security` (fix 1), awaiting review |
-| T7 | Relay: record mode in release builds | Low | Open |
+| T7 | Relay: record mode in release builds | Low | Fixed on branch `security` (fix 7): only with `--features record` |
 | T8 | Relay: huge event | Low | Accepted: bounded by Claude Code and the line caps |
 | T9 | Card: hides part of the input | High | Fixed on branch `security` (fix 4), awaiting review |
 | T10 | Card: characters that lie | Medium | Fixed on branch `security` (fix 4), awaiting review |
@@ -297,16 +306,16 @@ Each is one small commit with its tests.
 | T24 | Conversations: growth | Low | Fixed on branch `security` (fix 6): entries capped; whole sent, bounded by the cap |
 | T25 | Pages: script in a page | High if ever | Watching: no HTML from text, strict CSP; the grep test to add |
 | T26 | On disk: the relay's path is the person's | Medium | Accepted for a per-user install; a per-machine install offered later |
-| T27 | Never a service | High (design) | Fixed in be8f21a, 75153eb, aaa38b2, 50c1f9a; its check goes in with fix 7 |
-| T28 | The install itself | Medium | Open: signing and provenance before the first public build |
-| T29 | One panic ends Kuchu | Medium | Locks and the garbage test in with fix 3; the release profile's `panic = "abort"` is decided with fix 7 |
+| T27 | Never a service | High (design) | Fixed in be8f21a, 75153eb, aaa38b2, 50c1f9a; its check is in (fix 7) |
+| T28 | The install itself | Medium | Open: needs a signing identity for Windows and macOS, which is not code; provenance (T34) meanwhile |
+| T29 | One panic ends Kuchu | Medium | Fixed on branch `security` (fixes 3 and 7): locks, the garbage test, unwinding instead of aborting, the relay catching a panic and still exiting 0 |
 | T30 | Kuchu gone without a word | Low | Open |
 | T31 | Secrets on the card | Low | Open |
 | T32 | What is on disk | Low | Watching: nothing from sessions |
-| T33 | A dependency turns | Medium | Open: audits still to add; the rest done in e2766aa |
-| T34 | Release and checksum share an origin | Medium | Open |
-| T35 | Kuchu runs `claude` on its own | Low | Open |
-| T36 | The single-instance hand-off | Low | Accepted: same account, harmless arguments; a test pins them (fix 7) |
+| T33 | A dependency turns | Medium | Fixed on branch `security` (fix 7): `cargo audit` and `npm audit` in a workflow; the rest done in e2766aa |
+| T34 | Release and checksum share an origin | Medium | Fixed on branch `security` (fix 7): provenance attested for every file and for SHA256SUMS, verified by the README's install when `gh` is signed in; proven by the next release |
+| T35 | Kuchu runs `claude` on its own | Low | Fixed on branch `security` (fix 7): relative and empty PATH entries skipped; `kuchu status` names the program. Settings does not say it yet |
+| T36 | The single-instance hand-off | Low | Accepted: same account, harmless arguments; `handed` pins them to quit, settings and show (fix 7) |
 
 ## Reviews
 
@@ -320,6 +329,11 @@ Each is one small commit with its tests.
   `hub.rs`, `sessions.rs`, `chat.rs`, `lib.rs`, `prefs.rs`, `main.tsx`, `api.ts`, `tauri.conf.json`. Found T34 to
   T36. T15 widened (the transcript is read at every tool start and end). T27 fixed; T28 and T33 part done. The
   approval card and the settings writer did not change.
+- **2026-11-03**, later: fixes 1 to 7 written on branch `security` from `db788a6`, each with its tests, uncommitted
+  and awaiting review; fixes 1 to 4 also checked live against a running Kuchu (the relay through the pipe, the
+  dialog when the pipe is taken, the cards for a rule, a padded command and an over-long one). What each fix left
+  out, and why, is under its section. Open: T28 (a signing identity); T3's stress test; T34 until a release proves
+  it; Settings naming the `claude` found (T35).
 
 ## Checks to keep
 

@@ -1,0 +1,34 @@
+# The dependencies, checked against known advisories: Cargo.lock with cargo-audit and package-lock.json with npm, on
+# every push and pull request, and once a week (a new advisory against an unchanged lockfile). Actions are pinned to
+# a commit; the rest is the runners' own tools.
+name: Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  cargo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: cargo audit, against Cargo.lock
+        run: cargo install cargo-audit --locked && cargo audit
+
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: npm audit, against package-lock.json
+        working-directory: app
+        run: npm audit --audit-level=high

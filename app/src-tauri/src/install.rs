@@ -385,9 +385,10 @@ fn status() {
             line
         }
     };
+    let program_line = crate::chat::find_claude().map(|p| p.display().to_string()).unwrap_or_else(|| "not found (looked for on the PATH, then where its installers put it)".to_string());
     say(&format!(
         "Kuchu {}\n  Program:                 {exe}\n  Running:                 {}\n  Starts when you sign in: {start_line}\n  \
-         Relay:                   {relay_line}\n  Claude Code:             {claude_line}",
+         Relay:                   {relay_line}\n  Claude Code:             {claude_line}\n  Claude Code program:     {program_line}",
         env!("CARGO_PKG_VERSION"),
         if running() {
             "yes"
@@ -577,6 +578,17 @@ fn start_kuchu(args: &[&str]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kuchu_installs_for_the_current_user_and_is_never_a_service() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let conf: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(root.join("tauri.conf.json")).unwrap()).unwrap();
+        assert_eq!(conf["bundle"]["windows"]["nsis"]["installMode"], "currentUser");
+        let manifest = std::fs::read_to_string(root.join("windows/store/AppxManifest.xml")).unwrap().to_lowercase();
+        assert!(manifest.contains("windows.startuptask") && !manifest.contains("windows.service"));
+        let installer = std::fs::read_to_string(root.join("windows/hooks.nsh")).unwrap().to_lowercase();
+        assert!(!installer.contains("service") && !installer.contains("requestexecutionlevel"));
+    }
 
     #[test]
     fn kuchus_folders_are_the_ones_tauri_gives_it() {

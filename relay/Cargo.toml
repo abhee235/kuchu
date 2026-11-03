@@ -12,3 +12,8 @@ path = "src/main.rs"
 [dependencies]
 kuchu-wire = { path = "../wire" }
 serde_json = "1"
+
+[features]
+# `kuchu-relay record`, which writes raw payloads to disk to learn what Claude Code sends: only in a relay built with
+# `--features record`, never in a release.
+record = []

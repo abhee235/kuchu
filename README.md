@@ -77,6 +77,8 @@ work="$(mktemp -d)"
 curl -fsSL -o "$work/$asset" "$repo/releases/latest/download/$asset"
 curl -fsSL -o "$work/SHA256SUMS" "$repo/releases/latest/download/SHA256SUMS"
 (cd "$work" && grep "  $asset\$" SHA256SUMS | sha256sum -c -)   # must print "<asset>: OK"
+# With GitHub's CLI signed in, also that the release workflow built this very file (it stops here if not):
+if command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then gh attestation verify "$work/$asset" --repo abhee235/kuchu; fi
 
 dest="$(cygpath -u "$LOCALAPPDATA")/Programs/Kuchu"
 [ -x "$dest/kuchu.exe" ] && "$dest/kuchu.exe" quit || true     # an older Kuchu, if one runs
@@ -96,6 +98,8 @@ work="$(mktemp -d)"
 curl -fsSL -o "$work/$asset" "$repo/releases/latest/download/$asset"
 curl -fsSL -o "$work/SHA256SUMS" "$repo/releases/latest/download/SHA256SUMS"
 (cd "$work" && grep "  $asset\$" SHA256SUMS | shasum -a 256 -c -)   # must print "<asset>: OK"
+# With GitHub's CLI signed in, also that the release workflow built this very file (it stops here if not):
+if command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then gh attestation verify "$work/$asset" --repo abhee235/kuchu; fi
 
 app="$HOME/Applications/Kuchu.app"
 [ -x "$app/Contents/MacOS/kuchu" ] && "$app/Contents/MacOS/kuchu" quit || true

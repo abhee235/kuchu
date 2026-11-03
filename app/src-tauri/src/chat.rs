@@ -603,9 +603,14 @@ const NO_CLAUDE: &str = "Kuchu could not find Claude Code on this computer. Inst
 
 /// Where Claude Code is: on the PATH, else where its installers put it.
 pub fn find_claude() -> Option<PathBuf> {
+    claude_on(&std::env::var_os("PATH").unwrap_or_default())
+}
+
+/// Claude Code in the folders of `path` (a PATH value), else where its installers put it. Only absolute entries count:
+/// a relative or empty one would name a program next to wherever Kuchu happened to be started.
+fn claude_on(path: &std::ffi::OsStr) -> Option<PathBuf> {
     let names: &[&str] = if cfg!(windows) { &["claude.exe", "claude.cmd"] } else { &["claude"] };
-    let path = std::env::var_os("PATH").unwrap_or_default();
-    for dir in std::env::split_paths(&path) {
+    for dir in std::env::split_paths(path).filter(|d| d.is_absolute()) {
         if let Some(found) = names.iter().map(|n| dir.join(n)).find(|p| p.is_file()) {
             return Some(found);
         }
@@ -821,6 +826,18 @@ mod tests {
         let status = shell.wait().unwrap();
         assert_eq!(status.code(), Some(1));
         drop(job);
+    }
+
+    #[test]
+    fn claude_is_looked_for_in_absolute_places_only() {
+        let dir = std::env::temp_dir().join(format!("kuchu-claude-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let name = if cfg!(windows) { "claude.exe" } else { "claude" };
+        std::fs::write(dir.join(name), "").unwrap();
+        // An empty entry and a relative one come first and are passed over.
+        let path = std::env::join_paths([PathBuf::new(), PathBuf::from("bin"), dir.clone()]).unwrap();
+        assert_eq!(claude_on(&path), Some(dir.join(name)));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
