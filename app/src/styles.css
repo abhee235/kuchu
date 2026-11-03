@@ -1433,3 +1433,13 @@ code {
   place-items: center;
   background: transparent;
 }
+html[data-window='pose'] body {
+  background: #f3efe8;
+  overflow: hidden;
+}
+.pose-stage {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+}
