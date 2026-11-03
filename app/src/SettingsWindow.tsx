@@ -236,7 +236,9 @@ function Connect({ report, onReport }: { report: HookReport | null; onReport: (r
                   </span>
                 ))}
               </pre>
-              <p className="muted">First, a copy of the file as it is now is kept at {plan.backup}.</p>
+              <p className="muted">
+                First, a copy of the file as it is now is kept at {plan.backup}. Kuchu keeps the last {plan.keptCopies} such copies.
+              </p>
             </>
           )}
           <div className="inline">

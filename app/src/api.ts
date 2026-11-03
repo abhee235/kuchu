@@ -139,6 +139,8 @@ export interface HookPlan {
   install: boolean
   path: string
   backup: string
+  /** How many such copies stay beside the file. */
+  keptCopies: number
   diff: DiffLine[]
   fingerprint: string
   unchanged: boolean

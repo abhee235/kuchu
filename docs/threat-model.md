@@ -148,6 +148,13 @@ account naming some other plain file, which is out of scope and, read as JSON li
 | T18 | **"Ours" is a substring.** A hook whose command merely contains `kuchu-relay` counts as Kuchu's: it is shown as "installed", protected from the person's view as their own, and removed on uninstall. | Low | The mark is `kuchu-relay`. | Ours is exactly the command Kuchu would write for the relay's path (or one that starts with the quoted relay path, for an older location, which is then "outdated"). |
 | T19 | **Written while changed.** The file changes between the diff and the click. | Low | A fingerprint of the bytes shown must match at write time; the write is a temp file renamed over the original, following a symlink to its target. | Keep. |
 
+What fix 5 did: the copy is made for the owner alone and then given the original's mode (`keep_copy`; on Windows
+both take the folder's permissions); after each copy, all but the newest five (`KEPT_COPIES`) of Kuchu's own copies
+beside the file go (`prune_copies`, which touches nothing but files named `settings.json.kuchu-backup-…`), and
+Settings says so where it names the copy; a hook is Kuchu's only if its command is exactly the one Kuchu writes for
+that event, or a quoted path to a file named `kuchu-relay` / `kuchu-relay.exe` followed by that event and nothing
+else (an older place: "outdated"). A hook that merely mentions the relay is the user's: never counted, never removed.
+
 ### 6. Running Claude Code: conversations, and asking what still runs (chat.rs, alive.rs)
 
 | | Threat | Severity | Stands today | To do |
@@ -263,9 +270,9 @@ Each is one small commit with its tests.
 | T13 | Card: a click meant for something else | Low | Watching: the 600 ms guard and the unfocusable window hold |
 | T14 | Card: answers never offered | Low | Watching: checked in `decision`; T6 adds the relay's check |
 | T15 | Paths: `transcript_path` opened under the lock | Medium | Fixed on branch `security` (fix 3), awaiting review; see what fix 3 left out |
-| T16 | settings.json: copy more readable than the original | Medium | Open |
-| T17 | settings.json: copies pile up | Low | Open |
-| T18 | settings.json: "ours" is a substring | Low | Open |
+| T16 | settings.json: copy more readable than the original | Medium | Fixed on branch `security` (fix 5), awaiting review |
+| T17 | settings.json: copies pile up | Low | Fixed on branch `security` (fix 5), awaiting review |
+| T18 | settings.json: "ours" is a substring | Low | Fixed on branch `security` (fix 5), awaiting review |
 | T19 | settings.json: written while changed | Low | Watching: the fingerprint and the rename hold |
 | T20 | Conversations: typed text reaches stdin | Low | Watching: one JSON line per message |
 | T21 | Conversations: hand-off through `cmd /c start` | Low | Open |

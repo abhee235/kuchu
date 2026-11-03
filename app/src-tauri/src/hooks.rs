@@ -3,8 +3,9 @@
 //! The file is the user's: one that cannot be read or parsed is refused, never taken as empty; the change is shown
 //! first, as lines added and removed; it is written only after a click, and only if the file is the same as when it
 //! was shown; a dated copy is kept beside it first; and the new file is written beside the old one and renamed over
-//! it. Only entries whose command runs `kuchu-relay` are ever added or removed, so the user's own hooks, and other
-//! tools' hooks, stay exactly as they were.
+//! it. Only entries whose command is the relay's own (the quoted relay and the event, nothing else) are ever added or
+//! removed, so the user's own hooks, and other tools' hooks, stay exactly as they were. The copy kept beside the file
+//! is as readable as the file and no more, and only the last few copies stay.
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -29,8 +30,8 @@ pub const EVENTS: &[(&str, u32)] = &[
     ("PreCompact", kuchu_wire::HOOK_TIMEOUT),
 ];
 
-/// What marks a hook as Kuchu's: its command runs the relay.
-const MARK: &str = "kuchu-relay";
+/// How many copies of settings.json Kuchu keeps beside it: every Connect and Disconnect makes one, older ones go.
+pub const KEPT_COPIES: usize = 5;
 
 #[cfg(windows)]
 pub const RELAY_FILE: &str = "kuchu-relay.exe";
@@ -77,6 +78,8 @@ pub struct Plan {
     pub path: String,
     /// Where the copy of the file as it is now will be kept.
     pub backup: String,
+    /// How many such copies stay (`KEPT_COPIES`).
+    pub kept_copies: usize,
     pub diff: Vec<Line>,
     /// The file as it was shown: the change is written only if it is still this.
     pub fingerprint: String,
@@ -122,8 +125,19 @@ fn read(path: &Path) -> Result<(Vec<u8>, Value), String> {
     Ok((bytes, value))
 }
 
-fn is_ours(hook: &Value) -> bool {
-    hook.get("command").and_then(Value::as_str).is_some_and(|c| c.contains(MARK))
+/// Whether a hook under `event` is Kuchu's own: its command is the one Kuchu writes for the relay at `relay`, or the
+/// same with the relay at an older place (then "outdated"). A command that merely mentions the relay is the user's.
+fn is_ours(hook: &Value, event: &str, relay: &Path) -> bool {
+    let Some(cmd) = hook.get("command").and_then(Value::as_str) else { return false };
+    cmd == command(relay, event) || is_relay_command(cmd, event)
+}
+
+/// A quoted path to a file named like the relay, then the event, and nothing else.
+fn is_relay_command(cmd: &str, event: &str) -> bool {
+    let Some(quote) = cmd.chars().next().filter(|q| matches!(q, '"' | '\'')) else { return false };
+    let Some((path, rest)) = cmd[1..].split_once(quote) else { return false };
+    let file = path.rsplit(['/', '\\']).next().unwrap_or(path);
+    matches!(file, "kuchu-relay" | "kuchu-relay.exe") && rest == format!(" {event}")
 }
 
 /// The settings with Kuchu's hooks taken out, then (to install) put back for the relay at `relay`.
@@ -141,7 +155,7 @@ fn changed(settings: &Value, relay: &Path, install: bool) -> Value {
             for group in groups.iter_mut() {
                 if let Some(list) = group.get_mut("hooks").and_then(Value::as_array_mut) {
                     let n = list.len();
-                    list.retain(|h| !is_ours(h));
+                    list.retain(|h| !is_ours(h, &name, relay));
                     touched |= list.len() != n;
                 }
             }
@@ -183,22 +197,27 @@ pub fn status(path: &Path, relay: &Path) -> Report {
         Err(why) => return Report { state: "unreadable".into(), why: Some(why), path: shown, disabled: false },
     };
     let disabled = settings.get("disableAllHooks").and_then(Value::as_bool).unwrap_or(false);
-    let ours: Vec<String> = settings
+    let ours: Vec<(String, String)> = settings
         .get("hooks")
         .and_then(Value::as_object)
         .map(|events| {
             events
-                .values()
-                .filter_map(Value::as_array)
-                .flatten()
-                .filter_map(|g| g.get("hooks").and_then(Value::as_array))
-                .flatten()
-                .filter(|h| is_ours(h))
-                .filter_map(|h| h.get("command").and_then(Value::as_str).map(str::to_string))
+                .iter()
+                .flat_map(|(name, groups)| {
+                    groups
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|g| g.get("hooks").and_then(Value::as_array))
+                        .flatten()
+                        .filter(|h| is_ours(h, name, relay))
+                        .filter_map(|h| h.get("command").and_then(Value::as_str).map(|c| (name.clone(), c.to_string())))
+                        .collect::<Vec<_>>()
+                })
                 .collect()
         })
         .unwrap_or_default();
-    let wanted: Vec<String> = EVENTS.iter().map(|(e, _)| command(relay, e)).collect();
+    let wanted: Vec<(String, String)> = EVENTS.iter().map(|(e, _)| (e.to_string(), command(relay, e))).collect();
     let state = if ours.is_empty() {
         "missing"
     } else if wanted.iter().all(|w| ours.contains(w)) && ours.len() == wanted.len() {
@@ -222,6 +241,7 @@ pub fn plan(path: &Path, relay: &Path, install: bool) -> Result<Plan, String> {
         install,
         path: path.display().to_string(),
         backup: backup_path(path).display().to_string(),
+        kept_copies: KEPT_COPIES,
         diff: diff(if bytes.is_empty() { "" } else { &before_settings }, &after_text),
         fingerprint: fingerprint(&bytes),
         unchanged,
@@ -245,7 +265,8 @@ pub fn apply(path: &Path, relay: &Path, install: bool, seen: &str) -> Result<Opt
     let mut kept = None;
     if !bytes.is_empty() {
         let backup = backup_path(&target);
-        std::fs::write(&backup, &bytes).map_err(|e| format!("Kuchu could not keep a copy at {} ({e}), so it changed nothing.", backup.display()))?;
+        keep_copy(&backup, &bytes, &target).map_err(|e| format!("Kuchu could not keep a copy at {} ({e}), so it changed nothing.", backup.display()))?;
+        prune_copies(&target);
         kept = Some(backup.display().to_string());
     }
     if let Some(dir) = target.parent() {
@@ -279,16 +300,58 @@ fn fingerprint(bytes: &[u8]) -> String {
     format!("{:016x}-{}", h.finish(), bytes.len())
 }
 
+/// What the copies are called: the file's name, this, and the time.
+const COPY_MARK: &str = ".kuchu-backup-";
+
 fn backup_path(path: &Path) -> PathBuf {
     let secs = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("settings.json");
-    let mut candidate = path.with_file_name(format!("{name}.kuchu-backup-{secs}"));
+    let mut candidate = path.with_file_name(format!("{name}{COPY_MARK}{secs}"));
     let mut n = 1;
     while candidate.exists() {
-        candidate = path.with_file_name(format!("{name}.kuchu-backup-{secs}-{n}"));
+        candidate = path.with_file_name(format!("{name}{COPY_MARK}{secs}-{n}"));
         n += 1;
     }
     candidate
+}
+
+/// Writes the copy as readable as the original and no more: on Unix it is made for the owner alone, then given the
+/// original's mode (the file may hold keys); on Windows it takes the folder's permissions, as the original did.
+fn keep_copy(backup: &Path, bytes: &[u8], original: &Path) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options.open(backup)?.write_all(bytes)?;
+    #[cfg(unix)]
+    if let Ok(meta) = std::fs::metadata(original) {
+        std::fs::set_permissions(backup, meta.permissions())?;
+    }
+    #[cfg(not(unix))]
+    let _ = original;
+    Ok(())
+}
+
+/// Removes all but the newest `KEPT_COPIES` copies Kuchu made beside `original`. Nothing else in the folder is
+/// touched: only files named as Kuchu names its copies.
+fn prune_copies(original: &Path) {
+    let Some(dir) = original.parent() else { return };
+    let name = original.file_name().and_then(|n| n.to_str()).unwrap_or("settings.json");
+    let prefix = format!("{name}{COPY_MARK}");
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let mut copies: Vec<(SystemTime, PathBuf)> = entries
+        .flatten()
+        .filter(|e| e.file_name().to_str().is_some_and(|n| n.starts_with(&prefix)))
+        .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
+        .collect();
+    copies.sort();
+    for (_, path) in copies.iter().rev().skip(KEPT_COPIES) {
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 /// Lines added and removed, with two lines kept around each change and the rest left out.
@@ -443,6 +506,54 @@ mod tests {
         let plan = plan(&path, Path::new("/old/place/kuchu-relay"), true).unwrap();
         apply(&path, Path::new("/old/place/kuchu-relay"), true, &plan.fingerprint).unwrap();
         assert_eq!(status(&path, Path::new(RELAY)).state, "outdated");
+    }
+
+    #[test]
+    fn a_hook_that_merely_mentions_the_relay_is_the_users() {
+        let path = temp("mention");
+        let theirs = r#"{ "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "echo kuchu-relay was here" }] }] } }"#;
+        std::fs::write(&path, theirs).unwrap();
+        let relay = Path::new(RELAY);
+        assert_eq!(status(&path, relay).state, "missing");
+        let plan = plan(&path, relay, true).unwrap();
+        apply(&path, relay, true, &plan.fingerprint).unwrap();
+        assert_eq!(status(&path, relay).state, "installed");
+        let removal = super::plan(&path, relay, false).unwrap();
+        apply(&path, relay, false, &removal.fingerprint).unwrap();
+        let back: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(back["hooks"]["Stop"][0]["hooks"][0]["command"], "echo kuchu-relay was here");
+        // The relay at an older place, with its event and nothing else: ours, and outdated. Anything else is not.
+        assert!(is_relay_command("\"C:/old/kuchu-relay.exe\" Stop", "Stop"));
+        assert!(is_relay_command("'/old/kuchu-relay' Stop", "Stop"));
+        assert!(!is_relay_command("\"C:/old/kuchu-relay.exe\" Stop && rm -rf /", "Stop"));
+        assert!(!is_relay_command("\"C:/old/kuchu-relay.exe\" PreToolUse", "Stop"));
+        assert!(!is_relay_command("C:/old/kuchu-relay.exe Stop", "Stop"));
+        assert!(!is_relay_command("\"C:/old/kuchu-relay-fake.exe\" Stop", "Stop"));
+    }
+
+    #[test]
+    fn only_the_last_few_copies_are_kept_as_readable_as_the_original() {
+        let path = temp("copies");
+        let relay = Path::new(RELAY);
+        std::fs::write(&path, "{}").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
+        for i in 0..KEPT_COPIES + 2 {
+            let install = i % 2 == 0;
+            let plan = super::plan(&path, relay, install).unwrap();
+            let kept = apply(&path, relay, install, &plan.fingerprint).unwrap().unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(std::fs::metadata(&kept).unwrap().permissions().mode() & 0o777, 0o600);
+            }
+            assert!(Path::new(&kept).exists());
+        }
+        let copies = std::fs::read_dir(path.parent().unwrap()).unwrap().flatten().filter(|e| e.file_name().to_str().is_some_and(|n| n.contains(COPY_MARK))).count();
+        assert_eq!(copies, KEPT_COPIES);
     }
 
     #[test]
