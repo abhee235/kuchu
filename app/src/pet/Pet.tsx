@@ -1,10 +1,11 @@
 // Pet.tsx — Kuchu, the desk robot, with a wink on its screen (a lit eye, the saffron pointer for the other, a smile),
 // shaded to read as a glossy toy. It acts out what Claude Code is doing: blinks and glances when idle (a timer,
-// so nothing runs in between), a thought bubble while a session thinks, typing at a small laptop while it works, a wave
-// when it needs you, three hops when a session is done and a happy face until the pet is clicked, a frown when one
-// failed.
+// so nothing runs in between); while a session thinks, its eye going up, then a thought bubble and its pointer turning
+// into a busy ring in turn, and an idea (a click, an arm up, a lightbulb) as the first tool starts; typing at a small
+// laptop while it works, a wave when it needs you, three hops when a session is done and a happy face until the pet is
+// clicked, a frown when one failed.
 // The pet beside your windows (`lively`) also has a life of its own when there is no work, in short scenes, each with
-// a wind-up, the action and a settle: a yawn behind its hand, a stretch on tiptoe, checking its watch and sighing, a
+// a wind-up, the action and a settle: a yawn with its arms up, a stretch on tiptoe, checking its watch and sighing, a
 // little dance, its antenna springing, a look around, its screen flipping to another face, or a short walk. After a
 // long while with nothing happening it nods off and naps, until your pointer comes near or a session starts; it wakes
 // with a start and a yawn. It walks while it is dragged, smiles under the pointer, and gets heart eyes when petted (the
@@ -40,6 +41,16 @@ const STROLL_SPEED = 70
 const STROLL_PAUSE_MS = 900
 /** Heart eyes this long after being petted. */
 const PETTED_MS = 1800
+/** Thinking, in beats: its eye up as it starts, then pondering and a busy pointer in turn, this long each. */
+const FOCUS_MS = 1200
+const PONDER_MS = 4200
+const BUSY_MS = 3600
+/** The idea it gets as the first tool starts, this long before it gets to work. */
+const INSIGHT_MS = 1600
+/** At most one idea in this long, when sessions take turns thinking and working. */
+const INSIGHT_EVERY_MS = 20_000
+
+type Beat = 'focus' | 'ponder' | 'busy'
 
 /** Blinks every 3 to 6 seconds (one in four a wink) and, idle, a glance around now and then. */
 function useMoment(on: boolean, idle: boolean): string | null {
@@ -159,6 +170,55 @@ function usePetted(petted?: number) {
   return now
 }
 
+/** While a session thinks: its eye up first, then pondering and a busy pointer in turn. Asked for less motion, it only
+ *  ponders. */
+function useThinking(on: boolean): Beat | null {
+  const [beat, setBeat] = useState<Beat | null>(null)
+  useEffect(() => {
+    if (!on) return
+    if (reducedMotion()) {
+      setBeat('ponder')
+      return
+    }
+    let timer: ReturnType<typeof setTimeout>
+    const ponder = () => {
+      setBeat('ponder')
+      timer = setTimeout(() => {
+        setBeat('busy')
+        timer = setTimeout(ponder, BUSY_MS)
+      }, PONDER_MS)
+    }
+    setBeat('focus')
+    timer = setTimeout(ponder, FOCUS_MS)
+    return () => {
+      clearTimeout(timer)
+      setBeat(null)
+    }
+  }, [on])
+  return on ? (beat ?? (reducedMotion() ? 'ponder' : 'focus')) : null
+}
+
+/** An idea for a moment when thinking turns into work (or straight into an answer). */
+function useInsight(mood: PetMood, on: boolean) {
+  const [now, setNow] = useState(false)
+  const was = useRef(mood)
+  const last = useRef(0)
+  useEffect(() => {
+    const from = was.current
+    was.current = mood
+    if (!on || from !== 'thinking' || (mood !== 'working' && mood !== 'done')) return
+    if (Date.now() - last.current < INSIGHT_EVERY_MS) return
+    last.current = Date.now()
+    setNow(true)
+    const t = setTimeout(() => setNow(false), INSIGHT_MS)
+    return () => {
+      clearTimeout(t)
+      setNow(false)
+    }
+  }, [mood, on])
+  return now
+}
+
 function reducedMotion() {
   return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
@@ -193,8 +253,11 @@ export function Pet({
 }) {
   const life = useLife(lively && mood === 'idle', near || over, stroll)
   const loved = usePetted(petted)
-  // A pet too small to read a blink (a loading mark) does not blink; nor does one busy with something else.
-  const blinks = size >= 32 && (mood === 'idle' || mood === 'working' || mood === 'thinking') && !life.activity && !life.asleep && !loved
+  // A pet too small to read a face (a loading mark) keeps one still look for thinking, and does not blink.
+  const insight = useInsight(mood, size >= 32)
+  const beat = useThinking(size >= 32 && mood === 'thinking')
+  const shown = insight ? 'thinking' : mood
+  const blinks = size >= 32 && (mood === 'idle' || mood === 'working' || mood === 'thinking') && !insight && !life.activity && !life.asleep && !loved
   const moment = useMoment(blinks, mood === 'idle')
   const walking = walk || life.pace
   // Gradients by id, this pet's own: several pets on a page must not share them.
@@ -209,7 +272,10 @@ export function Pet({
   } as React.CSSProperties
   const classes = [
     'pet',
-    `is-${mood}`,
+    `is-${shown}`,
+    (beat || insight) && 'is-t',
+    beat && !insight && `is-t-${beat}`,
+    insight && 'is-insight',
     moment && `is-${moment}`,
     float && 'is-float',
     life.asleep && 'is-asleep',
@@ -274,6 +340,10 @@ export function Pet({
             <stop offset="0" stopColor="#ffb453" />
             <stop offset="1" stopColor="#e2770f" />
           </linearGradient>
+          <radialGradient id={`${id}ideaglow`} cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0.3" stopColor="#ffd257" stopOpacity="0.55" />
+            <stop offset="1" stopColor="#ffd257" stopOpacity="0" />
+          </radialGradient>
           <radialGradient id={`${id}ao`} cx="0.5" cy="0.5" r="0.5">
             <stop offset="0" stopColor="#3a2a18" stopOpacity="0.28" />
             <stop offset="1" stopColor="#3a2a18" stopOpacity="0" />
@@ -293,6 +363,17 @@ export function Pet({
           <circle className="pet-dot" cx="104.5" cy="-7" r="1.7" />
           <circle className="pet-dot pet-d2" cx="110" cy="-7" r="1.7" />
           <circle className="pet-dot pet-d3" cx="115.5" cy="-7" r="1.7" />
+        </g>
+        {/* An idea: a lightbulb coming on over its head, with rays. */}
+        <g className="pet-idea">
+          <g transform="translate(101 10.6) scale(1.3) translate(-101 -10.6)">
+            <circle cx="101" cy="-1" r="11" fill={u('ideaglow')} />
+            <path className="pet-idea-rays" d="M101 -10.5 V-13.5 M108.6 -7.4 l2.1 -2.1 M93.4 -7.4 l-2.1 -2.1 M111.5 -0.5 h2.8 M90.5 -0.5 h-2.8" />
+            <path className="pet-idea-bulb" d="M101 -7.5 a6.3 6.3 0 0 1 3.8 11.3 v2.4 h-7.6 v-2.4 a6.3 6.3 0 0 1 3.8 -11.3 Z" />
+            <path className="pet-idea-filament" d="M99 2.5 l1 -2.6 l1 1.6 l1 -1.6 l1 2.6" />
+            <rect x="97.3" y="6.3" width="7.4" height="2" rx="1" fill="#b9ad9c" />
+            <rect x="98" y="8.8" width="6" height="1.8" rx="0.9" fill="#a99c8a" />
+          </g>
         </g>
         {/* Napping: a z now and then, drifting up. */}
         <g className="pet-zs">
@@ -382,9 +463,16 @@ export function Pet({
                   <path d={POINTER} fill={u('pointer')} stroke={u('pointer')} strokeWidth="1.6" strokeLinejoin="round" />
                   <circle className="pet-ripple" cx="66" cy="39" r="5" />
                 </g>
-                {/* Eyes shut (a nap, a stretch, a yawn), and hearts for being petted. */}
+                {/* Thinking hard: the pointer turned into a busy ring. */}
+                <g className="pet-busy">
+                  <circle className="pet-busy-track" cx="70" cy="47" r="6" />
+                  <circle className="pet-busy-arc" cx="70" cy="47" r="6" pathLength="100" stroke={u('pointer')} />
+                </g>
+                {/* Eyes shut (a nap, a stretch), squeezed tight (a yawn), and hearts for being petted. */}
                 <path className="pet-line pet-shut" d="M39.5 47.5 Q46 53.5 52.5 47.5" />
                 <path className="pet-line pet-shut" d="M63.5 47.5 Q70 53.5 76.5 47.5" />
+                <path className="pet-line pet-squeeze" d="M41 43.5 L50.5 48 L41 52.5" />
+                <path className="pet-line pet-squeeze" d="M75 43.5 L65.5 48 L75 52.5" />
                 <g transform="translate(46 48)">
                   <path className="pet-heart" d={HEART} />
                 </g>
@@ -394,8 +482,15 @@ export function Pet({
                 <path className="pet-line pet-smile" d="M51 62 Q60 68.5 69 62" />
                 <path className="pet-line pet-frown" d="M52 66.5 Q60 60.5 68 66.5" />
                 <path className="pet-line pet-hmm" d="M55 64 H65" />
-                <ellipse className="pet-line pet-yawn" cx="60" cy="64.5" rx="3.6" ry="4.4" />
+                {/* A mouth open wide (a yawn, a start), its tongue showing. */}
+                <g className="pet-yawn">
+                  <ellipse className="pet-tongue" cx="60" cy="68.2" rx="3.3" ry="2.1" />
+                  <ellipse className="pet-line" cx="60" cy="65" rx="5.2" ry="6.2" />
+                </g>
                 <circle className="pet-line pet-o" cx="63" cy="64" r="1.9" />
+                {/* Pondering, the mouth pushed to one side; the idea, an "o". */}
+                <path className="pet-line pet-ponder" d="M56 65.2 Q61 66 66.5 62.6" />
+                <circle className="pet-line pet-wow" cx="60" cy="64.5" r="3" />
                 <g className="pet-mark">
                   <rect x="58.4" y="58" width="3.2" height="6" rx="1.6" fill="#fff6ea" />
                   <circle cx="60" cy="67.5" r="1.7" fill="#fff6ea" />
@@ -409,13 +504,6 @@ export function Pet({
               </g>
               <rect className="pet-scan" x="25" y="26" width="70" height="2.5" fill="#fff6ea" />
               <rect className="pet-dim" x="25" y="26" width="70" height="50" fill="#000" />
-            </g>
-            {/* A hand to its mouth (the yawn): a forearm in front of the face; the arms themselves are behind the
-                head. */}
-            <g className="pet-hand">
-              <rect className="pet-shell" x="60.5" y="63" width="11" height="25" rx="5.5" fill={u('capsule')} />
-              <ellipse className="pet-shell" cx="66" cy="64.5" rx="6.6" ry="5.4" fill={u('capsule')} />
-              <circle cx="66" cy="65.5" r="2.1" fill={u('ball')} />
             </g>
           </g>
         </g>

@@ -153,13 +153,72 @@
   transform: translateY(4px);
   transition: opacity 0.3s ease, transform 0.4s ease;
 }
+/* The parts of its thinking, hidden until a beat shows them (Pet.tsx). */
+.pet-busy,
+.pet-ponder,
+.pet-wow,
+.pet-idea {
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.3s ease;
+}
+.pet-busy {
+  transform-origin: 70px 47px;
+  transform: scale(0.4);
+}
+.pet-busy-track,
+.pet-busy-arc {
+  fill: none;
+  stroke-width: 3.2;
+}
+.pet-busy-track {
+  stroke: #ee8a1e;
+  stroke-opacity: 0.22;
+}
+.pet-busy-arc {
+  stroke-linecap: round;
+  stroke-dasharray: 34 66;
+  transform-origin: 70px 47px;
+}
+.pet-idea {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.pet-idea-bulb {
+  fill: #ffd257;
+  stroke: #e0a01c;
+  stroke-width: 0.8;
+}
+.pet-idea-filament,
+.pet-idea-rays {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pet-idea-filament {
+  stroke: #c9820f;
+  stroke-width: 0.8;
+}
+.pet-idea-rays {
+  stroke: #f2b320;
+  stroke-width: 1.6;
+}
 /* The faces of its idle life, hidden until a moment shows them. */
 .pet-shut,
+.pet-squeeze,
 .pet-yawn,
 .pet-o,
 .pet-heart {
   opacity: 0;
   transition: opacity 0.2s ease;
+}
+.pet-squeeze {
+  stroke-linejoin: round;
+}
+.pet-yawn .pet-line {
+  stroke-width: 2.8;
+}
+.pet-tongue {
+  fill: #ee8a1e;
 }
 .pet-heart,
 .pet-love-heart {
@@ -214,12 +273,8 @@
   animation: pet-glance 1.6s ease-in-out 1;
 }
 
-/* Thinking: a thought bubble, eyes up and half closed, a "hmm", a slow sway, the antenna glowing softly. */
-.pet.is-thinking .pet-think {
-  opacity: 1;
-  transform: none;
-  animation: pet-drift 3s ease-in-out infinite;
-}
+/* Thinking: a slow sway, the antenna glowing softly, the eye up. A pet too small for its beats (`is-t`) keeps one look:
+   a thought bubble, the eye half closed, a "hmm". */
 .pet.is-thinking .pet-dot {
   animation: pet-think 1.4s ease-in-out infinite;
 }
@@ -233,20 +288,105 @@
   --lx: 3px;
   --ly: -3px;
 }
-.pet.is-thinking .pet-eye {
-  transform: scaleY(0.7);
-}
 .pet.is-thinking .pet-smile {
   opacity: 0;
-}
-.pet.is-thinking .pet-hmm {
-  opacity: 1;
 }
 .pet.is-thinking .pet-whole {
   animation: pet-sway 3.2s ease-in-out infinite;
 }
 .pet.is-thinking .pet-bulb-ember {
   animation: pet-ember 2.2s ease-in-out infinite;
+}
+.pet.is-thinking:not(.is-t) .pet-think,
+.pet:is(.is-t-ponder, .is-t-busy) .pet-think {
+  opacity: 1;
+  transform: none;
+  animation: pet-drift 3s ease-in-out infinite;
+}
+.pet.is-thinking:not(.is-t) .pet-eye {
+  transform: scaleY(0.7);
+}
+.pet.is-thinking:not(.is-t) .pet-hmm,
+.pet.is-t-focus .pet-hmm,
+.pet.is-t-busy .pet-hmm {
+  opacity: 1;
+}
+
+/* Its beats (Pet.tsx times them). Focus: the eye up, the pointer lifting, a small lean back, the antenna springing. */
+.pet.is-t-focus .pet-face {
+  --lx: 2px;
+  --ly: -4.5px;
+}
+.pet.is-t-focus .pet-pointer {
+  transform: translate(1px, -2.5px) rotate(-12deg);
+}
+.pet.is-t-focus .pet-whole {
+  animation: think-perk 1.2s ease-out both;
+}
+.pet.is-t-focus .pet-antenna {
+  animation: think-antenna 1.2s ease-out both;
+}
+
+/* Pondering: the eye up toward the thought bubble, the mouth pushed to one side, the head tipped toward the bubble. */
+.pet.is-t-ponder .pet-face {
+  --lx: 3.5px;
+  --ly: -4px;
+}
+.pet.is-t-ponder .pet-ponder {
+  opacity: 1;
+}
+.pet.is-t-ponder .pet-head {
+  transform: rotate(4deg);
+}
+
+/* Busy: the pointer turned into a spinning ring, the eye looking to and fro, a small nod. */
+.pet.is-t-busy .pet-pointer {
+  opacity: 0;
+  transform: scale(0.4);
+}
+.pet.is-t-busy .pet-busy {
+  opacity: 1;
+  transform: none;
+}
+.pet.is-t-busy .pet-busy-arc {
+  animation: pet-spin 0.9s linear infinite;
+}
+.pet.is-t-busy .pet-face {
+  animation: think-scan 3.6s ease-in-out infinite;
+}
+.pet.is-t-busy .pet-head {
+  animation: think-nod 1.8s ease-in-out infinite;
+}
+
+/* The idea, as the first tool starts: the pointer back with a click, the eye wide and an "o", an arm up, a lightbulb
+   coming on, a hop. */
+.pet.is-insight .pet-face {
+  --lx: 0px;
+  --ly: -1.5px;
+}
+.pet.is-insight .pet-eye {
+  transform: scale(1.18);
+}
+.pet.is-insight .pet-pointer {
+  transform: translate(1px, -2px) rotate(-14deg);
+}
+.pet.is-insight .pet-wow {
+  opacity: 1;
+}
+.pet.is-insight .pet-arm-r {
+  transform: rotate(-145deg);
+}
+.pet.is-insight .pet-idea {
+  animation: idea-on 1.6s ease-out both;
+}
+.pet.is-insight .pet-idea-rays {
+  animation: idea-rays 1.6s ease-out both;
+}
+.pet.is-insight .pet-whole {
+  animation: idea-hop 1.6s ease-out both;
+}
+.pet.is-insight .pet-ripple {
+  animation: pet-ripple 0.9s ease-out 0.15s 1;
 }
 
 /* Working: at a small laptop, typing in quick taps, code appearing; eyes on the work, the pointer eye clicking. */
@@ -363,16 +503,13 @@
 /* ── Its own life with no work (the pet beside your windows) ── */
 
 /* Its scenes (Pet.tsx times them): each a wind-up, the action, and a settle. */
-.pet-hand {
-  opacity: 0;
-}
 .pet-antenna {
   transform-origin: 60px 16px;
 }
 
-/* A yawn behind its hand: eyes drooping and a small crouch, then the mouth opening wide and the head going back, the
-   hand coming up from its chest to cover the mouth and patting it twice, the hand down, the mouth closed, two blinks
-   and a shake of the head. */
+/* A yawn with its arms up: eyes drooping and a small crouch, then both arms going up high, the eyes squeezed shut, the
+   mouth opening wide and the head going back, the arms trembling at the top, then dropping with a bounce, the mouth
+   closed, a blink and a shake of the head. */
 .pet.is-m-yawn .pet-whole {
   animation: yawn-body 4.4s ease-in-out both;
 }
@@ -385,6 +522,9 @@
 .pet.is-m-yawn :is(.pet-eye-dot, .pet-pointer) {
   animation: yawn-open 4.4s linear both;
 }
+.pet.is-m-yawn .pet-squeeze {
+  animation: yawn-squeeze 4.4s linear both;
+}
 .pet.is-m-yawn .pet-shut {
   animation: yawn-shut 4.4s linear both;
 }
@@ -394,11 +534,11 @@
 .pet.is-m-yawn .pet-yawn {
   animation: yawn-mouth 4.4s ease-in-out both;
 }
-.pet.is-m-yawn .pet-arm-r {
-  animation: yawn-arm 4.4s ease-in-out both;
+.pet.is-m-yawn .pet-arm-l {
+  animation: yawn-arm-l 4.4s ease-in-out both;
 }
-.pet.is-m-yawn .pet-hand {
-  animation: yawn-hand 4.4s ease-in-out both;
+.pet.is-m-yawn .pet-arm-r {
+  animation: yawn-arm-r 4.4s ease-in-out both;
 }
 
 /* A stretch: a crouch, then up on tiptoe with the arms wide and the eyes shut, a shiver at the top, the arms dropping
@@ -596,16 +736,16 @@
   }
   28%,
   40% {
-    transform: rotate(-6deg);
+    transform: translateY(-2.5px) rotate(-1.5deg);
   }
   46% {
-    transform: rotate(-5deg);
+    transform: translateY(-2px) rotate(-1deg);
   }
   52% {
-    transform: rotate(-6.5deg);
+    transform: translateY(-2.8px) rotate(-1.8deg);
   }
   64% {
-    transform: rotate(-6deg);
+    transform: translateY(-2.5px) rotate(-1.5deg);
   }
   78% {
     transform: none;
@@ -658,16 +798,22 @@
     opacity: 1;
   }
 }
-@keyframes yawn-shut {
+@keyframes yawn-squeeze {
   0%,
   12% {
     opacity: 0;
   }
   14%,
-  78% {
+  77% {
     opacity: 1;
   }
-  80%,
+  78%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes yawn-shut {
+  0%,
   88% {
     opacity: 0;
   }
@@ -706,7 +852,7 @@
   }
   30%,
   64% {
-    transform: scale(1.25, 1.45);
+    transform: scale(1.2, 1.25);
     opacity: 1;
   }
   76% {
@@ -719,69 +865,63 @@
     opacity: 0;
   }
 }
-/* The arm goes to the chest, and the hand in front of the face takes over from there. */
-@keyframes yawn-arm {
+/* Both arms up high, a little longer at the top, trembling; then down past their rest and back. */
+@keyframes yawn-arm-l {
   0%,
-  20% {
+  10% {
     transform: none;
-    opacity: 1;
   }
-  30% {
-    transform: rotate(70deg);
-    opacity: 1;
+  26% {
+    transform: rotate(132deg) scaleY(1.15);
   }
-  31%,
-  71% {
-    transform: rotate(70deg);
-    opacity: 0;
+  32%,
+  44%,
+  56% {
+    transform: rotate(142deg) scaleY(1.3);
+  }
+  38%,
+  50%,
+  62% {
+    transform: rotate(137deg) scaleY(1.3);
   }
   72% {
-    transform: rotate(70deg);
-    opacity: 1;
+    transform: rotate(-12deg);
   }
-  80% {
-    transform: rotate(-8deg);
+  78% {
+    transform: rotate(4deg);
   }
-  86%,
+  84%,
   100% {
     transform: none;
-    opacity: 1;
   }
 }
-@keyframes yawn-hand {
+@keyframes yawn-arm-r {
   0%,
-  29% {
-    transform: translateY(16px);
-    opacity: 0;
-  }
-  31% {
-    transform: translateY(12px);
-    opacity: 1;
-  }
-  38% {
+  10% {
     transform: none;
   }
-  44% {
-    transform: translateY(2px);
+  26% {
+    transform: rotate(-132deg) scaleY(1.15);
   }
-  50% {
-    transform: none;
-  }
+  32%,
+  44%,
   56% {
-    transform: translateY(2px);
+    transform: rotate(-142deg) scaleY(1.3);
   }
+  38%,
+  50%,
   62% {
-    transform: none;
-    opacity: 1;
+    transform: rotate(-137deg) scaleY(1.3);
   }
-  70% {
-    transform: translateY(14px);
-    opacity: 1;
+  72% {
+    transform: rotate(12deg);
   }
-  72%,
+  78% {
+    transform: rotate(-4deg);
+  }
+  84%,
   100% {
-    transform: translateY(16px);
-    opacity: 0;
+    transform: none;
   }
 }
 @keyframes stretch-body {
@@ -1611,6 +1751,118 @@
     transform: rotate(2deg);
   }
 }
+/* Thinking's beats. */
+@keyframes think-perk {
+  0%,
+  100% {
+    transform: none;
+  }
+  30% {
+    transform: translateY(-2.5px) rotate(-1.5deg);
+  }
+  60% {
+    transform: translateY(0.5px);
+  }
+}
+@keyframes think-antenna {
+  0%,
+  100% {
+    transform: none;
+  }
+  20% {
+    transform: rotate(-12deg);
+  }
+  40% {
+    transform: rotate(8deg);
+  }
+  60% {
+    transform: rotate(-4deg);
+  }
+  80% {
+    transform: rotate(2deg);
+  }
+}
+@keyframes pet-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes think-scan {
+  0%,
+  100% {
+    transform: translate(-2.5px, -3.5px);
+  }
+  40%,
+  50% {
+    transform: translate(3.5px, -4px);
+  }
+}
+@keyframes think-nod {
+  0%,
+  100% {
+    transform: rotate(-1deg);
+  }
+  50% {
+    transform: translateY(1.2px) rotate(1.5deg);
+  }
+}
+@keyframes idea-on {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.3);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.18);
+  }
+  30% {
+    transform: scale(0.95);
+  }
+  40%,
+  85% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+@keyframes idea-rays {
+  0%,
+  15% {
+    opacity: 0;
+  }
+  25%,
+  60% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0.8;
+  }
+}
+@keyframes idea-hop {
+  0%,
+  56%,
+  100% {
+    transform: none;
+  }
+  12% {
+    transform: translateY(2px) scale(1.03, 0.97);
+  }
+  24% {
+    transform: translateY(-7px);
+  }
+  36% {
+    transform: scale(1.04, 0.96);
+  }
+  46% {
+    transform: scale(0.98, 1.02);
+  }
+}
 
 @keyframes pet-look-head {
   0%,
@@ -1843,5 +2095,8 @@
   .pet * {
     animation: none !important;
     transition: none !important;
+  }
+  .pet.is-insight .pet-idea {
+    opacity: 1;
   }
 }
