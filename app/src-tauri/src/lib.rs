@@ -7,6 +7,7 @@ mod chat;
 mod hooks;
 mod hub;
 mod install;
+mod locks;
 mod prefs;
 mod sessions;
 
@@ -22,6 +23,7 @@ use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewU
 use tauri_plugin_global_shortcut::{Builder as ShortcutBuilder, ShortcutState};
 
 use chat::{Chat, Chats};
+use locks::Hold;
 use hub::{Choice, Hub, View};
 use prefs::Prefs;
 
@@ -119,13 +121,13 @@ struct Kuchu {
 
 impl Kuchu {
     fn width(&self) -> u32 {
-        self.prefs.lock().unwrap().width()
+        self.prefs.hold().width()
     }
 
     /// The window around the pet: its own box, or with room for a card beside and above it.
     fn window_rect(&self, scale: f64) -> (i32, i32, f64, f64) {
         let (bw, bh) = box_of(self.width());
-        let (px, py) = *self.layout.pet.lock().unwrap();
+        let (px, py) = *self.layout.pet.hold();
         if !self.layout.wide.load(Ordering::Relaxed) {
             return (px, py, bw, bh);
         }
@@ -139,7 +141,7 @@ impl Kuchu {
     /// sessions list keeps out of it.
     fn zone(&self, scale: f64) -> (f64, f64, f64, f64) {
         let (bw, bh) = box_of(self.width());
-        let (px, py) = *self.layout.pet.lock().unwrap();
+        let (px, py) = *self.layout.pet.hold();
         let x = if self.layout.right.load(Ordering::Relaxed) { px as f64 - CARD_W * scale } else { px as f64 };
         (x, py as f64 - CARD_H * scale, (bw + CARD_W) * scale, (bh + CARD_H) * scale)
     }
@@ -182,7 +184,7 @@ impl Kuchu {
     /// Which half of its screen the pet is on; told to the page when it changes.
     fn settle(&self, window: &WebviewWindow) {
         let scale = window.scale_factor().unwrap_or(1.0);
-        let (px, py) = *self.layout.pet.lock().unwrap();
+        let (px, py) = *self.layout.pet.hold();
         let (bw, bh) = box_of(self.width());
         let centre = (px as f64 + bw * scale / 2.0, py as f64 + bh * scale / 2.0);
         if let Ok(Some(monitor)) = window.monitor_from_point(centre.0, centre.1) {
@@ -200,7 +202,7 @@ impl Kuchu {
         if let Some(list) = app.get_webview_window("sessions").filter(|l| l.is_visible().unwrap_or(false)) {
             place_sessions(app, &list);
         }
-        let mut prefs = self.prefs.lock().unwrap();
+        let mut prefs = self.prefs.hold();
         if prefs.at != Some((px, py)) {
             prefs.at = Some((px, py));
             prefs.save(&self.prefs_path);
@@ -208,8 +210,8 @@ impl Kuchu {
     }
 
     fn set_prefs(&self, app: &AppHandle, next: Prefs) -> Prefs {
-        let before = self.prefs.lock().unwrap().clone();
-        *self.prefs.lock().unwrap() = next.clone();
+        let before = self.prefs.hold().clone();
+        *self.prefs.hold() = next.clone();
         next.save(&self.prefs_path);
         self.hub.approvals_on.store(next.approvals, Ordering::Relaxed);
         if before.width() != next.width() {
@@ -217,7 +219,7 @@ impl Kuchu {
                 // The pet's bottom corner nearest the screen's edge stays where it is.
                 let scale = window.scale_factor().unwrap_or(1.0);
                 let ((w0, h0), (w1, h1)) = (box_of(before.width()), box_of(next.width()));
-                let mut pet = self.layout.pet.lock().unwrap();
+                let mut pet = self.layout.pet.hold();
                 pet.1 += ((h0 - h1) * scale).round() as i32;
                 if self.layout.right.load(Ordering::Relaxed) {
                     pet.0 += ((w0 - w1) * scale).round() as i32;
@@ -360,16 +362,16 @@ pub fn run() {
             {
                 let kuchu = kuchu.clone();
                 let w = window.clone();
-                let seen = Mutex::new(*kuchu.layout.pet.lock().unwrap());
+                let seen = Mutex::new(*kuchu.layout.pet.hold());
                 window.on_window_event(move |event| {
                     if let WindowEvent::Moved(at) = event {
                         let scale = w.scale_factor().unwrap_or(1.0);
                         let now = kuchu.pet_from_window(*at, scale);
-                        *kuchu.layout.pet.lock().unwrap() = now;
-                        *kuchu.layout.moved.lock().unwrap() = Some(Instant::now());
+                        *kuchu.layout.pet.hold() = now;
+                        *kuchu.layout.moved.hold() = Some(Instant::now());
                         // The pet itself moved (dragged, or strolling), not only its window around it: it walks that
                         // way until it settles.
-                        let before = std::mem::replace(&mut *seen.lock().unwrap(), now);
+                        let before = std::mem::replace(&mut *seen.hold(), now);
                         let (dx, dy) = (now.0 - before.0, now.1 - before.1);
                         if dx != 0 || dy.abs() >= 2 {
                             let was = kuchu.layout.walking.load(Ordering::Relaxed);
@@ -443,9 +445,9 @@ fn follow_pointer(app: AppHandle, window: WebviewWindow, kuchu: Arc<Kuchu>) {
         let mut taking = false;
         loop {
             std::thread::sleep(POLL);
-            let settled = kuchu.layout.moved.lock().unwrap().is_some_and(|at| at.elapsed() >= SETTLE);
+            let settled = kuchu.layout.moved.hold().is_some_and(|at| at.elapsed() >= SETTLE);
             if settled {
-                *kuchu.layout.moved.lock().unwrap() = None;
+                *kuchu.layout.moved.hold() = None;
                 kuchu.settle(&window);
                 if kuchu.layout.walking.swap(0, Ordering::Relaxed) != 0 {
                     let _ = window.emit("kuchu://walk", 0);
@@ -459,7 +461,7 @@ fn follow_pointer(app: AppHandle, window: WebviewWindow, kuchu: Arc<Kuchu>) {
             };
             let x = (cursor.x - at.x as f64) / scale;
             let y = (cursor.y - at.y as f64) / scale;
-            let rects = kuchu.layout.rects.lock().unwrap().clone();
+            let rects = kuchu.layout.rects.hold().clone();
             let pet = rects.first().copied().unwrap_or_else(|| kuchu.pet_in_window());
             let over = pet.holds(x, y);
             let card = rects.iter().skip(1).any(|r| r.holds(x, y));
@@ -541,7 +543,7 @@ fn place_sessions(app: &AppHandle, list: &WebviewWindow) {
     let Ok(Some(monitor)) = pet.monitor_from_point(zx + zw / 2.0, zy + zh) else { return };
     let area = monitor.work_area();
     let area = (area.position.x as f64, area.position.y as f64, area.size.width as f64, area.size.height as f64);
-    let (px, _) = *k.layout.pet.lock().unwrap();
+    let (px, _) = *k.layout.pet.hold();
     let centre = px as f64 + box_of(k.width()).0 * scale / 2.0;
     let size = (SESSIONS_SIZE.0 * scale, SESSIONS_SIZE.1 * scale);
     let (x, y) = out_of_the_way((zx, zy, zw, zh), centre, size, area, k.layout.right.load(Ordering::Relaxed), 8.0 * scale);
@@ -595,13 +597,13 @@ fn view(app: AppHandle) -> View {
 
 #[tauri::command]
 fn get_prefs(app: AppHandle) -> Prefs {
-    kuchu(&app).prefs.lock().unwrap().clone()
+    kuchu(&app).prefs.hold().clone()
 }
 
 #[tauri::command]
 fn set_prefs(app: AppHandle, patch: serde_json::Value) -> Prefs {
     let k = kuchu(&app);
-    let next = k.prefs.lock().unwrap().merged(&patch);
+    let next = k.prefs.hold().merged(&patch);
     k.set_prefs(&app, next)
 }
 
@@ -611,7 +613,7 @@ fn set_prefs(app: AppHandle, patch: serde_json::Value) -> Prefs {
 async fn pet_clicked(app: AppHandle) {
     let k = kuchu(&app);
     k.hub.seen();
-    let click = k.prefs.lock().unwrap().click.clone();
+    let click = k.prefs.hold().click.clone();
     if click == "settings" {
         show_settings(&app);
     } else {
@@ -666,7 +668,7 @@ fn set_wide(app: AppHandle, wide: bool) {
 /// What takes the mouse in the pet's window, as the page laid it out: the pet first, then its cards.
 #[tauri::command]
 fn set_rects(app: AppHandle, rects: Vec<Rect>) {
-    *kuchu(&app).layout.rects.lock().unwrap() = rects;
+    *kuchu(&app).layout.rects.hold() = rects;
 }
 
 /// A short stroll and back, when Kuchu has nothing to do: it walks `dx` logical px along its screen (the page sends
@@ -676,12 +678,12 @@ fn set_rects(app: AppHandle, rects: Vec<Rect>) {
 fn stroll(app: AppHandle, dx: f64) -> f64 {
     let k = kuchu(&app);
     let Some(window) = app.get_webview_window("pet") else { return 0.0 };
-    let busy = k.layout.wide.load(Ordering::Relaxed) || k.layout.taking.load(Ordering::Relaxed) || k.layout.moved.lock().unwrap().is_some();
+    let busy = k.layout.wide.load(Ordering::Relaxed) || k.layout.taking.load(Ordering::Relaxed) || k.layout.moved.hold().is_some();
     if busy {
         return 0.0;
     }
     let scale = window.scale_factor().unwrap_or(1.0);
-    let home = *k.layout.pet.lock().unwrap();
+    let home = *k.layout.pet.hold();
     let (bw, _) = box_of(k.width());
     let Ok(Some(monitor)) = window.monitor_from_point(home.0 as f64 + bw * scale / 2.0, home.1 as f64) else { return 0.0 };
     let area = monitor.work_area();
@@ -701,7 +703,7 @@ fn stroll(app: AppHandle, dx: f64) -> f64 {
                 if k.layout.strolls.load(Ordering::Relaxed) != nth {
                     return false;
                 }
-                k.layout.pet.lock().unwrap().0 = from + ((to - from) as f64 * i as f64 / n as f64).round() as i32;
+                k.layout.pet.hold().0 = from + ((to - from) as f64 * i as f64 / n as f64).round() as i32;
                 k.move_window(&window);
             }
             true
@@ -728,7 +730,7 @@ fn is_right(app: AppHandle) -> bool {
 }
 
 fn relay_path(app: &AppHandle) -> Result<PathBuf, String> {
-    kuchu(app).relay.lock().unwrap().clone()
+    kuchu(app).relay.hold().clone()
 }
 
 /// Whether Kuchu starts when the person signs in.
@@ -783,7 +785,7 @@ async fn open_sessions(app: AppHandle, session: Option<String>) {
     let k = kuchu(&app);
     match session.filter(|id| k.chats.has(id)) {
         Some(id) => {
-            *k.open.lock().unwrap() = Some(id);
+            *k.open.hold() = Some(id);
             let shown = app.get_webview_window("sessions").is_some_and(|w| w.is_visible().unwrap_or(false));
             if !shown {
                 toggle_sessions(&app);
@@ -797,7 +799,7 @@ async fn open_sessions(app: AppHandle, session: Option<String>) {
 /// The conversation the sessions list should open, once.
 #[tauri::command]
 fn take_open(app: AppHandle) -> Option<String> {
-    kuchu(&app).open.lock().unwrap().take()
+    kuchu(&app).open.hold().take()
 }
 
 /// A folder for a new conversation, from the system's folder dialog.
@@ -833,7 +835,7 @@ fn chats(app: AppHandle) -> Vec<Chat> {
 async fn chat_start(app: AppHandle, cwd: String, text: String) -> Result<String, String> {
     let k = kuchu(&app);
     let id = k.chats.start(&cwd, &text)?;
-    let mut next = k.prefs.lock().unwrap().clone();
+    let mut next = k.prefs.hold().clone();
     next.used_folder(&cwd);
     k.set_prefs(&app, next);
     Ok(id)
@@ -871,7 +873,7 @@ fn tray(app: &AppHandle) -> tauri::Result<()> {
     let shown = CheckMenuItem::with_id(app, "shown", "Show Kuchu", true, true, None::<&str>)?;
     let sessions = MenuItem::with_id(app, "sessions", "Sessions", true, Some("Ctrl+Alt+K"))?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
-    let sounds = CheckMenuItem::with_id(app, "sounds", "Sounds", true, kuchu(app).prefs.lock().unwrap().sounds, None::<&str>)?;
+    let sounds = CheckMenuItem::with_id(app, "sounds", "Sounds", true, kuchu(app).prefs.hold().sounds, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Kuchu", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let separator2 = PredefinedMenuItem::separator(app)?;
@@ -896,7 +898,7 @@ fn tray(app: &AppHandle) -> tauri::Result<()> {
                 "settings" => show_settings(app),
                 "sounds" => {
                     let k = kuchu(app);
-                    let mut next = k.prefs.lock().unwrap().clone();
+                    let mut next = k.prefs.hold().clone();
                     next.sounds = !next.sounds;
                     let _ = sounds_item.set_checked(next.sounds);
                     k.set_prefs(app, next);

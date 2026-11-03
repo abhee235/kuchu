@@ -114,6 +114,14 @@ This is the one place where a click has consequences, so the card is a security 
 |---|---|---|---|---|
 | T15 | **`transcript_path` is opened as given, under the hub's lock.** Anything that reaches the pipe (T2) names a path; Kuchu opens it and reads its tail while holding the lock every view and every command needs: 128 KiB for the session's name every 20 s, and since fb00db1 256 KiB for what Claude said, at every tool start and end. A named pipe or FIFO that never answers hangs all of Kuchu: nothing shows on the pet, every permission request waits its full 110 s before going back to the terminal, and once the runtime's threads are all blocked every other hook spends its 300 ms trying to connect. A UNC path makes Kuchu reach another machine with the person's credentials. | Medium | At most 256 KiB is read; only `custom-title`, `ai-title` and the text before a tool call are used; every read goes through `tail_of`, so one guard covers them all. | A path is read only if it is a regular file (`metadata().is_file()`, no reparse point) under Claude Code's own folder (`CLAUDE_CONFIG_DIR` or `~/.claude`), and never a `\\` or `//` path. The read runs on a blocking task outside the lock, with a time limit. |
 
+What fix 3 did: every transcript read goes through `sessions::tail_of`, which reads only an absolute path that is
+not `\\` or `//` (another machine, or a pipe) and names a plain file itself (not through a link, not a folder, pipe
+or socket), and at most 256 KiB of it; the hub reads it on a thread of its own with a 500 ms limit (`tail_for`),
+before it takes its lock, and hands the text in (`Sessions::apply_with`), so nothing is opened under the lock. What
+it left out, and why: "under Claude Code's own folder" would make Kuchu blind to a session run with a
+`CLAUDE_CONFIG_DIR` that Kuchu, started at sign-in, never sees; and it would guard only against a process of this
+account naming some other plain file, which is out of scope and, read as JSON lines for two fields, harmless.
+
 ### 5. The person's settings.json (hooks.rs)
 
 | | Threat | Severity | Stands today | To do |
@@ -159,6 +167,12 @@ happen.
 |---|---|---|---|---|
 | T29 | **One panic ends Kuchu.** The workspace's release profile aborts on panic, and every lock is `lock().unwrap()`: a panic while a lock is held poisons it and the next `unwrap` panics too. | Medium | No `unsafe`; serde_json bounds nesting; every cut is on a character boundary. | Locks are taken with the poison swallowed; tasks that take untrusted input catch unwinds; the hub cannot be hung from outside (T15). A test feeds every fixture, and malformed JSON, through `Sessions::apply` and the relay. |
 | T30 | **Kuchu is gone and nobody knows.** Hooks then do nothing, which is right, but the person loses the pet without a word. | Low | Nothing. | Autostart restarts it at login; a crash leaves a note in Kuchu's own folder (never a payload). |
+
+What fix 3 did for T29: every lock is taken through `locks::Hold::hold`, which takes a poisoned lock all the same;
+a test feeds every recorded payload, and garbage of every shape, through `Sessions::apply_with`. What stands: the
+workspace's release profile has `panic = "abort"`, so in a release build any panic still ends Kuchu at once (and the
+relay with a non-zero exit, against its own rule), whatever the locks do; whether the app and the relay should
+unwind instead, with the relay catching the unwind to keep its exit code, is decided with fix 7.
 
 ### 10. What Kuchu keeps and shows
 
@@ -231,7 +245,7 @@ Each is one small commit with its tests.
 | T12 | Card: "Always allow" without the rule | Medium | Open |
 | T13 | Card: a click meant for something else | Low | Watching: the 600 ms guard and the unfocusable window hold |
 | T14 | Card: answers never offered | Low | Watching: checked in `decision`; T6 adds the relay's check |
-| T15 | Paths: `transcript_path` opened under the lock | Medium | Open |
+| T15 | Paths: `transcript_path` opened under the lock | Medium | Fixed on branch `security` (fix 3), awaiting review; see what fix 3 left out |
 | T16 | settings.json: copy more readable than the original | Medium | Open |
 | T17 | settings.json: copies pile up | Low | Open |
 | T18 | settings.json: "ours" is a substring | Low | Open |
@@ -245,7 +259,7 @@ Each is one small commit with its tests.
 | T26 | On disk: the relay's path is the person's | Medium | Accepted for a per-user install; a per-machine install offered later |
 | T27 | Never a service | High (design) | Fixed in be8f21a, 75153eb, aaa38b2, 50c1f9a; its check goes in with fix 7 |
 | T28 | The install itself | Medium | Open: signing and provenance before the first public build |
-| T29 | One panic ends Kuchu | Medium | Open |
+| T29 | One panic ends Kuchu | Medium | Locks and the garbage test in with fix 3; the release profile's `panic = "abort"` is decided with fix 7 |
 | T30 | Kuchu gone without a word | Low | Open |
 | T31 | Secrets on the card | Low | Open |
 | T32 | What is on disk | Low | Watching: nothing from sessions |

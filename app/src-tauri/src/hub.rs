@@ -12,10 +12,13 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWrite
 use tokio::sync::{oneshot, Semaphore};
 
 use crate::alive::Running;
-use crate::sessions::{step, Card, Mood, Session, Sessions};
+use crate::locks::Hold;
+use crate::sessions::{step, tail_of, Card, Mood, Session, Sessions};
 
 /// At most this many requests wait at once; more go straight back to the terminal.
 const MAX_WAITING: usize = 5;
+/// How long reading the end of a session's transcript may take before the event goes on without it.
+const TAIL_WAIT: Duration = Duration::from_millis(500);
 /// At most this many connections are taken in at once (each costs a task and up to a line of 1 MiB); more are closed
 /// unread, so a flood of connections cannot tie Kuchu up. Real hooks come one or a few at a time per session.
 const MAX_CONNECTIONS: usize = 64;
@@ -96,7 +99,7 @@ impl Hub {
     }
 
     pub fn view(&self) -> View {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.hold();
         View {
             mood: inner.sessions.mood(),
             card: inner.sessions.card(),
@@ -109,14 +112,15 @@ impl Hub {
         let _ = self.app.emit("kuchu://view", self.view());
     }
 
-    pub fn event(&self, event: &str, payload: &Value) {
-        let mut inner = self.inner.lock().unwrap();
+    /// An event, with the end of its session's transcript as read beforehand (`tail_for`).
+    pub fn event(&self, event: &str, payload: &Value, tail: Option<&str>) {
+        let mut inner = self.inner.hold();
         // A request answered in Claude Code's own window: its wait ends with no answer, and its card goes.
         for w in inner.waiting.iter_mut().filter(|w| answered_elsewhere(event, payload, &w.request)) {
             w.shown.take();
             w.decide.take();
         }
-        let changed = inner.sessions.apply(event, payload, now());
+        let changed = inner.sessions.apply_with(event, payload, now(), tail);
         drop(inner);
         if changed {
             self.publish();
@@ -127,51 +131,51 @@ impl Hub {
     }
 
     pub fn seen(&self) {
-        if self.inner.lock().unwrap().sessions.seen(now()) {
+        if self.inner.hold().sessions.seen(now()) {
             self.publish();
         }
     }
 
     pub fn stopped(&self, session: &str) {
-        if self.inner.lock().unwrap().sessions.stopped(session, now()) {
+        if self.inner.hold().sessions.stopped(session, now()) {
             self.publish();
         }
     }
 
     /// Busy sessions silent for `quiet` ms: worth asking Claude Code whether they still run.
     pub fn silent(&self, quiet: u64) -> Vec<String> {
-        self.inner.lock().unwrap().sessions.silent(now(), quiet)
+        self.inner.hold().sessions.silent(now(), quiet)
     }
 
     /// Claude Code's answer about the sessions asked: those it no longer runs go, those it says are idle stop.
     pub fn check_running(&self, asked: &[String], running: &[Running], quiet: u64) {
-        if self.inner.lock().unwrap().sessions.check_running(asked, running, now(), quiet) {
+        if self.inner.hold().sessions.check_running(asked, running, now(), quiet) {
             self.publish();
         }
     }
 
     /// The card switched to `session`, or back to the latest.
     pub fn follow(&self, session: Option<String>) {
-        if self.inner.lock().unwrap().sessions.follow(session) {
+        if self.inner.hold().sessions.follow(session) {
             self.publish();
         }
     }
 
     pub fn forget(&self, session: &str) {
-        if self.inner.lock().unwrap().sessions.forget(session) {
+        if self.inner.hold().sessions.forget(session) {
             self.publish();
         }
     }
 
     pub fn expire(&self) {
-        if self.inner.lock().unwrap().sessions.expire(now()) {
+        if self.inner.hold().sessions.expire(now()) {
             self.publish();
         }
     }
 
     /// The card for request `id` is on the screen.
     pub fn shown(&self, id: u64) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.hold();
         if let Some(tx) = inner.waiting.iter_mut().find(|w| w.card.id == id).and_then(|w| w.shown.take()) {
             let _ = tx.send(());
         }
@@ -179,7 +183,7 @@ impl Hub {
 
     /// A click on request `id`'s card, as the decision Claude Code reads (none: the terminal asks).
     pub fn decide(&self, id: u64, choice: Choice) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.hold();
         let Some(w) = inner.waiting.iter_mut().find(|w| w.card.id == id) else { return };
         let decision = decision(&w.request, &choice);
         if let Some(tx) = w.decide.take() {
@@ -188,17 +192,17 @@ impl Hub {
     }
 
     /// A permission request arrives: shown as a card, unless approvals are off or too many wait.
-    fn register(&self, request: &Value) -> Option<(u64, oneshot::Receiver<()>, oneshot::Receiver<Option<Value>>)> {
+    fn register(&self, request: &Value, tail: Option<&str>) -> Option<(u64, oneshot::Receiver<()>, oneshot::Receiver<Option<Value>>)> {
         if !self.approvals_on.load(std::sync::atomic::Ordering::Relaxed) {
             return None;
         }
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.hold();
         if inner.waiting.len() >= MAX_WAITING {
             return None;
         }
         inner.next += 1;
         let id = inner.next;
-        inner.sessions.apply("PermissionRequest", request, now());
+        inner.sessions.apply_with("PermissionRequest", request, now(), tail);
         let session = request.get("session_id").and_then(Value::as_str).unwrap_or("").to_string();
         let project = inner.sessions.name(&session).unwrap_or_else(|| "Claude Code".into());
         let (shown_tx, shown_rx) = oneshot::channel();
@@ -212,7 +216,7 @@ impl Hub {
 
     /// The request is answered, gone or timed out: its card goes, and its session works again.
     fn finish(&self, id: u64) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.hold();
         let Some(at) = inner.waiting.iter().position(|w| w.card.id == id) else { return };
         let w = inner.waiting.remove(at);
         if !inner.waiting.iter().any(|o| o.card.session == w.card.session) {
@@ -234,11 +238,12 @@ impl Hub {
         }
         let Ok(message) = serde_json::from_slice::<Value>(&line) else { return };
         let Some((event, payload)) = accepted(&message) else { return };
+        let tail = tail_for(&payload).await;
         if event != "PermissionRequest" {
-            self.event(event, &payload);
+            self.event(event, &payload, tail.as_deref());
             return;
         }
-        let Some((id, shown, decide)) = self.register(&payload) else { return };
+        let Some((id, shown, decide)) = self.register(&payload, tail.as_deref()) else { return };
         let answer = tokio::select! {
             answer = wait(shown, decide) => answer,
             // The relay went away (Claude Code stopped waiting): the card goes at once.
@@ -250,6 +255,13 @@ impl Hub {
             let _ = w.flush().await;
         }
     }
+}
+
+/// The end of the session's transcript the payload names, read on a thread of its own and within `TAIL_WAIT`, before
+/// any lock is taken: a file that does not answer costs this one event its words, not Kuchu.
+async fn tail_for(payload: &Value) -> Option<String> {
+    let path = payload.get("transcript_path").and_then(Value::as_str)?.to_string();
+    tokio::time::timeout(TAIL_WAIT, tokio::task::spawn_blocking(move || tail_of(&path))).await.ok()?.ok()?
 }
 
 /// The event and payload of a message in Kuchu's own protocol; none for anything else, which is dropped unread.
@@ -491,6 +503,19 @@ mod tests {
         assert_eq!(tone_for("Notification", &json!({ "notification_type": "permission_prompt" })), Some(Mood::Needs));
         assert_eq!(tone_for("Notification", &json!({ "notification_type": "idle_prompt" })), None);
         assert_eq!(tone_for("PreToolUse", &fixture("PreToolUse")), None);
+    }
+
+    #[tokio::test]
+    async fn the_transcript_is_read_before_the_lock_or_not_at_all() {
+        let dir = std::env::temp_dir().join(format!("kuchu-hub-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("s.jsonl");
+        std::fs::write(&file, "{\"type\":\"ai-title\",\"aiTitle\":\"Named\"}\n").unwrap();
+        assert!(tail_for(&json!({ "transcript_path": file.display().to_string() })).await.unwrap().contains("Named"));
+        assert!(tail_for(&json!({ "transcript_path": dir.display().to_string() })).await.is_none());
+        assert!(tail_for(&json!({ "transcript_path": 7 })).await.is_none());
+        assert!(tail_for(&json!({})).await.is_none());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

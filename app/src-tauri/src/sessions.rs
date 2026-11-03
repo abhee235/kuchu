@@ -19,10 +19,9 @@ const MAX_SESSIONS: usize = 32;
 const KEPT_STEPS: usize = 3;
 /// A session's name is read again from its transcript at most this often.
 const NAME_EVERY_MS: u64 = 20_000;
-/// How much of the end of a transcript is read for the session's name.
-const NAME_TAIL: u64 = 128 * 1024;
-/// How much of the end of a transcript is read for what Claude said before a tool (a tool's result can be long).
-const SAID_TAIL: u64 = 256 * 1024;
+/// How much of the end of a transcript is read: enough for the session's name, and for what Claude said before a tool
+/// (a tool's result can be long).
+const TAIL: u64 = 256 * 1024;
 /// How many of the things Claude said are remembered as shown.
 const SAID_KEPT: usize = 16;
 /// A session's first message, as its name until Claude Code gives it one, at most this long.
@@ -96,8 +95,6 @@ pub struct Session {
     #[serde(skip)]
     pub closed: bool,
     #[serde(skip)]
-    transcript: String,
-    #[serde(skip)]
     title: Option<String>,
     #[serde(skip)]
     first_prompt: String,
@@ -161,8 +158,15 @@ pub struct Sessions {
 }
 
 impl Sessions {
-    /// Takes one hook event in. Returns whether anything shown changed.
+    /// Takes one hook event in, with no transcript to read. Returns whether anything shown changed.
+    #[cfg(test)]
     pub fn apply(&mut self, event: &str, p: &Value, now: u64) -> bool {
+        self.apply_with(event, p, now, None)
+    }
+
+    /// Takes one hook event in, with the end of the session's transcript as read beforehand (`tail_of`): the
+    /// session's name and what Claude said before a tool are in there, not in the event.
+    pub fn apply_with(&mut self, event: &str, p: &Value, now: u64, tail: Option<&str>) -> bool {
         let Some(id) = p.get("session_id").and_then(Value::as_str) else { return false };
         if event == "SessionEnd" {
             // A session that ends with its answer not yet seen (a run that finishes and exits at once) stays until
@@ -199,7 +203,6 @@ impl Sessions {
             ended: None,
             turn: now,
             closed: false,
-            transcript: String::new(),
             title: None,
             first_prompt: String::new(),
             name_read: 0,
@@ -209,16 +212,12 @@ impl Sessions {
             s.project = project_of(&cwd);
             s.cwd = cwd;
         }
-        let transcript = text(p, "transcript_path");
-        if !transcript.is_empty() {
-            s.transcript = transcript;
-        }
         if event == "UserPromptSubmit" && s.first_prompt.is_empty() {
             s.first_prompt = cut_to(&one_line(&text(p, "prompt")), MAX_NAME);
         }
-        if !s.transcript.is_empty() && now.saturating_sub(s.name_read) >= NAME_EVERY_MS {
+        if let Some(tail) = tail.filter(|_| now.saturating_sub(s.name_read) >= NAME_EVERY_MS) {
             s.name_read = now;
-            if let Some(title) = title_in(&s.transcript) {
+            if let Some(title) = title_in(tail) {
                 s.title = Some(title);
             }
         }
@@ -239,19 +238,19 @@ impl Sessions {
                 s.mood = Mood::Working;
                 s.ended = None;
                 push_step(s, step, text(p, "tool_use_id"));
-                note_said(s, &text(p, "tool_use_id"));
+                note_said(s, &text(p, "tool_use_id"), tail);
             }
             "PostToolUse" => {
                 if s.mood == Mood::Needs {
                     s.mood = Mood::Working;
                 }
                 finish_step(s, &text(p, "tool_use_id"), Progress::Done);
-                note_said(s, &text(p, "tool_use_id"));
+                note_said(s, &text(p, "tool_use_id"), tail);
                 between_steps(s);
             }
             "PostToolUseFailure" => {
                 finish_step(s, &text(p, "tool_use_id"), Progress::Failed);
-                note_said(s, &text(p, "tool_use_id"));
+                note_said(s, &text(p, "tool_use_id"), tail);
                 between_steps(s);
             }
             "PermissionRequest" => {
@@ -465,12 +464,12 @@ fn push_step(s: &mut Session, step: String, tool: String) {
 
 /// What Claude said before tool call `tool`, put just before its step, once. Hooks do not carry Claude's words; its
 /// transcript does, written a moment after the hook runs, so this is tried when the tool starts and again when it ends.
-fn note_said(s: &mut Session, tool: &str) {
+fn note_said(s: &mut Session, tool: &str, tail: Option<&str>) {
     if tool.is_empty() {
         return;
     }
     let Some(at) = s.lines.iter().position(|l| l.tool == tool) else { return };
-    let Some((id, said)) = said_before(&s.transcript, tool).filter(|(id, _)| !s.said.contains(id)) else { return };
+    let Some((id, said)) = tail.and_then(|tail| said_before(tail, tool)).filter(|(id, _)| !s.said.contains(id)) else { return };
     s.said.push(id);
     let extra = s.said.len().saturating_sub(SAID_KEPT);
     s.said.drain(..extra);
@@ -614,14 +613,13 @@ fn cut_to(s: &str, max: usize) -> String {
     format!("{}…", s.chars().take(max - 1).collect::<String>().trim_end())
 }
 
-/// What Claude said just before tool call `tool`, if anything: the transcript line's id and the text's first line.
-/// Found in the transcript by the tool call's line, then read back from there, stopping at a tool's result or at the
-/// person's message (words from before those were said for something else).
-pub fn said_before(transcript: &str, tool: &str) -> Option<(String, String)> {
-    if transcript.is_empty() || tool.is_empty() {
+/// What Claude said just before tool call `tool`, if anything, in the end of the transcript (`tail`): the transcript
+/// line's id and the text's first line. Found by the tool call's line, then read back from there, stopping at a
+/// tool's result or at the person's message (words from before those were said for something else).
+pub fn said_before(tail: &str, tool: &str) -> Option<(String, String)> {
+    if tool.is_empty() {
         return None;
     }
-    let tail = tail_of(transcript, SAID_TAIL)?;
     let call = format!("\"id\":\"{tool}\"");
     let mut lines = tail.lines().rev().skip_while(|l| !(l.contains(&call) && l.contains("\"tool_use\"")));
     lines.next()?;
@@ -645,22 +643,29 @@ pub fn said_before(transcript: &str, tool: &str) -> Option<(String, String)> {
     None
 }
 
-/// The last `bytes` of a file, as text (a line cut at the start is dropped by whoever reads it). Every read of a
-/// transcript goes through here, so what may be opened is decided in one place.
-fn tail_of(path: &str, bytes: u64) -> Option<String> {
+/// The last `TAIL` bytes of the transcript at `path`, as text (a line cut at the start is dropped by whoever reads
+/// it). Every read of a transcript goes through here, so what may be opened is decided in one place: the path comes
+/// from a payload, and is read only if it is absolute, not a path to another machine or a pipe (`\\`, `//`), and names
+/// a plain file itself, not through a link, so that nothing can be made to wait on the other end of it.
+pub fn tail_of(path: &str) -> Option<String> {
     use std::io::{Read, Seek, SeekFrom};
+    if path.starts_with("\\\\") || path.starts_with("//") || !std::path::Path::new(path).is_absolute() {
+        return None;
+    }
+    if !std::fs::symlink_metadata(path).ok()?.is_file() {
+        return None;
+    }
     let mut file = std::fs::File::open(path).ok()?;
     let len = file.metadata().ok()?.len();
-    file.seek(SeekFrom::Start(len.saturating_sub(bytes))).ok()?;
+    file.seek(SeekFrom::Start(len.saturating_sub(TAIL))).ok()?;
     let mut buf = Vec::new();
-    file.take(bytes).read_to_end(&mut buf).ok()?;
+    file.take(TAIL).read_to_end(&mut buf).ok()?;
     Some(String::from_utf8_lossy(&buf).into_owned())
 }
 
-/// The session's name as Claude Code keeps it at the end of its transcript: the name it was renamed to, else the
-/// latest title Claude Code gave it. Only the end of the file is read (Claude Code writes the title again as it goes).
-pub fn title_in(transcript: &str) -> Option<String> {
-    let tail = tail_of(transcript, NAME_TAIL)?;
+/// The session's name as Claude Code keeps it at the end of its transcript (`tail`): the name it was renamed to, else
+/// the latest title Claude Code gave it (it writes the title again as it goes, so the end of the file has it).
+pub fn title_in(tail: &str) -> Option<String> {
     let field = |line: &str, key: &str| -> Option<String> {
         let v: Value = serde_json::from_str(line).ok()?;
         let t = one_line(v.get(key)?.as_str()?);
@@ -862,16 +867,17 @@ mod tests {
         let t = transcript.display().to_string();
         let mut s = Sessions::default();
         let event = |prompt: &str| serde_json::json!({ "session_id": "a", "cwd": "/x/my-app", "transcript_path": t, "prompt": prompt });
-        s.apply("SessionStart", &event(""), 0);
+        let read = |s: &mut Sessions, event: &str, p: &Value, now: u64| s.apply_with(event, p, now, tail_of(&t).as_deref());
+        read(&mut s, "SessionStart", &event(""), 0);
         assert_eq!(s.list()[0].name, "my-app");
-        s.apply("UserPromptSubmit", &event("Fix the   login bug\nplease"), NAME_EVERY_MS);
+        read(&mut s, "UserPromptSubmit", &event("Fix the   login bug\nplease"), NAME_EVERY_MS);
         assert_eq!(s.list()[0].name, "Fix the login bug please");
         std::fs::write(&transcript, concat!(
             r#"{"type":"user","message":"x"}"#, "\n",
             r#"{"type":"ai-title","aiTitle":"Login bug fix","sessionId":"a"}"#, "\n",
             r#"{"type":"ai-title","aiTitle":"Login bug fixed with tests","sessionId":"a"}"#, "\n",
         )).unwrap();
-        s.apply("PreToolUse", &event(""), 2 * NAME_EVERY_MS);
+        read(&mut s, "PreToolUse", &event(""), 2 * NAME_EVERY_MS);
         assert_eq!(s.list()[0].name, "Login bug fixed with tests");
         assert_eq!(s.card().unwrap().title, "Login bug fixed with tests");
         let mut text = std::fs::read_to_string(&transcript).unwrap();
@@ -879,9 +885,65 @@ mod tests {
         text.push('\n');
         text.push_str(r#"{"type":"ai-title","aiTitle":"Something newer","sessionId":"a"}"#);
         std::fs::write(&transcript, text).unwrap();
-        s.apply("PostToolUse", &event(""), 3 * NAME_EVERY_MS);
+        read(&mut s, "PostToolUse", &event(""), 3 * NAME_EVERY_MS);
         assert_eq!(s.list()[0].name, "Auth");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn only_a_plain_local_file_is_read_as_a_transcript() {
+        let dir = std::env::temp_dir().join(format!("kuchu-tail-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("s.jsonl");
+        std::fs::write(&file, "{\"type\":\"ai-title\",\"aiTitle\":\"Named\"}\n").unwrap();
+        assert_eq!(title_in(&tail_of(&file.display().to_string()).unwrap()).as_deref(), Some("Named"));
+        // A folder, a path to another machine or a pipe, a relative path, nothing: never opened.
+        assert!(tail_of(&dir.display().to_string()).is_none());
+        assert!(tail_of(r"\\server\share\s.jsonl").is_none());
+        assert!(tail_of(r"\\.\pipe\kuchu-test").is_none());
+        assert!(tail_of("//server/share/s.jsonl").is_none());
+        assert!(tail_of("s.jsonl").is_none());
+        assert!(tail_of("").is_none());
+        #[cfg(unix)]
+        {
+            // A socket where the file should be: not a plain file.
+            let sock = dir.join("s.sock");
+            let _listener = std::os::unix::net::UnixListener::bind(&sock).unwrap();
+            assert!(tail_of(&sock.display().to_string()).is_none());
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn every_recorded_payload_and_any_garbage_goes_through_without_a_panic() {
+        let mut s = Sessions::default();
+        let dir = format!("{}/../../fixtures/claude-code-2.1.310", env!("CARGO_MANIFEST_DIR"));
+        let mut n = 0;
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.extension().is_some_and(|e| e == "json") {
+                let p: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                let event = text(&p, "hook_event_name");
+                s.apply_with(&event, &p, n, tail_of(&text(&p, "transcript_path")).as_deref());
+                n += 1;
+            }
+        }
+        assert!(n > 10);
+        let garbage = [
+            serde_json::json!(null),
+            serde_json::json!([]),
+            serde_json::json!({ "session_id": 5 }),
+            serde_json::json!({ "session_id": "g", "cwd": null, "prompt": [], "tool_name": 3, "tool_input": "x", "tool_use_id": {} }),
+            serde_json::json!({ "session_id": "g", "transcript_path": std::env::temp_dir().display().to_string(), "tool_name": "Bash", "tool_use_id": "t" }),
+            serde_json::json!({ "session_id": "g", "last_assistant_message": 7, "error": false, "notification_type": 1 }),
+        ];
+        let events = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "Notification", "PreCompact", "Stop", "StopFailure", "SessionEnd", "Nothing"];
+        for p in &garbage {
+            for event in events {
+                s.apply_with(event, p, n, Some("not json\n{\"type\":\"assistant\",\"message\":5}\n{\"type\":\"ai-title\"}\n"));
+                n += 1;
+            }
+        }
     }
 
     #[test]
@@ -951,22 +1013,23 @@ mod tests {
         let call3 = r#"{"type":"assistant","uuid":"a6","message":{"content":[{"type":"tool_use","id":"t3","name":"Bash","input":{}}]}}"#;
         let tool = |id: &str, cmd: &str| serde_json::json!({ "session_id": "a", "cwd": "/x/a", "transcript_path": t, "tool_name": "Bash", "tool_input": { "command": cmd }, "tool_use_id": id });
         let texts = |s: &Sessions| s.list()[0].lines.iter().map(|l| l.text.clone()).collect::<Vec<_>>();
+        let read = |s: &mut Sessions, event: &str, p: &Value, now: u64| s.apply_with(event, p, now, tail_of(&t).as_deref());
         let mut s = Sessions::default();
         // Words, then two tools at once: the words show once, before the first.
         write(&[prompt, think, said, call, call1b]);
-        s.apply("PreToolUse", &tool("t1", "npm test"), 1);
-        s.apply("PreToolUse", &tool("t1b", "npm run lint"), 2);
+        read(&mut s, "PreToolUse", &tool("t1", "npm test"), 1);
+        read(&mut s, "PreToolUse", &tool("t1b", "npm run lint"), 2);
         assert_eq!(texts(&s), ["I'll run the tests first.", "npm test", "npm run lint"]);
         assert_eq!(s.list()[0].lines[0].progress, None);
         // A tool right after another's result, nothing said between: no words, and the old ones are not shown again.
         write(&[prompt, think, said, call, call1b, result, call2]);
-        s.apply("PostToolUse", &tool("t1", "npm test"), 3);
-        s.apply("PreToolUse", &tool("t2", "git status"), 4);
+        read(&mut s, "PostToolUse", &tool("t1", "npm test"), 3);
+        read(&mut s, "PreToolUse", &tool("t2", "git status"), 4);
         assert_eq!(texts(&s), ["npm test", "npm run lint", "git status"]);
         // The transcript written only after the tool started: its words come when it ends, before its step.
-        s.apply("PreToolUse", &tool("t3", "npm run lint --fix"), 5);
+        read(&mut s, "PreToolUse", &tool("t3", "npm run lint --fix"), 5);
         write(&[prompt, think, said, call, call1b, result, call2, said3, call3]);
-        s.apply("PostToolUse", &tool("t3", "npm run lint --fix"), 6);
+        read(&mut s, "PostToolUse", &tool("t3", "npm run lint --fix"), 6);
         assert_eq!(texts(&s), ["git status", "Now the lint.", "npm run lint --fix"]);
         let _ = std::fs::remove_dir_all(dir);
     }

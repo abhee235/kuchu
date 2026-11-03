@@ -18,6 +18,7 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 
 use crate::hub::{now, Hub};
+use crate::locks::Hold;
 use crate::sessions::{step, Progress};
 
 /// A conversation's process closes after this long without a turn; the next message starts it again.
@@ -246,13 +247,13 @@ impl Chats {
     }
 
     pub fn list(&self) -> Vec<Chat> {
-        let mut all: Vec<Chat> = self.all.lock().unwrap().values().map(|h| h.chat.clone()).collect();
+        let mut all: Vec<Chat> = self.all.hold().values().map(|h| h.chat.clone()).collect();
         all.sort_by_key(|c| std::cmp::Reverse(c.updated));
         all
     }
 
     pub fn has(&self, id: &str) -> bool {
-        self.all.lock().unwrap().contains_key(id)
+        self.all.hold().contains_key(id)
     }
 
     /// A new conversation in `cwd`, starting with `text`. Returns its session id.
@@ -263,9 +264,9 @@ impl Chats {
         let id = new_id();
         let chat = Chat { id: id.clone(), cwd: cwd.to_string(), project: project_of(cwd), status: Status::Ready, entries: Vec::new(), updated: now() };
         let held = Held { chat, reader: Reader::default(), run: None, began: false, quiet_since: Instant::now(), stopping: false, stderr: Default::default() };
-        self.all.lock().unwrap().insert(id.clone(), held);
+        self.all.hold().insert(id.clone(), held);
         if let Err(why) = self.send(&id, text) {
-            self.all.lock().unwrap().remove(&id);
+            self.all.hold().remove(&id);
             return Err(why);
         }
         Ok(id)
@@ -277,7 +278,7 @@ impl Chats {
         if text.is_empty() {
             return Ok(());
         }
-        let mut all = self.all.lock().unwrap();
+        let mut all = self.all.hold();
         let held = all.get_mut(id).ok_or("This conversation is gone.")?;
         if held.chat.status == Status::Handed {
             return Err("This conversation goes on in a terminal now.".into());
@@ -299,7 +300,7 @@ impl Chats {
 
     /// Stops the turn under way: Claude Code is asked first, and its process ended if it does not stop in time.
     pub fn stop(self: &Arc<Self>, id: &str) {
-        let mut all = self.all.lock().unwrap();
+        let mut all = self.all.hold();
         let Some(held) = all.get_mut(id) else { return };
         let Some(run) = &held.run else { return };
         if held.chat.status != Status::Working {
@@ -314,7 +315,7 @@ impl Chats {
         let id = id.to_string();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(STOP_GRACE).await;
-            let still = chats.all.lock().unwrap().get(&id).is_some_and(|h| h.chat.status == Status::Working && h.run.as_ref().is_some_and(|r| r.nth == nth));
+            let still = chats.all.hold().get(&id).is_some_and(|h| h.chat.status == Status::Working && h.run.as_ref().is_some_and(|r| r.nth == nth));
             if still {
                 end_process(pid);
             }
@@ -323,7 +324,7 @@ impl Chats {
 
     /// The conversation goes on in a terminal: Kuchu lets its process go and opens `claude --resume` in the folder.
     pub fn hand_off(self: &Arc<Self>, id: &str) -> Result<(), String> {
-        let mut all = self.all.lock().unwrap();
+        let mut all = self.all.hold();
         let held = all.get_mut(id).ok_or("This conversation is gone.")?;
         if held.chat.status == Status::Working {
             return Err("Claude is still working. Wait for it, or stop it first.".into());
@@ -345,7 +346,7 @@ impl Chats {
 
     /// Forgets a conversation; a turn under way is ended with it.
     pub fn forget(&self, id: &str) -> bool {
-        let Some(held) = self.all.lock().unwrap().remove(id) else { return false };
+        let Some(held) = self.all.hold().remove(id) else { return false };
         if let Some(run) = held.run.filter(|_| held.chat.status == Status::Working) {
             end_process(run.pid);
         }
@@ -355,7 +356,7 @@ impl Chats {
 
     /// Processes quiet for a while are let go; the next message starts the conversation again.
     pub fn expire(&self) {
-        for held in self.all.lock().unwrap().values_mut() {
+        for held in self.all.hold().values_mut() {
             if held.run.is_some() && held.chat.status == Status::Ready && held.quiet_since.elapsed() >= QUIET {
                 held.run = None;
             }
@@ -398,7 +399,7 @@ impl Chats {
                 if n == 0 {
                     break;
                 }
-                let mut tail = stderr.lock().unwrap();
+                let mut tail = stderr.hold();
                 tail.push_str(&String::from_utf8_lossy(&buf[..n]));
                 if tail.len() > ERR_TAIL {
                     let cut = tail.len() - ERR_TAIL;
@@ -426,7 +427,7 @@ impl Chats {
 
     /// One line from a conversation's process.
     fn take(self: &Arc<Self>, id: &str, nth: u64, o: &Value) {
-        let mut all = self.all.lock().unwrap();
+        let mut all = self.all.hold();
         let Some(held) = all.get_mut(id) else { return };
         if held.run.as_ref().is_some_and(|r| r.nth != nth) {
             return;
@@ -451,7 +452,7 @@ impl Chats {
 
     /// A conversation's process is gone: if it was in a turn, the conversation says so.
     fn exited(self: &Arc<Self>, id: &str, nth: u64, code: Option<i32>) {
-        let mut all = self.all.lock().unwrap();
+        let mut all = self.all.hold();
         let Some(held) = all.get_mut(id) else { return };
         if held.run.as_ref().is_some_and(|r| r.nth != nth) {
             return;
@@ -464,7 +465,7 @@ impl Chats {
         let note = if held.stopping {
             "Stopped.".to_string()
         } else {
-            let tail = held.stderr.lock().unwrap().trim().lines().last().unwrap_or("").to_string();
+            let tail = held.stderr.hold().trim().lines().last().unwrap_or("").to_string();
             match (tail.is_empty(), code) {
                 (false, _) => format!("Claude Code stopped: {tail}"),
                 (true, Some(c)) => format!("Claude Code stopped (exit code {c})."),
@@ -489,15 +490,15 @@ impl Chats {
 
     /// Sends a conversation to the pages, gathering the changes of the next moment into one.
     fn changed(self: &Arc<Self>, id: &str) {
-        if !self.due.lock().unwrap().insert(id.to_string()) {
+        if !self.due.hold().insert(id.to_string()) {
             return;
         }
         let chats = self.clone();
         let id = id.to_string();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(SEND_EVERY).await;
-            chats.due.lock().unwrap().remove(&id);
-            let chat = chats.all.lock().unwrap().get(&id).map(|h| h.chat.clone());
+            chats.due.hold().remove(&id);
+            let chat = chats.all.hold().get(&id).map(|h| h.chat.clone());
             if let Some(chat) = chat {
                 let _ = chats.app.emit("kuchu://chat", chat);
             }
