@@ -37,6 +37,10 @@ const TONE_GAP_MS = 1200
 /** Claude thinks again between its steps, but one tool handing over to the next passes through thinking for a moment
  *  too: after work, the pet shows thinking only once it has lasted this long. */
 const THINK_AFTER_MS = 800
+/** A turn's end shows this long (done's happy eye, failed's frown), then the pet goes back to a life of its own: an
+ *  answer waiting for you is the card's and the sessions list's to say, and a pet held in one face for as long as you
+ *  are away does not look alive. */
+const ENDED_MS = 4000
 /** The list of other sessions stays this long after the pointer leaves it. */
 const LIST_LINGER_MS = 300
 /** The stack of other sessions' cards: its tallest (it scrolls past this), the gap between cards, and the room it
@@ -94,7 +98,7 @@ export function PetWindow() {
     return () => offs.forEach((off) => off())
   }, [])
 
-  const mood = useSettledMood(view.mood)
+  const mood = useSettledMood(view.mood, Math.max(0, ...view.sessions.map((s) => s.ended ?? 0)))
   // A small tone for each session on its own: one done, one needing you, one that did not finish. (The pet's mood is
   // everyone's: one session done while another works would never change it.) Two at once ring once.
   const sounds = useRef(false)
@@ -221,8 +225,9 @@ export function PetWindow() {
   )
 }
 
-/** The pet's mood as it comes, except that thinking after work shows only once it lasts (see THINK_AFTER_MS). */
-function useSettledMood(mood: PetMood): PetMood {
+/** The pet's mood as it comes, except that thinking after work shows only once it lasts (see THINK_AFTER_MS), and a
+ *  turn's end (`ended`, the latest of any session's) only for a moment (see ENDED_MS). */
+function useSettledMood(mood: PetMood, ended: number): PetMood {
   const [shown, setShown] = useState(mood)
   useEffect(() => {
     if (mood === 'thinking' && shown === 'working') {
@@ -230,7 +235,11 @@ function useSettledMood(mood: PetMood): PetMood {
       return () => clearTimeout(t)
     }
     setShown(mood)
-  }, [mood])
+    if (mood === 'done' || mood === 'failed') {
+      const t = setTimeout(() => setShown('idle'), ENDED_MS)
+      return () => clearTimeout(t)
+    }
+  }, [mood, ended])
   return shown
 }
 
