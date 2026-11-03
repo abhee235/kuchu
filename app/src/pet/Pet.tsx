@@ -369,8 +369,10 @@ export function Pet({
   // Hello comes first: the thinking it set off shows once the wave is over.
   const hello = useHello(asked)
   // A pet too small to read a face (a loading mark) keeps one still look for thinking, and does not blink.
-  const insight = useInsight(mood, size >= 32) && !hello
-  const beat = useThinking(size >= 32 && mood === 'thinking') && !hello
+  const idea = useInsight(mood, size >= 32)
+  const thinking = useThinking(size >= 32 && mood === 'thinking')
+  const insight = idea && !hello
+  const beat = hello ? null : thinking
   const shown = hello ? 'idle' : insight ? 'thinking' : mood
   const blinks =
     size >= 32 && (mood === 'idle' || mood === 'working' || mood === 'thinking') && !hello && !insight && !life.activity && !life.asleep && !loved
