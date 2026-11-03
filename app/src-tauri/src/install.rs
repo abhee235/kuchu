@@ -77,20 +77,12 @@ pub fn place_relay() -> Result<PathBuf, String> {
 /// Whether a Kuchu is listening for Claude Code on this account. Asked as a relay would: a connection opened and
 /// closed at once, which Kuchu takes as an event that never came.
 pub fn running() -> bool {
-    let address = kuchu_wire::address();
-    #[cfg(windows)]
-    {
-        /// All of the pipe's instances are taken: Kuchu is there, busy.
-        const ERROR_PIPE_BUSY: i32 = 231;
-        match std::fs::OpenOptions::new().read(true).write(true).open(&address) {
-            Ok(_) => true,
-            Err(e) => e.raw_os_error() == Some(ERROR_PIPE_BUSY),
-        }
-    }
-    #[cfg(not(windows))]
-    {
-        std::os::unix::net::UnixStream::connect(&address).is_ok()
-    }
+    matches!(kuchu_wire::open(Duration::ZERO), kuchu_wire::Pipe::Kuchu(_) | kuchu_wire::Pipe::Busy)
+}
+
+/// Whether something that is not this account's Kuchu holds Kuchu's address: no relay speaks to it, so nothing shows.
+pub fn taken() -> bool {
+    matches!(kuchu_wire::open(Duration::ZERO), kuchu_wire::Pipe::Someone)
 }
 
 // ── Starting at sign-in ──────────────────────────────────────────────────────────────────────────────────────────
@@ -397,7 +389,13 @@ fn status() {
         "Kuchu {}\n  Program:                 {exe}\n  Running:                 {}\n  Starts when you sign in: {start_line}\n  \
          Relay:                   {relay_line}\n  Claude Code:             {claude_line}",
         env!("CARGO_PKG_VERSION"),
-        if running() { "yes" } else { "no" },
+        if running() {
+            "yes"
+        } else if taken() {
+            "no, and something else holds Kuchu's pipe: no session can reach Kuchu until it is gone"
+        } else {
+            "no"
+        },
     ));
 }
 

@@ -5,13 +5,16 @@
 //!
 //! It never holds Claude Code up: all the work runs on a second thread while the first waits with a deadline (2 s, or
 //! 110 s for a permission request), it reaches Kuchu within 300 ms or gives up, and every path ends with exit code 0.
-//! It prints only one thing: Kuchu's answer to a permission request, in the shape Claude Code reads. Anything else
-//! (no answer, Kuchu closed, a timeout, a garbled reply) prints nothing, and Claude Code asks as it would have.
+//! It speaks only to a pipe this account made (`kuchu_wire::open`), and prints only one thing: Kuchu's answer to a
+//! permission request, checked against the request and in the shape Claude Code reads. Anything else (no answer,
+//! Kuchu closed, a timeout, a garbled reply, an answer the request never offered) prints nothing, and Claude Code asks
+//! as it would have.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::sync::mpsc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
+use kuchu_wire::Pipe;
 use serde_json::{json, Map, Value};
 
 /// Strings longer than this are cut before they leave the relay (a file being written, a long command).
@@ -58,7 +61,7 @@ fn hand_over(event: &str) -> Option<String> {
         return None;
     }
 
-    let mut conn = connect(kuchu_wire::CONNECT)?;
+    let Pipe::Kuchu(mut conn) = kuchu_wire::open(kuchu_wire::CONNECT) else { return None };
     conn.write_all(line.as_bytes()).ok()?;
     conn.write_all(b"\n").ok()?;
     conn.flush().ok()?;
@@ -67,17 +70,52 @@ fn hand_over(event: &str) -> Option<String> {
     }
     let mut reply = String::new();
     BufReader::new(conn).take(kuchu_wire::MAX_LINE as u64).read_line(&mut reply).ok()?;
-    answer(&reply)
+    answer(&reply, &payload)
 }
 
-/// Kuchu's decision, checked, in the shape Claude Code reads; nothing for anything else.
-fn answer(reply: &str) -> Option<String> {
+/// Kuchu's decision, checked against the request it answers, in the shape Claude Code reads; nothing for anything
+/// else. Only what the request offered may come back: the input as it was (a plan approved), or with the answers to
+/// its questions added; a rule or mode Claude Code itself suggested. So whatever answers at the pipe can say yes or
+/// no to what Claude Code asked, and cannot change it.
+fn answer(reply: &str, request: &Value) -> Option<String> {
     let decision: Value = serde_json::from_str(reply.trim()).ok()?;
-    let behavior = decision.get("behavior")?.as_str()?;
-    if behavior != "allow" && behavior != "deny" {
+    let fields = decision.as_object()?;
+    let allowed: &[&str] = match fields.get("behavior")?.as_str()? {
+        "allow" => &["behavior", "updatedInput", "updatedPermissions"],
+        "deny" => &["behavior", "message"],
+        _ => return None,
+    };
+    if fields.keys().any(|k| !allowed.contains(&k.as_str())) {
         return None;
     }
+    if fields.get("message").is_some_and(|m| !m.is_string()) {
+        return None;
+    }
+    if fields.get("updatedInput").is_some_and(|input| !offered_input(request, input)) {
+        return None;
+    }
+    if let Some(rules) = fields.get("updatedPermissions") {
+        let offered = request.get("permission_suggestions").and_then(Value::as_array);
+        let rules = rules.as_array()?;
+        if rules.is_empty() || !rules.iter().all(|r| offered.is_some_and(|o| o.contains(r))) {
+            return None;
+        }
+    }
     Some(json!({ "hookSpecificOutput": { "hookEventName": "PermissionRequest", "decision": decision } }).to_string())
+}
+
+/// Whether `updated` is the request's own input: the same, or, for a question, the same with only its answers added.
+fn offered_input(request: &Value, updated: &Value) -> bool {
+    let input = request.get("tool_input").unwrap_or(&Value::Null);
+    if updated == input {
+        return true;
+    }
+    if request.get("tool_name").and_then(Value::as_str) != Some("AskUserQuestion") {
+        return false;
+    }
+    let Some(mut fields) = updated.as_object().cloned() else { return false };
+    let answered = fields.remove("answers").is_some_and(|a| a.as_object().is_some_and(|a| a.values().all(Value::is_string)));
+    answered && Value::Object(fields) == *input
 }
 
 /// The event without what Kuchu never shows: tools' outputs dropped, long strings cut.
@@ -102,36 +140,6 @@ fn cut(value: Value) -> Value {
         Value::Array(items) => Value::Array(items.into_iter().map(cut).collect()),
         Value::Object(map) => Value::Object(map.into_iter().map(|(k, v)| (k, cut(v))).collect::<Map<_, _>>()),
         other => other,
-    }
-}
-
-/// Reaches Kuchu's pipe, trying again only while it is busy, within `budget`.
-#[cfg(windows)]
-fn connect(budget: Duration) -> Option<std::fs::File> {
-    const ERROR_PIPE_BUSY: i32 = 231;
-    let deadline = Instant::now() + budget;
-    loop {
-        match std::fs::OpenOptions::new().read(true).write(true).open(kuchu_wire::address()) {
-            Ok(file) => return Some(file),
-            Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY) && Instant::now() < deadline => {
-                std::thread::sleep(Duration::from_millis(10))
-            }
-            Err(_) => return None,
-        }
-    }
-}
-
-#[cfg(not(windows))]
-fn connect(budget: Duration) -> Option<std::os::unix::net::UnixStream> {
-    let deadline = Instant::now() + budget;
-    loop {
-        match std::os::unix::net::UnixStream::connect(kuchu_wire::address()) {
-            Ok(stream) => return Some(stream),
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock && Instant::now() < deadline => {
-                std::thread::sleep(Duration::from_millis(10))
-            }
-            Err(_) => return None,
-        }
     }
 }
 
@@ -172,14 +180,60 @@ fn record(args: &[String]) {
 mod tests {
     use super::*;
 
+    /// A request as Claude Code sends it: a Write, with a mode on offer.
+    fn request() -> Value {
+        json!({
+            "tool_name": "Write",
+            "tool_input": { "file_path": "note.txt", "content": "hi" },
+            "permission_suggestions": [{ "type": "setMode", "mode": "acceptEdits", "destination": "session" }]
+        })
+    }
+
     #[test]
     fn only_allow_or_deny_reaches_claude_code() {
-        let allow: Value = serde_json::from_str(&answer(r#"{"behavior":"allow"}"#).unwrap()).unwrap();
+        let r = request();
+        let allow: Value = serde_json::from_str(&answer(r#"{"behavior":"allow"}"#, &r).unwrap()).unwrap();
         assert_eq!(allow, json!({ "hookSpecificOutput": { "hookEventName": "PermissionRequest", "decision": { "behavior": "allow" } } }));
-        assert!(answer(r#"{"behavior":"deny","message":"Not now"}"#).unwrap().contains(r#""message":"Not now""#));
-        assert_eq!(answer(""), None);
-        assert_eq!(answer("allow"), None);
-        assert_eq!(answer(r#"{"behavior":"ask"}"#), None);
+        assert!(answer(r#"{"behavior":"deny","message":"Not now"}"#, &r).unwrap().contains(r#""message":"Not now""#));
+        assert_eq!(answer("", &r), None);
+        assert_eq!(answer("allow", &r), None);
+        assert_eq!(answer("[]", &r), None);
+        assert_eq!(answer(r#"{"behavior":"ask"}"#, &r), None);
+        assert_eq!(answer(r#"{"behavior":"allow","interrupt":true}"#, &r), None);
+        assert_eq!(answer(r#"{"behavior":"allow","message":"x"}"#, &r), None);
+        assert_eq!(answer(r#"{"behavior":"deny","message":1}"#, &r), None);
+        assert_eq!(answer(r#"{"behavior":"deny","updatedInput":{}}"#, &r), None);
+    }
+
+    #[test]
+    fn only_what_the_request_offered_comes_back() {
+        let r = request();
+        let decide = |d: Value| answer(&d.to_string(), &r);
+        // The input as it was (a plan approved): offered. Any other input: not.
+        assert!(decide(json!({ "behavior": "allow", "updatedInput": r["tool_input"] })).is_some());
+        assert_eq!(decide(json!({ "behavior": "allow", "updatedInput": { "file_path": "../.bashrc", "content": "hi" } })), None);
+        assert_eq!(decide(json!({ "behavior": "allow", "updatedInput": { "file_path": "note.txt", "content": "hi", "answers": { "a": "b" } } })), None);
+        // A mode or rule Claude Code itself suggested: offered. Another, or none: not.
+        assert!(decide(json!({ "behavior": "allow", "updatedPermissions": [r["permission_suggestions"][0]] })).is_some());
+        let other = json!({ "type": "addRules", "rules": [{ "toolName": "Bash" }], "destination": "userSettings" });
+        assert_eq!(decide(json!({ "behavior": "allow", "updatedPermissions": [other] })), None);
+        assert_eq!(decide(json!({ "behavior": "allow", "updatedPermissions": [] })), None);
+        assert_eq!(decide(json!({ "behavior": "allow", "updatedPermissions": "all" })), None);
+
+        // A question's input may come back with only its answers added.
+        let q = json!({ "tool_name": "AskUserQuestion", "tool_input": { "questions": [{ "question": "Which?", "options": [{ "label": "A" }] }] } });
+        let answered = |answers: Value, questions: Option<Value>| {
+            let mut input = q["tool_input"].clone();
+            input["answers"] = answers;
+            if let Some(qs) = questions {
+                input["questions"] = qs;
+            }
+            answer(&json!({ "behavior": "allow", "updatedInput": input }).to_string(), &q)
+        };
+        assert!(answered(json!({ "Which?": "A" }), None).is_some());
+        assert_eq!(answered(json!({ "Which?": "A" }), Some(json!([]))), None);
+        assert_eq!(answered(json!("A"), None), None);
+        assert_eq!(answered(json!({ "Which?": ["A"] }), None), None);
     }
 
     #[test]

@@ -1936,6 +1936,10 @@ dependencies = [
 [[package]]
 name = "kuchu-wire"
 version = "0.1.0"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "libappindicator"

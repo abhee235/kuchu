@@ -2,7 +2,19 @@
 name = "kuchu-wire"
 version = "0.1.0"
 edition = "2021"
-description = "What the relay and Kuchu share: where they meet, and the time each step may take."
+description = "What the relay and Kuchu share: where they meet, how long each step may take, and opening the pipe safely."
 license = "MIT"
 
 [dependencies]
+
+# Opening the pipe: the flag that keeps whoever holds the name from acting as the relay, and reading who made the pipe.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Threading"] }
+
+# The tests make a pipe of their own to open.
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Pipes"] }
+
+# Who is at the other end of the socket.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
