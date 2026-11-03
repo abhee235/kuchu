@@ -134,7 +134,9 @@ html[data-window='settings'] body {
   width: var(--pet-w, 96px);
   height: var(--pet-h, 123px);
   cursor: grab;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.28));
+  /* A thin warm edge and a close shadow lift its white shell off a white page; the wide one sets it down. */
+  filter: drop-shadow(0 0 0.8px rgba(60, 42, 22, 0.5)) drop-shadow(0 2px 3px rgba(40, 28, 14, 0.22))
+    drop-shadow(0 6px 14px rgba(0, 0, 0, 0.24));
   touch-action: none;
 }
 .stage.is-wide.is-right .bubble {
