@@ -6,7 +6,10 @@
 // clicked, a frown when one failed.
 // The pet beside your windows (`lively`) also has a life of its own when there is no work, in short scenes, each with
 // a wind-up, the action and a settle: a yawn with its arms up, a stretch on tiptoe, checking its watch and sighing, a
-// little dance, its antenna springing, a look around, its screen flipping to another face, or a short walk. After a
+// little dance, its antenna springing, a look around, its screen flipping to another face, a short walk; and sillier
+// ones: an arm going limp and shaken loose, its head drooping, looking lost with a "?" for a pointer, its head popping
+// up on a spring, its screen glitching and rebooting (spinning round and a backflip, turned in depth by turn.ts, play
+// only in the preview for now). As a message is sent it waves hello. After a
 // long while with nothing happening it nods off and naps, until your pointer comes near or a session starts; it wakes
 // with a start and a yawn. It walks while it is dragged, smiles under the pointer, and gets heart eyes when petted (the
 // pointer moved to and fro over it).
@@ -15,6 +18,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import './pet.css'
 import type { PetMood } from './petMood'
+import { FLIP, play, SPIN } from './turn'
 
 /** The drawing: 120 wide, 154 tall from y = -14 (room for the thought bubble). */
 const RATIO = 154 / 120
@@ -24,10 +28,34 @@ const POINTER = 'M66 39 v13.2 l3.5 -3.1 l2.4 5.4 l2.3 -1 l-2.3 -5.2 h4.25 Z'
 const HEART = 'M0 -1.6 C-1.2 -5.6 -6 -4.8 -6 -1.2 C-6 1.8 -2.4 4.2 0 6 C2.4 4.2 6 1.8 6 -1.2 C6 -4.8 1.2 -5.6 0 -1.6 Z'
 
 /** What Kuchu does now and then with no work, and how long each scene takes (ms, as pet.css plays it). A stroll
- *  lasts as long as its walk. */
-const ACTIVITIES = { stretch: 3800, yawn: 4400, look: 2600, bored: 4600, flip: 2600, dance: 3800, boing: 3000, stroll: 0 } as const
+ *  lasts as long as its walk. A scene moved to TRYING stops here and plays only in the preview. */
+const ACTIVITIES = {
+  stretch: 3800,
+  yawn: 4400,
+  look: 2600,
+  bored: 4600,
+  flip: 2600,
+  dance: 3800,
+  boing: 3000,
+  stroll: 0,
+  loose: 4800,
+  droop: 5000,
+  lost: 4600,
+  pop: 3200,
+  glitch: 3000,
+} as const
+/** Scenes not yet good enough for the pet beside your windows: they play only in the preview (`?pose=spin`), to work
+ *  on. Moved to ACTIVITIES, the pet plays them too. */
+const TRYING = {
+  spin: 5200,
+  somersault: 3000,
+} as const
 /** Besides those: walking on the spot, nodding off before a nap, and the start of waking. */
-type Activity = keyof typeof ACTIVITIES | 'pace' | 'drowsy' | 'startle'
+type Activity = keyof typeof ACTIVITIES | keyof typeof TRYING | 'pace' | 'drowsy' | 'startle'
+/** The scenes the preview page can play on demand, and how long each takes (a stroll needs the window, so not that). */
+export const SCENE_MS: Record<string, number> = Object.fromEntries(
+  Object.entries({ ...ACTIVITIES, ...TRYING }).filter(([a]) => a !== 'stroll'),
+)
 const DROWSY_MS = 5000
 const STARTLE_MS = 1200
 /** One scene every 15 to 35 seconds. */
@@ -41,6 +69,8 @@ const STROLL_SPEED = 70
 const STROLL_PAUSE_MS = 900
 /** Heart eyes this long after being petted. */
 const PETTED_MS = 1800
+/** A wave hello this long as each message is sent (pet.css plays it), before it starts thinking. */
+const HELLO_MS = 1800
 /** Thinking, in beats: its eye up as it starts, then pondering and a busy pointer in turn, this long each. */
 const FOCUS_MS = 1200
 const PONDER_MS = 4200
@@ -201,6 +231,20 @@ function usePetted(petted?: number) {
   return now
 }
 
+/** A wave hello as a message is sent (`asked`, when the last one was), for the rest of HELLO_MS from then: not for
+ *  messages sent before the pet was there. Only `asked` restarts it, so nothing else can cut it off half way. */
+function useHello(asked: number) {
+  const [now, setNow] = useState(false)
+  useEffect(() => {
+    const left = asked + HELLO_MS - Date.now()
+    if (!asked || left <= 0) return
+    setNow(true)
+    const t = setTimeout(() => setNow(false), left)
+    return () => clearTimeout(t)
+  }, [asked])
+  return now
+}
+
 /** While a session thinks: its eye up first, then pondering and a busy pointer in turn. Asked for less motion, it only
  *  ponders. */
 function useThinking(on: boolean): Beat | null {
@@ -295,6 +339,8 @@ export function Pet({
   over = false,
   walk = 0,
   petted,
+  asked = 0,
+  scene,
   stroll,
 }: {
   size: number
@@ -311,15 +357,23 @@ export function Pet({
   walk?: number
   /** When it was last petted. */
   petted?: number
+  /** When a message was last sent: it waves hello. */
+  asked?: number
+  /** A scene to play now, whatever its own life is doing (the preview page). */
+  scene?: string
   stroll?: (dx: number) => Promise<number>
 }) {
-  const life = useLife(lively && mood === 'idle', near || over, stroll)
+  const own = useLife(lively && mood === 'idle', near || over, stroll)
+  const life = scene ? { ...own, activity: scene as Activity, asleep: false } : own
   const loved = usePetted(petted)
+  // Hello comes first: the thinking it set off shows once the wave is over.
+  const hello = useHello(asked)
   // A pet too small to read a face (a loading mark) keeps one still look for thinking, and does not blink.
-  const insight = useInsight(mood, size >= 32)
-  const beat = useThinking(size >= 32 && mood === 'thinking')
-  const shown = insight ? 'thinking' : mood
-  const blinks = size >= 32 && (mood === 'idle' || mood === 'working' || mood === 'thinking') && !insight && !life.activity && !life.asleep && !loved
+  const insight = useInsight(mood, size >= 32) && !hello
+  const beat = useThinking(size >= 32 && mood === 'thinking') && !hello
+  const shown = hello ? 'idle' : insight ? 'thinking' : mood
+  const blinks =
+    size >= 32 && (mood === 'idle' || mood === 'working' || mood === 'thinking') && !hello && !insight && !life.activity && !life.asleep && !loved
   const moment = useMoment(blinks, mood === 'idle')
   const walking = walk || life.pace
   // Gradients by id, this pet's own: several pets on a page must not share them.
@@ -338,6 +392,7 @@ export function Pet({
     (beat || insight) && 'is-t',
     beat && !insight && `is-t-${beat}`,
     insight && 'is-insight',
+    hello && 'is-hello',
     moment && `is-${moment}`,
     float && 'is-float',
     life.asleep && 'is-asleep',
@@ -349,7 +404,15 @@ export function Pet({
     walking > 0 && 'is-walk-right',
   ]
   const root = useRef<HTMLSpanElement>(null)
-  useGlide(root, classes.filter(Boolean).join(' '), [shown, beat, insight, life.activity, life.asleep, loved].join())
+  useGlide(root, classes.filter(Boolean).join(' '), [shown, beat, insight, hello, life.activity, life.asleep, loved].join())
+  // Turning in depth (round on the spot, the backflip) is worked out part by part, in turn.ts.
+  useEffect(() => {
+    const el = root.current
+    const turn = life.activity === 'spin' ? SPIN : life.activity === 'somersault' ? FLIP : null
+    if (!el || !turn || reducedMotion()) return
+    const runs = play(el, turn)
+    return () => runs.forEach((a) => a.cancel())
+  }, [life.activity])
   return (
     <span ref={root} style={style} aria-hidden="true">
       <svg viewBox="0 -14 120 154">
@@ -468,13 +531,24 @@ export function Pet({
             <rect className="pet-saffron" x="64" y="133.5" width="16" height="2.5" rx="1.25" />
             <ellipse cx="68" cy="129.5" rx="5" ry="1.6" fill={u('shine')} />
           </g>
-          {/* The body, its chest light, and the head's shadow on it. */}
-          <rect className="pet-shell" x="32" y="88" width="56" height="38" rx="14" fill={u('shell')} />
-          <ellipse cx="44" cy="96" rx="9" ry="4" transform="rotate(-18 44 96)" fill={u('shine')} />
-          <rect className="pet-plate" x="49" y="98" width="22" height="15" rx="5" />
-          <circle cx="60" cy="105.5" r="3.4" fill={u('ball')} />
-          <circle className="pet-spark" cx="58.9" cy="104.3" r="0.9" />
-          <ellipse cx="60" cy="90" rx="24" ry="4.5" fill={u('ao')} />
+          {/* The body and the head's shadow on it; its chest light on the front, a hatch with a wind-up key on the back
+              (seen only as it turns round). */}
+          <g className="pet-torso">
+            <rect className="pet-shell" x="32" y="88" width="56" height="38" rx="14" fill={u('shell')} />
+            <ellipse cx="44" cy="96" rx="9" ry="4" transform="rotate(-18 44 96)" fill={u('shine')} />
+            <ellipse cx="60" cy="90" rx="24" ry="4.5" fill={u('ao')} />
+          </g>
+          <g className="pet-chest">
+            <rect className="pet-plate" x="49" y="98" width="22" height="15" rx="5" />
+            <circle cx="60" cy="105.5" r="3.4" fill={u('ball')} />
+            <circle className="pet-spark" cx="58.9" cy="104.3" r="0.9" />
+          </g>
+          <g className="pet-hatch">
+            <rect className="pet-plate" x="47" y="97" width="26" height="19" rx="5" />
+            <rect x="58.6" y="103" width="2.8" height="7" rx="1.2" fill="#b9ad9c" />
+            <path d="M60 106.5 C56 101 51 102 51 106.5 C51 111 56 112 60 106.5 C64 101 69 102 69 106.5 C69 111 64 112 60 106.5 Z" fill={u('ball')} />
+            <circle className="pet-spark" cx="54.5" cy="104.6" r="0.9" />
+          </g>
           {/* Arms, in front of the body so they reach the laptop. */}
           <g className="pet-arm-l">
             <rect className="pet-shell" x="20" y="93" width="11" height="26" rx="5.5" fill={u('capsule')} />
@@ -493,81 +567,113 @@ export function Pet({
             <rect className="pet-caret" x="60" y="107.5" width="1.6" height="3" fill="#ee8a1e" />
             <rect x="34" y="112.5" width="52" height="5" rx="2.5" fill="#d9d0c3" />
           </g>
+          {/* Its neck as a spring, out of sight behind the head until the head pops up. */}
+          <path className="pet-spring" d="M60 90 l-5 -2 l10 -4 l-10 -4 l10 -4 l-10 -4 l10 -4 l-10 -4 l5 -2" />
           {/* The head: antenna, side lights, shell, the screen and its glass, the face. */}
           <g className="pet-head">
-            <rect className="pet-joint" x="52" y="84" width="16" height="7" rx="3" />
+            <rect className="pet-joint pet-neck" x="52" y="84" width="16" height="7" rx="3" />
             <g className="pet-antenna">
               <line x1="60" y1="16" x2="60" y2="7" stroke="#cfc5b6" strokeWidth="3" strokeLinecap="round" />
               <circle className="pet-bulb" cx="60" cy="5" r="4.6" fill={u('ball')} />
               <circle className="pet-bulb-ember" cx="60" cy="5" r="4.6" fill={u('ember')} />
               <circle className="pet-spark pet-bulb-spark" cx="58.6" cy="3.6" r="1.2" />
             </g>
-            <circle cx="11" cy="52" r="6.2" fill={u('ball')} />
-            <circle cx="109" cy="52" r="6.2" fill={u('ball')} />
-            <circle className="pet-spark" cx="9.3" cy="50" r="1.3" />
-            <circle className="pet-spark" cx="107.3" cy="50" r="1.3" />
-            <rect className="pet-shell" x="13" y="14" width="94" height="74" rx="30" fill={u('shell')} />
-            <ellipse cx="34" cy="22" rx="16" ry="5.5" transform="rotate(-14 34 22)" fill={u('shine')} />
-            <rect className="pet-bevel" x="23.5" y="24.6" width="73" height="53" rx="19.5" />
-            <rect x="25" y="26" width="70" height="50" rx="18" fill={u('screen')} />
-            <rect className="pet-rim" x="25.6" y="26.6" width="68.8" height="48.8" rx="17.4" />
-            <path d="M30 40 Q30 28 43 28 H86 Q72 36 52 44 Q38 49 30 56 Z" fill={u('glare')} />
-            <g clipPath={u('glass')}>
-              <g className="pet-face">
-                <g className="pet-eye">
-                  <g className="pet-eye-dot">
-                    <circle cx="46" cy="48" r="13" fill={u('ledglow')} />
-                    <circle cx="46" cy="48" r="6.5" fill={u('led')} />
-                    <circle className="pet-spark" cx="44" cy="45.8" r="1.4" />
+            {/* Its side lights, behind the head's edges; and a copy of each in front of the head, for the one turned
+                towards you. */}
+            <g className="pet-ear-l">
+              <circle cx="11" cy="52" r="6.2" fill={u('ball')} />
+              <circle className="pet-spark" cx="9.3" cy="50" r="1.3" />
+            </g>
+            <g className="pet-ear-r">
+              <circle cx="109" cy="52" r="6.2" fill={u('ball')} />
+              <circle className="pet-spark" cx="107.3" cy="50" r="1.3" />
+            </g>
+            <g className="pet-skull">
+              <rect className="pet-shell" x="13" y="14" width="94" height="74" rx="30" fill={u('shell')} />
+              <ellipse cx="34" cy="22" rx="16" ry="5.5" transform="rotate(-14 34 22)" fill={u('shine')} />
+            </g>
+            <g className="pet-ear-near pet-ear-l-near">
+              <circle cx="11" cy="52" r="6.2" fill={u('ball')} />
+              <circle className="pet-spark" cx="9.3" cy="50" r="1.3" />
+            </g>
+            <g className="pet-ear-near pet-ear-r-near">
+              <circle cx="109" cy="52" r="6.2" fill={u('ball')} />
+              <circle className="pet-spark" cx="107.3" cy="50" r="1.3" />
+            </g>
+            {/* The back of its head: a panel with vents and a small light (seen only as it turns round). */}
+            <g className="pet-nape">
+              <rect className="pet-seam" x="31" y="28" width="58" height="46" rx="17" />
+              <path className="pet-vent" d="M47 42 H73 M47 49 H73 M47 56 H73" />
+              <circle cx="60" cy="64.5" r="2.2" fill={u('ball')} />
+            </g>
+            <g className="pet-screen">
+              <rect className="pet-bevel" x="23.5" y="24.6" width="73" height="53" rx="19.5" />
+              <rect x="25" y="26" width="70" height="50" rx="18" fill={u('screen')} />
+              <rect className="pet-rim" x="25.6" y="26.6" width="68.8" height="48.8" rx="17.4" />
+              <path d="M30 40 Q30 28 43 28 H86 Q72 36 52 44 Q38 49 30 56 Z" fill={u('glare')} />
+              <g clipPath={u('glass')}>
+                <g className="pet-face">
+                  <g className="pet-eye">
+                    <g className="pet-eye-dot">
+                      <circle cx="46" cy="48" r="13" fill={u('ledglow')} />
+                      <circle cx="46" cy="48" r="6.5" fill={u('led')} />
+                      <circle className="pet-spark" cx="44" cy="45.8" r="1.4" />
+                    </g>
+                    <path className="pet-line pet-happy" d="M39.5 50 Q46 41 52.5 50" />
                   </g>
-                  <path className="pet-line pet-happy" d="M39.5 50 Q46 41 52.5 50" />
+                  <g className="pet-pointer">
+                    <path className="pet-pointer-glow" d={POINTER} />
+                    <path d={POINTER} fill={u('pointer')} stroke={u('pointer')} strokeWidth="1.6" strokeLinejoin="round" />
+                    <circle className="pet-ripple" cx="66" cy="39" r="5" />
+                  </g>
+                  {/* Thinking hard: the pointer turned into a busy ring. */}
+                  <g className="pet-busy">
+                    <circle className="pet-busy-track" cx="70" cy="47" r="6" />
+                    <circle className="pet-busy-arc" cx="70" cy="47" r="6" pathLength="100" stroke={u('pointer')} />
+                  </g>
+                  {/* Eyes shut (a nap, a stretch), squeezed tight (a yawn), and hearts for being petted. */}
+                  <path className="pet-line pet-shut" d="M39.5 47.5 Q46 53.5 52.5 47.5" />
+                  <path className="pet-line pet-shut" d="M63.5 47.5 Q70 53.5 76.5 47.5" />
+                  <path className="pet-line pet-squeeze" d="M41 43.5 L50.5 48 L41 52.5" />
+                  <path className="pet-line pet-squeeze" d="M75 43.5 L65.5 48 L75 52.5" />
+                  <g transform="translate(46 48)">
+                    <path className="pet-heart" d={HEART} />
+                  </g>
+                  <g transform="translate(70 47)">
+                    <path className="pet-heart" d={HEART} />
+                  </g>
+                  {/* Dizzy, its eye a spiral; lost, its pointer a question mark. */}
+                  <path className="pet-line pet-spiral" d="M46 48 a1.6 1.6 0 0 1 3.2 0 a3.2 3.2 0 0 1 -6.4 0 a4.8 4.8 0 0 1 9.6 0 a6.4 6.4 0 0 1 -12.8 0" />
+                  <g className="pet-ask">
+                    <path d="M66 44 a4.5 4.5 0 1 1 6.6 4 c-1.6 0.9 -2.4 1.9 -2.4 3.6" />
+                    <circle cx="70.2" cy="56.4" r="1.8" />
+                  </g>
+                  <path className="pet-line pet-smile" d="M51 62 Q60 68.5 69 62" />
+                  <path className="pet-line pet-frown" d="M52 66.5 Q60 60.5 68 66.5" />
+                  <path className="pet-line pet-hmm" d="M55 64 H65" />
+                  {/* A mouth open wide (a yawn, a start), its tongue showing. */}
+                  <g className="pet-yawn">
+                    <ellipse className="pet-tongue" cx="60" cy="68.2" rx="3.3" ry="2.1" />
+                    <ellipse className="pet-line" cx="60" cy="65" rx="5.2" ry="6.2" />
+                  </g>
+                  <circle className="pet-line pet-o" cx="63" cy="64" r="1.9" />
+                  {/* Pondering, the mouth pushed to one side; the idea, an "o". */}
+                  <path className="pet-line pet-ponder" d="M56 65.2 Q61 66 66.5 62.6" />
+                  <circle className="pet-line pet-wow" cx="60" cy="64.5" r="3" />
+                  <g className="pet-mark">
+                    <rect x="58.4" y="58" width="3.2" height="6" rx="1.6" fill="#fff6ea" />
+                    <circle cx="60" cy="67.5" r="1.7" fill="#fff6ea" />
+                  </g>
                 </g>
-                <g className="pet-pointer">
-                  <path className="pet-pointer-glow" d={POINTER} />
-                  <path d={POINTER} fill={u('pointer')} stroke={u('pointer')} strokeWidth="1.6" strokeLinejoin="round" />
-                  <circle className="pet-ripple" cx="66" cy="39" r="5" />
+                {/* The face its screen flips to: both eyes happy, a wide smile. */}
+                <g className="pet-face-alt">
+                  <path className="pet-line" d="M39.5 50 Q46 41 52.5 50" />
+                  <path className="pet-line" d="M63.5 50 Q70 41 76.5 50" />
+                  <path className="pet-line" d="M49 61 Q60 71 71 61" />
                 </g>
-                {/* Thinking hard: the pointer turned into a busy ring. */}
-                <g className="pet-busy">
-                  <circle className="pet-busy-track" cx="70" cy="47" r="6" />
-                  <circle className="pet-busy-arc" cx="70" cy="47" r="6" pathLength="100" stroke={u('pointer')} />
-                </g>
-                {/* Eyes shut (a nap, a stretch), squeezed tight (a yawn), and hearts for being petted. */}
-                <path className="pet-line pet-shut" d="M39.5 47.5 Q46 53.5 52.5 47.5" />
-                <path className="pet-line pet-shut" d="M63.5 47.5 Q70 53.5 76.5 47.5" />
-                <path className="pet-line pet-squeeze" d="M41 43.5 L50.5 48 L41 52.5" />
-                <path className="pet-line pet-squeeze" d="M75 43.5 L65.5 48 L75 52.5" />
-                <g transform="translate(46 48)">
-                  <path className="pet-heart" d={HEART} />
-                </g>
-                <g transform="translate(70 47)">
-                  <path className="pet-heart" d={HEART} />
-                </g>
-                <path className="pet-line pet-smile" d="M51 62 Q60 68.5 69 62" />
-                <path className="pet-line pet-frown" d="M52 66.5 Q60 60.5 68 66.5" />
-                <path className="pet-line pet-hmm" d="M55 64 H65" />
-                {/* A mouth open wide (a yawn, a start), its tongue showing. */}
-                <g className="pet-yawn">
-                  <ellipse className="pet-tongue" cx="60" cy="68.2" rx="3.3" ry="2.1" />
-                  <ellipse className="pet-line" cx="60" cy="65" rx="5.2" ry="6.2" />
-                </g>
-                <circle className="pet-line pet-o" cx="63" cy="64" r="1.9" />
-                {/* Pondering, the mouth pushed to one side; the idea, an "o". */}
-                <path className="pet-line pet-ponder" d="M56 65.2 Q61 66 66.5 62.6" />
-                <circle className="pet-line pet-wow" cx="60" cy="64.5" r="3" />
-                <g className="pet-mark">
-                  <rect x="58.4" y="58" width="3.2" height="6" rx="1.6" fill="#fff6ea" />
-                  <circle cx="60" cy="67.5" r="1.7" fill="#fff6ea" />
-                </g>
+                <rect className="pet-scan" x="25" y="26" width="70" height="2.5" fill="#fff6ea" />
+                <rect className="pet-dim" x="25" y="26" width="70" height="50" fill="#000" />
               </g>
-              {/* The face its screen flips to: both eyes happy, a wide smile. */}
-              <g className="pet-face-alt">
-                <path className="pet-line" d="M39.5 50 Q46 41 52.5 50" />
-                <path className="pet-line" d="M63.5 50 Q70 41 76.5 50" />
-                <path className="pet-line" d="M49 61 Q60 71 71 61" />
-              </g>
-              <rect className="pet-scan" x="25" y="26" width="70" height="2.5" fill="#fff6ea" />
-              <rect className="pet-dim" x="25" y="26" width="70" height="50" fill="#000" />
             </g>
           </g>
         </g>
