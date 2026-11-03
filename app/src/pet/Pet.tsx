@@ -12,7 +12,7 @@
 // pointer moved to and fro over it).
 // Its eyes and head follow the pointer. Asked for less motion, it keeps its expressions and drops the movement.
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import './pet.css'
 import type { PetMood } from './petMood'
 
@@ -49,6 +49,29 @@ const BUSY_MS = 3600
 const INSIGHT_MS = 1600
 /** At most one idea in this long, when sessions take turns thinking and working. */
 const INSIGHT_EVERY_MS = 20_000
+/** When its look changes (a mood, a beat of its thinking, the idea, a scene of its own), each part takes this long to
+ *  go from where it was into the new look. */
+const GLIDE_MS = 400
+/** What moves between looks. A look's movement starts at its own first frame and stops at once, so without the glide
+ *  a head swaying to the left would jump to the middle, or to wherever the next movement starts. */
+const GLIDING = [
+  '.pet-whole',
+  '.pet-head',
+  '.pet-face',
+  '.pet-eye',
+  '.pet-pointer',
+  '.pet-arm-l',
+  '.pet-arm-r',
+  '.pet-leg-l',
+  '.pet-leg-r',
+  '.pet-antenna',
+  '.pet-shadow',
+  '.pet-think',
+  '.pet-busy',
+  '.pet-laptop',
+  '.pet-bulb-ember',
+  '.pet-ripple',
+].join(', ')
 
 type Beat = 'focus' | 'ponder' | 'busy'
 
@@ -198,12 +221,13 @@ function useThinking(on: boolean): Beat | null {
   return on ? (beat ?? (reducedMotion() ? 'ponder' : 'focus')) : null
 }
 
-/** An idea for a moment when thinking turns into work (or straight into an answer). */
+/** An idea for a moment when thinking turns into work (or straight into an answer). Decided before the change is drawn,
+ *  so the work never shows for a frame first. */
 function useInsight(mood: PetMood, on: boolean) {
   const [now, setNow] = useState(false)
   const was = useRef(mood)
   const last = useRef(0)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const from = was.current
     was.current = mood
     if (!on || from !== 'thinking' || (mood !== 'working' && mood !== 'done')) return
@@ -217,6 +241,36 @@ function useInsight(mood: PetMood, on: boolean) {
     }
   }, [mood, on])
   return now
+}
+
+/** Puts the pet's classes on it. When its look changes, every moving part (GLIDING) goes on from where it was into the
+ *  new look, even into a movement already under way, instead of jumping. Blinks, the pointer's pull and walking change
+ *  the classes without it: they are quick on purpose. */
+function useGlide(pet: React.RefObject<HTMLSpanElement | null>, classes: string, look: string) {
+  const was = useRef<string | null>(null)
+  const glides = useRef<Animation[]>([])
+  useLayoutEffect(() => {
+    const el = pet.current
+    if (!el) return
+    const glide = was.current !== null && was.current !== look && !reducedMotion()
+    was.current = look
+    const parts = glide ? Array.from(el.querySelectorAll<SVGElement>(GLIDING)) : []
+    // Where each part is now, a glide still under way included.
+    const before = parts.map((p) => getComputedStyle(p)).map((s) => ({ transform: s.transform, opacity: s.opacity }))
+    if (glide) glides.current.forEach((a) => a.cancel())
+    el.className = classes
+    if (!glide) return
+    // From there to wherever the new look has it, moving or still (a glide's missing last frame is that). A transition
+    // the change began is the glide's to make, at the glide's pace: the eye's is as quick as a blink.
+    glides.current = parts.flatMap((p, i) => {
+      p.getAnimations().forEach((a) => a instanceof CSSTransition && a.finish())
+      const now = getComputedStyle(p)
+      const from: Keyframe = { offset: 0 }
+      if (now.transform !== before[i]!.transform) from.transform = before[i]!.transform
+      if (Math.abs(Number(now.opacity) - Number(before[i]!.opacity)) > 0.02) from.opacity = before[i]!.opacity
+      return Object.keys(from).length > 1 ? [p.animate([from], { duration: GLIDE_MS, easing: 'ease-in-out' })] : []
+    })
+  }, [classes, look])
 }
 
 function reducedMotion() {
@@ -286,8 +340,10 @@ export function Pet({
     walking < 0 && 'is-walk-left',
     walking > 0 && 'is-walk-right',
   ]
+  const root = useRef<HTMLSpanElement>(null)
+  useGlide(root, classes.filter(Boolean).join(' '), [shown, beat, insight, life.activity, life.asleep, loved].join())
   return (
-    <span className={classes.filter(Boolean).join(' ')} style={style} aria-hidden="true">
+    <span ref={root} style={style} aria-hidden="true">
       <svg viewBox="0 -14 120 154">
         <defs>
           {/* Light from the top left: the shell brightest there, warm grey toward the bottom right. */}
