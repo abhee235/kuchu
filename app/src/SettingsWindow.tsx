@@ -321,6 +321,16 @@ function StartAtSignIn() {
   const [why, setWhy] = useState<string | null>(null)
   useEffect(() => void core.startAtSignIn().then(setStart), [])
   if (!start) return null
+  if (start.byWindows) {
+    return (
+      <Row
+        label="Starts when you sign in"
+        desc="Windows starts Kuchu when you sign in. To switch that off, open Windows’ Settings, then Apps, then Startup."
+      >
+        <span className="muted">In Windows’ Settings</span>
+      </Row>
+    )
+  }
   const change = (on: boolean) => {
     setWhy(null)
     core.setStartAtSignIn(on).then(setStart, (e: unknown) => setWhy(String(e)))

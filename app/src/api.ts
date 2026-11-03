@@ -113,6 +113,8 @@ export interface Start {
   paused: boolean
   /** The program it starts, when it is another copy of Kuchu. */
   elsewhere: string | null
+  /** Windows starts Kuchu itself (installed from the Store): switched on and off in Windows' own Settings. */
+  byWindows: boolean
 }
 
 export interface HookReport {

@@ -42,9 +42,20 @@ pub fn data_dir() -> Option<PathBuf> {
     dirs::data_local_dir().map(|dir| dir.join(IDENTIFIER))
 }
 
-/// Where the relay is put for the hooks to run: a path that stays the same across updates.
+/// Where the relay is put for the hooks to run: a path that stays the same across updates. From the Store, `~/.kuchu/bin`:
+/// what such an app writes in AppData goes to a folder of its own, where Claude Code would not find it.
 pub fn relay_dir() -> Option<PathBuf> {
+    if packaged() {
+        return dirs::home_dir().map(|home| home.join(".kuchu").join("bin"));
+    }
     data_dir().map(|dir| dir.join("bin"))
+}
+
+/// Kuchu installed from the Microsoft Store: an MSIX package, whose manifest sits beside the program. Windows then
+/// starts it at sign-in from the package's own startup task, and takes it off again when it is uninstalled.
+pub fn packaged() -> bool {
+    cfg!(windows)
+        && std::env::current_exe().is_ok_and(|exe| exe.parent().is_some_and(|dir| dir.join("AppxManifest.xml").is_file()))
 }
 
 /// The relay shipped beside Kuchu (or, while developing, the one cargo built).
@@ -93,9 +104,11 @@ pub struct Start {
     pub paused: bool,
     /// The program the entry starts, when it is not this Kuchu (a copy somewhere else).
     pub elsewhere: Option<String>,
+    /// Windows starts Kuchu itself (installed from the Store), and it is switched on and off in Windows' own Settings.
+    pub by_windows: bool,
 }
 
-const OFF: Start = Start { on: false, paused: false, elsewhere: None };
+const OFF: Start = Start { on: false, paused: false, elsewhere: None, by_windows: false };
 
 fn this_program() -> Result<PathBuf, String> {
     let exe = std::env::current_exe().map_err(|e| format!("Kuchu could not tell where it is: {e}"))?;
@@ -141,7 +154,7 @@ mod sign_in {
         let paused = user.open_subkey(approved).and_then(|k| k.get_raw_value(ENTRY)).is_ok_and(|v| v.bytes.first().is_some_and(|b| b & 1 == 1));
         let program = command.trim().trim_matches('"').to_string();
         let elsewhere = this_program().ok().filter(|exe| !same_program(&program, exe)).map(|_| program);
-        Start { on: true, paused, elsewhere }
+        Start { on: true, paused, elsewhere, by_windows: false }
     }
 
     pub(super) fn set_in(run: &str, approved: &str, on: bool) -> Result<(), String> {
@@ -185,7 +198,7 @@ mod sign_in {
             .map(|(program, _)| program.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&"))
             .unwrap_or_default();
         let elsewhere = this_program().ok().filter(|exe| !same_program(&program, exe)).map(|_| program);
-        Start { on: true, paused: false, elsewhere }
+        Start { on: true, paused: false, elsewhere, by_windows: false }
     }
 
     pub fn set(on: bool) -> Result<(), String> {
@@ -239,11 +252,17 @@ mod sign_in {
 
 /// Whether Kuchu starts when the person signs in.
 pub fn start_at_sign_in() -> Start {
+    if packaged() {
+        return Start { on: true, paused: false, elsewhere: None, by_windows: true };
+    }
     sign_in::get()
 }
 
 /// Starts this Kuchu when the person signs in, or no longer.
 pub fn set_start_at_sign_in(on: bool) -> Result<Start, String> {
+    if packaged() {
+        return Err("Windows starts Kuchu when you sign in: switch it on or off in Windows' Settings, Apps, Startup.".into());
+    }
     sign_in::set(on)?;
     Ok(sign_in::get())
 }
@@ -594,7 +613,7 @@ mod tests {
         assert_eq!(sign_in::get_in(&run, &approved), OFF);
         marks.set_raw_value("Kuchu", &switched_off).unwrap();
         sign_in::set_in(&run, &approved, true).unwrap();
-        assert_eq!(sign_in::get_in(&run, &approved), Start { on: true, paused: false, elsewhere: None }, "on here wins over off there");
+        assert_eq!(sign_in::get_in(&run, &approved), Start { on: true, paused: false, elsewhere: None, by_windows: false }, "on here wins over off there");
         marks.set_raw_value("Kuchu", &switched_off).unwrap();
         assert!(sign_in::get_in(&run, &approved).paused);
         user.open_subkey_with_flags(&run, winreg::enums::KEY_SET_VALUE).unwrap().set_value("Kuchu", &r#""C:\Elsewhere\kuchu.exe""#).unwrap();
