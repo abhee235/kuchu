@@ -359,6 +359,7 @@ export function Pet({
             <rect className="pet-bevel" x="23.5" y="24.6" width="73" height="53" rx="19.5" />
             <rect x="25" y="26" width="70" height="50" rx="18" fill={u('screen')} />
             <rect className="pet-rim" x="25.6" y="26.6" width="68.8" height="48.8" rx="17.4" />
+            <path d="M30 40 Q30 28 43 28 H86 Q72 36 52 44 Q38 49 30 56 Z" fill={u('glare')} />
             <g clipPath={u('glass')}>
               <g className="pet-face">
                 <g className="pet-eye">
