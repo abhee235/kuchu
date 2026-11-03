@@ -205,7 +205,7 @@ What fix 7 did: `kuchu-relay record` exists only in a relay built with `--featur
 `tauri.conf.json`, the Store manifest and the installer's steps and fails if the install is not per-user or anything
 names a service (T27); a workflow runs `cargo audit` and `npm audit` on every push, pull request and week (T33); the
 release workflow attests provenance for every file and for `SHA256SUMS`, and the README's install verifies it with
-`gh attestation verify` when GitHub's CLI is signed in, stopping if it fails (T34; proven by the next release);
+`gh attestation verify` when GitHub's CLI is signed in, stopping if it fails (T34; proven by 0.1.2);
 `claude` is looked for in absolute `PATH` entries only, and `kuchu status` names the program found (T35); the
 single-instance hand-off's arguments are three (`handed`: quit, settings, show) and a test pins them (T36). What it
 left out, and why: signing (T28) needs a Windows and an Apple signing identity, which is a purchase and an account,
@@ -316,7 +316,7 @@ Each is one small commit with its tests.
 | T31 | Secrets on the card | Low | Open |
 | T32 | What is on disk | Low | Watching: nothing from sessions |
 | T33 | A dependency turns | Medium | Fixed in 306e661: `cargo audit` and `npm audit` in a workflow; the rest done in e2766aa |
-| T34 | Release and checksum share an origin | Medium | Fixed in 306e661: provenance attested for every file and for SHA256SUMS, verified by the README's install when `gh` is signed in; proven by the next release |
+| T34 | Release and checksum share an origin | Medium | Fixed in 306e661: provenance attested for every file and for SHA256SUMS, verified by the README's install when `gh` is signed in; proven by 0.1.2, all seven of its files verified |
 | T35 | Kuchu runs `claude` on its own | Low | Fixed in 306e661: relative and empty PATH entries skipped; `kuchu status` names the program. Settings does not say it yet |
 | T36 | The single-instance hand-off | Low | Accepted: same account, harmless arguments; `handed` pins them to quit, settings and show (306e661) |
 
@@ -346,6 +346,8 @@ Each is one small commit with its tests.
   pinned actions match their tags; provenance needs a public repository, which this is. Noted, not threats: the end
   of a transcript is now read for every event, where before the name was read every 20 s and Claude's words on tool
   events; what fixes 2, 4 and 6 left out is under each.
+- **2026-11-04**, release 0.1.2, the first since fix 7: `gh attestation verify` accepted all seven of its files
+  (the four archives and installers for Windows, the two for macOS, `SHA256SUMS`). T34 holds.
 
 ## Checks to keep
 
