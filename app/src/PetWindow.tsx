@@ -379,8 +379,10 @@ function ApprovalCard({ approval, more }: { approval: Approval; more: number }) 
         <span className="name">{approval.project}</span>
         {more > 0 && <span className="more">+{more} waiting</span>}
       </div>
+      {approval.cwd && <div className="approval-where">{approval.cwd}</div>}
       <div className="approval-what">{what}</div>
       {approval.detail && approval.kind !== 'question' && <pre className="approval-detail">{approval.detail}</pre>}
+      {!approval.whole && <div className="approval-note">Too long for the card: answer it in Claude Code.</div>}
       <div className="approval-actions">
         {approval.kind === 'question' && approval.question ? (
           approval.question.options.map((o, i) => (
@@ -390,12 +392,14 @@ function ApprovalCard({ approval, more }: { approval: Approval; more: number }) 
           ))
         ) : approval.kind === 'question' ? null : (
           <>
-            <button type="button" className="btn is-small is-primary" onClick={() => choose('allow')}>
-              {approval.kind === 'plan' ? 'Approve plan' : 'Allow'}
-            </button>
-            {approval.always && (
+            {approval.whole && (
+              <button type="button" className="btn is-small is-primary" onClick={() => choose('allow')}>
+                {approval.kind === 'plan' ? 'Approve plan' : 'Allow'}
+              </button>
+            )}
+            {approval.whole && approval.always && (
               <button type="button" className="btn is-small" onClick={() => choose('always')}>
-                {approval.always}
+                {approval.always.label}
               </button>
             )}
             <button type="button" className="btn is-small" onClick={() => choose('deny')}>
@@ -407,6 +411,11 @@ function ApprovalCard({ approval, more }: { approval: Approval; more: number }) 
           In Claude Code
         </button>
       </div>
+      {approval.whole && approval.always && (
+        <div className="approval-rule">
+          “{approval.always.label}” allows <code>{approval.always.what}</code>, {approval.always.scope}.
+        </div>
+      )}
     </div>
   )
 }

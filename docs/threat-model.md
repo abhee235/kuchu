@@ -108,6 +108,23 @@ This is the one place where a click has consequences, so the card is a security 
 | T13 | **A click meant for something else.** The card appears at a fixed place, above every window, and takes the mouse as it appears. | Low | A click in the card's first 600 ms does not count; the window is never focusable, so no key can answer; each request is its own card with its own clock. | Keep these; add a test that `approvalShown` precedes any `decide`. |
 | T14 | **Answers the card never offered.** A page or a bug sends a choice the request did not have. | Low | A question's answer must be one of its options; a plan is approved only with the plan sent back; "always" needs an offer to exist. | Keep; the relay's own check (T6) covers it a second time. |
 
+What fix 4 did: the detail is no longer cut at 600 characters; it is shown whole (scrolling) up to 20,000, and past
+that it is cut with a mark saying how much is missing, the card says "Too long for the card: answer it in Claude
+Code", and neither Allow nor the "Always" offer is on it (Deny and "In Claude Code" are); the core holds to that as
+well, taking only a "no" for such a card whatever the page sends (`clicked`). Three or more blank lines in a row show
+as `⟨59 blank lines⟩`, forty or more blank characters as `⟨100 spaces⟩` (spaces and tabs, and also no-break, wide
+and thin spaces and the letters drawn blank: `is_blank`), so the tail of a padded command is in sight. Everything a
+card or the sessions list shows passes through `sessions::plain`, which spells out direction marks, zero-width
+spaces, line and paragraph separators, soft hyphens, tags and control characters (`⟨RLO⟩`, `⟨U+0007⟩`), the tab and
+the line break excepted; an answer to a question is matched against the option as shown and sent as Claude Code gave
+it. The session's folder is under its name on every card. The "Always" button keeps its short label, and under the
+buttons the card says what it does and where: "“Always allow” allows `Bash(git commit:*)`, in this project, for
+you." (session, local, project and user settings each have their words; a deny rule, an empty offer or a mode Kuchu
+does not know makes no button). What it left out: the detail for a Write or Edit is still the path, not the content;
+the card approves where Claude writes, as Claude Code's own prompt does, and the content is in the terminal. And
+20,000 characters is some 500 lines at the card's width, in a box that shows five: all of it is on the card, but only
+for someone who scrolls. A lower limit is worth weighing once real commands show how long they run.
+
 ### 4. Paths named in payloads (sessions.rs `tail_of`)
 
 | | Threat | Severity | Stands today | To do |
@@ -239,10 +256,10 @@ Each is one small commit with its tests.
 | T6 | Relay: trusts whoever answers | High | Fixed on branch `security` (fix 1), awaiting review |
 | T7 | Relay: record mode in release builds | Low | Open |
 | T8 | Relay: huge event | Low | Accepted: bounded by Claude Code and the line caps |
-| T9 | Card: hides part of the input | High | Open |
-| T10 | Card: characters that lie | Medium | Open |
-| T11 | Card: session named by the model | Medium | Open |
-| T12 | Card: "Always allow" without the rule | Medium | Open |
+| T9 | Card: hides part of the input | High | Fixed on branch `security` (fix 4), awaiting review |
+| T10 | Card: characters that lie | Medium | Fixed on branch `security` (fix 4), awaiting review |
+| T11 | Card: session named by the model | Medium | Fixed on branch `security` (fix 4), awaiting review |
+| T12 | Card: "Always allow" without the rule | Medium | Fixed on branch `security` (fix 4), awaiting review |
 | T13 | Card: a click meant for something else | Low | Watching: the 600 ms guard and the unfocusable window hold |
 | T14 | Card: answers never offered | Low | Watching: checked in `decision`; T6 adds the relay's check |
 | T15 | Paths: `transcript_path` opened under the lock | Medium | Fixed on branch `security` (fix 3), awaiting review; see what fix 3 left out |

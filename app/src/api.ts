@@ -58,10 +58,16 @@ export interface Approval {
   id: number
   session: string
   project: string
+  /** The session's folder, always shown: a name is the model's to choose, a folder is not. */
+  cwd: string
   kind: 'permission' | 'question' | 'plan'
   title: string
+  /** The command, file or address it is about, whole, or cut and marked as cut when too long to read. */
   detail: string
-  always?: string | null
+  /** Whether `detail` is all of it. When it is not, Allow is not offered. */
+  whole: boolean
+  /** Claude Code's own "don't ask again" offer: the button's label, what it allows, and where that is kept. */
+  always?: { label: string; what: string; scope: string } | null
   question?: { text: string; options: string[] } | null
 }
 

@@ -162,6 +162,11 @@ html[data-window='settings'] body {
   position: absolute;
   bottom: calc(14px + var(--pet-h) * 0.5);
   width: 304px;
+  /* Never taller than the window: a card's scrolling part gives way first. */
+  max-height: calc(100% - 14px - var(--pet-h) * 0.5 - 8px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 /* Beside the pet with a small gap: the pet is 16 px in from its side, the card 8 px clear of it. */
 .stage.is-right .beside {
@@ -403,6 +408,9 @@ html[data-window='settings'] body {
 
 /* A permission request: the card a chat shows for one, beside the pet. */
 .approval {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding: 16px;
   border: 0.5px solid var(--line);
   border-radius: 16px;
@@ -438,13 +446,43 @@ html[data-window='settings'] body {
   font-weight: 500;
   white-space: nowrap;
 }
+/* The session's folder: always there, whole, under a name the model may have chosen. */
+.approval-where {
+  margin-top: 2px;
+  font-size: var(--text-caption);
+  line-height: 16px;
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}
 .approval-what {
   margin-top: 10px;
   font-size: var(--text-label);
   line-height: 20px;
   color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+/* An input too long to read on the card: said so, and Allow not offered. */
+.approval-note {
+  margin-top: 8px;
+  font-size: var(--text-note);
+  line-height: 18px;
+  color: var(--amber-fg);
+}
+/* What "Always" would do, in full, under the buttons. */
+.approval-rule {
+  margin-top: 10px;
+  font-size: var(--text-caption);
+  line-height: 16px;
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}
+.approval-rule code {
+  font-family: 'Geist Mono Variable', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  color: var(--fg-2);
 }
 .approval-detail {
+  flex: 0 1 auto;
+  min-height: 44px;
   max-height: 96px;
   margin: 8px 0 0;
   overflow: auto;

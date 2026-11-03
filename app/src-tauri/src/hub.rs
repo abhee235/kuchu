@@ -13,10 +13,18 @@ use tokio::sync::{oneshot, Semaphore};
 
 use crate::alive::Running;
 use crate::locks::Hold;
-use crate::sessions::{step, tail_of, Card, Mood, Session, Sessions};
+use crate::sessions::{cut_to, plain, step, tail_of, Card, Mood, Session, Sessions};
 
 /// At most this many requests wait at once; more go straight back to the terminal.
 const MAX_WAITING: usize = 5;
+/// A card's title at most this long: the detail under it has the whole of it, and the card must fit the window.
+const MAX_TITLE: usize = 90;
+/// The most of an input a card shows whole. Past that, Allow is not offered: what cannot be read cannot be approved.
+const MAX_DETAIL: usize = 20_000;
+/// Blank lines in a row from which they are counted instead of shown, and spaces likewise: padding meant to push the
+/// end of a command out of sight shows as what it is.
+const BLANK_RUN: usize = 3;
+const SPACE_RUN: usize = 40;
 /// How long reading the end of a session's transcript may take before the event goes on without it.
 const TAIL_WAIT: Duration = Duration::from_millis(500);
 /// At most this many connections are taken in at once (each costs a task and up to a line of 1 MiB); more are closed
@@ -31,16 +39,28 @@ pub struct Approval {
     pub session: String,
     /// What the session is called.
     pub project: String,
+    /// The session's folder, always shown: a name is the model's to choose, a folder is not.
+    pub cwd: String,
     /// "permission", "question" or "plan".
     pub kind: String,
     /// What it wants to do, as one line.
     pub title: String,
-    /// The command, file or address it is about.
+    /// The command, file or address it is about, whole (`whole`), or cut and marked as cut when too long to read.
     pub detail: String,
-    /// The label for Claude Code's own "don't ask again" offer, when it made one Kuchu can pass on.
-    pub always: Option<String>,
+    /// Whether `detail` is all of it. When it is not, Allow is not offered.
+    pub whole: bool,
+    /// Claude Code's own "don't ask again" offer, when it made one Kuchu can pass on: the button, and what it does.
+    pub always: Option<Always>,
     /// A question with one choice to make: its text and options.
     pub question: Option<Question>,
+}
+
+/// What "Always" would do: the button's label, what it allows, and where that is kept.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct Always {
+    pub label: String,
+    pub what: String,
+    pub scope: String,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -185,7 +205,7 @@ impl Hub {
     pub fn decide(&self, id: u64, choice: Choice) {
         let mut inner = self.inner.hold();
         let Some(w) = inner.waiting.iter_mut().find(|w| w.card.id == id) else { return };
-        let decision = decision(&w.request, &choice);
+        let decision = clicked(&w.card, &w.request, &choice);
         if let Some(tx) = w.decide.take() {
             let _ = tx.send(decision);
         }
@@ -331,7 +351,7 @@ fn card(id: u64, session: String, project: String, request: &Value) -> Approval 
             other => other.to_string(),
         },
     };
-    let detail: String = detail.chars().take(600).collect();
+    let (detail, whole) = shown(&detail);
     let (kind, question) = match tool {
         "AskUserQuestion" => ("question", single_question(&input)),
         "ExitPlanMode" => ("plan", None),
@@ -341,12 +361,76 @@ fn card(id: u64, session: String, project: String, request: &Value) -> Approval 
         id,
         session,
         project,
+        cwd: plain(request.get("cwd").and_then(Value::as_str).unwrap_or("")),
         kind: kind.into(),
-        title: step(tool, &input),
+        title: cut_to(&step(tool, &input), MAX_TITLE),
         detail,
-        always: if kind == "permission" { always_label(request) } else { None },
-        question,
+        whole,
+        always: if kind == "permission" && whole { always_for(request) } else { None },
+        question: question.map(|q| Question { text: plain(&q.text), options: q.options.iter().map(|o| plain(o)).collect() }),
     }
+}
+
+/// The detail as the card shows it: made plain; blank lines and spaces in a run counted rather than shown; and whole,
+/// unless longer than `MAX_DETAIL`, in which case it is cut, marked as cut, and not whole.
+fn shown(detail: &str) -> (String, bool) {
+    let mut lines: Vec<String> = Vec::new();
+    let mut blank = 0;
+    let push_blank = |lines: &mut Vec<String>, blank: usize| {
+        if blank >= BLANK_RUN {
+            lines.push(format!("⟨{blank} blank lines⟩"));
+        } else {
+            lines.extend(std::iter::repeat_n(String::new(), blank));
+        }
+    };
+    for line in plain(detail).split('\n') {
+        if line.chars().all(is_blank) {
+            blank += 1;
+            continue;
+        }
+        push_blank(&mut lines, blank);
+        blank = 0;
+        lines.push(spaces_counted(line));
+    }
+    push_blank(&mut lines, blank);
+    let mut out = lines.join("\n");
+    let length = out.chars().count();
+    let whole = length <= MAX_DETAIL;
+    if !whole {
+        out = out.chars().take(MAX_DETAIL).collect();
+        out.push_str(&format!("⟨… {} more characters, not shown⟩", length - MAX_DETAIL));
+    }
+    (out, whole)
+}
+
+/// Whether `c` shows as nothing but room: a space or tab, any other space (no-break, wide, thin…), or one of the
+/// letters drawn blank. Padding made of any of them pushes the end of a command out of sight as well as spaces do.
+fn is_blank(c: char) -> bool {
+    c != '\n' && (c.is_whitespace() || matches!(c, '\u{115F}' | '\u{1160}' | '\u{2800}' | '\u{3164}' | '\u{FFA0}'))
+}
+
+/// A line with each run of `SPACE_RUN` or more blank characters (`is_blank`) counted instead of shown.
+fn spaces_counted(line: &str) -> String {
+    let mut out = String::new();
+    let mut run = String::new();
+    let flush = |out: &mut String, run: &mut String| {
+        if run.chars().count() >= SPACE_RUN {
+            out.push_str(&format!("⟨{} spaces⟩", run.chars().count()));
+        } else {
+            out.push_str(run);
+        }
+        run.clear();
+    };
+    for c in line.chars() {
+        if is_blank(c) {
+            run.push(c);
+        } else {
+            flush(&mut out, &mut run);
+            out.push(c);
+        }
+    }
+    flush(&mut out, &mut run);
+    out
 }
 
 /// A question Kuchu can answer with one click: one question, one choice.
@@ -361,18 +445,58 @@ fn single_question(input: &Value) -> Option<Question> {
     (!options.is_empty()).then(|| Question { text: q.get("question").and_then(Value::as_str).unwrap_or("").to_string(), options })
 }
 
-/// Claude Code's first "don't ask again" offer, named for a button; none for an offer to stop asking altogether.
-fn always_label(request: &Value) -> Option<String> {
+/// Claude Code's first "don't ask again" offer, as a button and what it does: the rule, folder or mode it would add,
+/// and where that is kept. None for an offer to stop asking altogether, or one Kuchu does not know.
+fn always_for(request: &Value) -> Option<Always> {
     let first = request.get("permission_suggestions")?.as_array()?.first()?;
-    match first.get("type").and_then(Value::as_str)? {
-        "addRules" => Some("Always allow".into()),
-        "addDirectories" => Some("Allow this folder".into()),
-        "setMode" => match first.get("mode").and_then(Value::as_str)? {
-            "acceptEdits" => Some("Allow edits for now".into()),
-            _ => None,
-        },
-        _ => None,
+    if first.get("behavior").and_then(Value::as_str).is_some_and(|b| b != "allow") {
+        return None;
     }
+    let scope = match first.get("destination").and_then(Value::as_str).unwrap_or("") {
+        "session" => "for this session".to_string(),
+        "localSettings" => "in this project, for you".to_string(),
+        "projectSettings" => "in this project, for everyone".to_string(),
+        "userSettings" => "for you, in every project".to_string(),
+        other => plain(other),
+    };
+    let (label, what) = match first.get("type").and_then(Value::as_str)? {
+        "addRules" => {
+            let rule = |r: &Value| {
+                let tool = r.get("toolName")?.as_str()?;
+                Some(match r.get("ruleContent").and_then(Value::as_str) {
+                    Some(content) => format!("{tool}({content})"),
+                    None => tool.to_string(),
+                })
+            };
+            let rules: Vec<String> = first.get("rules")?.as_array()?.iter().filter_map(rule).collect();
+            if rules.is_empty() {
+                return None;
+            }
+            ("Always allow", rules.join(", "))
+        }
+        "addDirectories" => {
+            let folders: Vec<&str> = first.get("directories")?.as_array()?.iter().filter_map(Value::as_str).collect();
+            if folders.is_empty() {
+                return None;
+            }
+            ("Allow this folder", format!("work in {}", folders.join(", ")))
+        }
+        "setMode" => match first.get("mode").and_then(Value::as_str)? {
+            "acceptEdits" => ("Allow edits for now", "edits to files without asking".to_string()),
+            _ => return None,
+        },
+        _ => return None,
+    };
+    Some(Always { label: label.into(), what: plain(&what), scope })
+}
+
+/// The decision for a click on `card`. A card that could not show the whole input takes only a "no", whatever the
+/// page sends: the page leaves Allow off such a card, and this holds even if it did not.
+fn clicked(card: &Approval, request: &Value, choice: &Choice) -> Option<Value> {
+    if !card.whole && choice.kind != "deny" {
+        return None;
+    }
+    decision(request, choice)
 }
 
 /// The decision Claude Code reads for a click; none leaves the question to the terminal.
@@ -385,13 +509,14 @@ fn decision(request: &Value, choice: &Choice) -> Option<Value> {
         "allow" => Some(json!({ "behavior": "allow" })),
         "deny" => Some(json!({ "behavior": "deny", "message": "Declined from Kuchu." })),
         "always" => {
-            always_label(request)?;
+            always_for(request)?;
             let first = request.get("permission_suggestions")?.as_array()?.first()?.clone();
             Some(json!({ "behavior": "allow", "updatedPermissions": [first] }))
         }
         "answer" => {
+            // The option as the card showed it (made plain) names the option as Claude Code gave it.
             let question = single_question(&input)?;
-            let answer = choice.answer.clone().filter(|a| question.options.contains(a))?;
+            let answer = question.options.iter().find(|o| choice.answer.as_deref() == Some(plain(o).as_str()))?.clone();
             let mut updated = input.as_object()?.clone();
             updated.insert("answers".into(), json!({ question.text: answer }));
             Some(json!({ "behavior": "allow", "updatedInput": updated }))
@@ -537,10 +662,70 @@ mod tests {
         assert_eq!(c.kind, "permission");
         assert_eq!(c.title, "Writing note.txt");
         assert!(c.detail.ends_with("note.txt"));
-        assert_eq!(c.always.as_deref(), Some("Allow edits for now"));
+        assert!(c.whole);
+        assert_eq!(c.cwd, r"C:\Users\you\projects\demo");
+        assert_eq!(c.always.as_ref().map(|a| a.label.as_str()), Some("Allow edits for now"));
         // A read outside the session's folder: Claude Code offers a rule, not a mode.
         let read = card(2, "s".into(), "demo".into(), &fixture("PermissionRequest-2"));
-        assert_eq!((read.title.as_str(), read.always.as_deref()), ("Reading compact", Some("Always allow")));
+        assert_eq!((read.title.as_str(), read.always.as_ref().map(|a| a.label.as_str())), ("Reading compact", Some("Always allow")));
+    }
+
+    #[test]
+    fn the_always_button_says_what_it_allows_and_where() {
+        let a = always_for(&fixture("PermissionRequest")).unwrap();
+        assert_eq!((a.label.as_str(), a.what.as_str(), a.scope.as_str()), ("Allow edits for now", "edits to files without asking", "for this session"));
+        let a = always_for(&fixture("PermissionRequest-2")).unwrap();
+        assert_eq!((a.label.as_str(), a.what.as_str()), ("Always allow", "Read(//c/Program Files/Git/**)"));
+        let offer = |suggestion: Value| always_for(&json!({ "permission_suggestions": [suggestion] }));
+        let rule = offer(json!({ "type": "addRules", "behavior": "allow", "destination": "localSettings", "rules": [{ "toolName": "Bash", "ruleContent": "git commit:*" }] })).unwrap();
+        assert_eq!((rule.what.as_str(), rule.scope.as_str()), ("Bash(git commit:*)", "in this project, for you"));
+        let folder = offer(json!({ "type": "addDirectories", "destination": "userSettings", "directories": ["D:\\work"] })).unwrap();
+        assert_eq!((folder.label.as_str(), folder.what.as_str(), folder.scope.as_str()), ("Allow this folder", "work in D:\\work", "for you, in every project"));
+        // A deny rule, a mode Kuchu does not know, an empty offer: no button.
+        assert!(offer(json!({ "type": "addRules", "behavior": "deny", "rules": [{ "toolName": "Bash" }] })).is_none());
+        assert!(offer(json!({ "type": "setMode", "mode": "bypassPermissions" })).is_none());
+        assert!(offer(json!({ "type": "addRules", "rules": [] })).is_none());
+    }
+
+    #[test]
+    fn a_long_or_padded_input_is_shown_whole_or_not_allowed() {
+        let bash = |command: String| card(1, "s".into(), "demo".into(), &json!({ "tool_name": "Bash", "tool_input": { "command": command }, "permission_suggestions": [{ "type": "setMode", "mode": "acceptEdits" }] }));
+        // Padding counted, the tail in sight, and the offer still made.
+        let padded = bash(format!("echo ok{}{}; rm -rf ~", "\n".repeat(60), " ".repeat(100)));
+        assert_eq!(padded.detail, "echo ok\n⟨59 blank lines⟩\n⟨100 spaces⟩; rm -rf ~");
+        assert!(padded.whole && padded.always.is_some());
+        // Padding of other blank characters (no-break, wide, thin spaces, a blank letter) counts the same.
+        let other = bash(format!("echo ok{}; rm -rf ~", "\u{A0}\u{3000}\u{2009}\u{2800}".repeat(500)));
+        assert_eq!(other.detail, "echo ok⟨2000 spaces⟩; rm -rf ~");
+        let lines = bash(format!("echo ok{}rm -rf ~", "\n\u{A0}\u{3164}".repeat(30)));
+        assert_eq!(lines.detail, "echo ok\n⟨29 blank lines⟩\n\u{A0}\u{3164}rm -rf ~");
+        // Too long to read: cut, marked as cut, and not to be allowed from here, whatever the page sends.
+        let long = bash(format!("echo {}; rm -rf ~", "x".repeat(MAX_DETAIL)));
+        assert!(!long.whole && long.always.is_none());
+        let request = json!({ "tool_name": "Bash", "tool_input": { "command": "x" } });
+        let click = |kind: &str| clicked(&long, &request, &Choice { kind: kind.into(), answer: None });
+        assert_eq!((click("allow"), click("always"), click("answer")), (None, None, None));
+        assert_eq!(click("deny").unwrap()["behavior"], "deny");
+        assert_eq!(clicked(&padded, &request, &Choice { kind: "allow".into(), answer: None }), Some(json!({ "behavior": "allow" })));
+        assert!(long.title.chars().count() <= MAX_TITLE && long.title.ends_with('…'));
+        assert!(long.detail.ends_with("⟨… 15 more characters, not shown⟩"));
+        assert_eq!(long.detail.chars().count(), MAX_DETAIL + "⟨… 15 more characters, not shown⟩".chars().count());
+        // Ordinary indentation and a blank line or two stay as they are.
+        let code = bash("if x:\n    y()\n\n    z()\n".into());
+        assert_eq!(code.detail, "if x:\n    y()\n\n    z()\n");
+    }
+
+    #[test]
+    fn an_answer_is_the_option_as_claude_code_gave_it() {
+        let request = json!({
+            "tool_name": "AskUserQuestion",
+            "tool_input": { "questions": [{ "question": "Which?", "header": "Pick", "multiSelect": false,
+                "options": [{ "label": "A\u{202E}B", "description": "" }, { "label": "Plain", "description": "" }] }] }
+        });
+        let shown = card(1, "s".into(), "demo".into(), &request).question.unwrap();
+        assert_eq!(shown.options, ["A⟨RLO⟩B", "Plain"]);
+        let d = decision(&request, &Choice { kind: "answer".into(), answer: Some("A⟨RLO⟩B".into()) }).unwrap();
+        assert_eq!(d["updatedInput"]["answers"]["Which?"], "A\u{202E}B");
     }
 
     #[test]

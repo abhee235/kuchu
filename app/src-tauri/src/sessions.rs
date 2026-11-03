@@ -547,7 +547,53 @@ fn text(p: &Value, key: &str) -> String {
 }
 
 fn project_of(cwd: &str) -> String {
-    cwd.trim_end_matches(['/', '\\']).rsplit(['/', '\\']).next().filter(|s| !s.is_empty()).unwrap_or("Claude Code").to_string()
+    plain(cwd.trim_end_matches(['/', '\\']).rsplit(['/', '\\']).next().filter(|s| !s.is_empty()).unwrap_or("Claude Code"))
+}
+
+/// Text as it is shown: what cannot be seen, or changes how the rest reads, is spelled out instead, so that nothing
+/// on a card hides or reorders what is approved. Direction marks (`⟨RLO⟩`), zero-width spaces, line and paragraph
+/// separators, soft hyphens, tags and the like, and control characters but for the tab and the line break
+/// (`⟨U+0007⟩`). A carriage return before a line break is dropped: the line break says it all.
+pub fn plain(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        let mark = match c {
+            '\r' if chars.peek() == Some(&'\n') => continue,
+            '\n' | '\t' => {
+                out.push(c);
+                continue;
+            }
+            '\u{202A}' => "LRE",
+            '\u{202B}' => "RLE",
+            '\u{202C}' => "PDF",
+            '\u{202D}' => "LRO",
+            '\u{202E}' => "RLO",
+            '\u{2066}' => "LRI",
+            '\u{2067}' => "RLI",
+            '\u{2068}' => "FSI",
+            '\u{2069}' => "PDI",
+            '\u{200E}' => "LRM",
+            '\u{200F}' => "RLM",
+            '\u{061C}' => "ALM",
+            '\u{200B}' => "ZWSP",
+            '\u{2060}' => "WJ",
+            '\u{FEFF}' => "BOM",
+            '\u{2028}' => "LS",
+            '\u{2029}' => "PS",
+            '\u{00AD}' => "SHY",
+            c if c.is_control() || matches!(c, '\u{034F}' | '\u{180E}' | '\u{2061}'..='\u{2064}' | '\u{206A}'..='\u{206F}' | '\u{E0000}'..='\u{E007F}') => {
+                out.push_str(&format!("⟨U+{:04X}⟩", c as u32));
+                continue;
+            }
+            c => {
+                out.push(c);
+                continue;
+            }
+        };
+        out.push_str(&format!("⟨{mark}⟩"));
+    }
+    out
 }
 
 fn file_name(path: &str) -> String {
@@ -606,9 +652,11 @@ fn cut(s: &str) -> String {
     cut_to(s, MAX_LINE)
 }
 
-fn cut_to(s: &str, max: usize) -> String {
+/// At most `max` characters of `s`, made plain, with a mark where it was cut.
+pub(crate) fn cut_to(s: &str, max: usize) -> String {
+    let s = plain(s);
     if s.chars().count() <= max {
-        return s.to_string();
+        return s;
     }
     format!("{}…", s.chars().take(max - 1).collect::<String>().trim_end())
 }
@@ -1032,6 +1080,14 @@ mod tests {
         read(&mut s, "PostToolUse", &tool("t3", "npm run lint --fix"), 6);
         assert_eq!(texts(&s), ["git status", "Now the lint.", "npm run lint --fix"]);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn what_cannot_be_seen_is_spelled_out() {
+        assert_eq!(plain("a\u{202E}b\u{200B}c\u{7}d\u{E0041}"), "a⟨RLO⟩b⟨ZWSP⟩c⟨U+0007⟩d⟨U+E0041⟩");
+        assert_eq!(plain("one\r\ntwo\tthree\rfour"), "one\ntwo\tthree⟨U+000D⟩four");
+        assert_eq!(plain("naïve 日本 👨‍👩‍👧 ok"), "naïve 日本 👨‍👩‍👧 ok");
+        assert_eq!(step("Bash", &serde_json::json!({ "command": "echo \u{202E}gnp.eruces" })), "echo ⟨RLO⟩gnp.eruces");
     }
 
     #[test]
