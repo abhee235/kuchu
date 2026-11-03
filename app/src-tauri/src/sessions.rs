@@ -495,9 +495,10 @@ fn progress_of(s: &Session) -> Option<Progress> {
     s.lines.last().filter(|l| l.text == s.line).and_then(|l| l.progress)
 }
 
-/// Every step has ended but the turn has not: Claude is working out what comes next.
+/// Every step has ended but the turn has not: Claude is thinking again, working out what comes next.
 fn between_steps(s: &mut Session) {
     if s.mood == Mood::Working && s.lines.iter().all(|l| l.progress != Some(Progress::Running)) {
+        s.mood = Mood::Thinking;
         s.line = THINKING.into();
     }
 }
@@ -843,7 +844,7 @@ mod tests {
         // A helper's start and stop change nothing shown: the helper's last message is not the session's answer.
         assert!(!s.apply("SubagentStart", &fixture("SubagentStart"), 3));
         assert!(!s.apply("SubagentStop", &fixture("SubagentStop"), 4));
-        assert_eq!(s.mood(), Mood::Working);
+        assert_eq!(s.mood(), Mood::Thinking);
         // Compacting says so on the card, and the session starting again after it is the same session.
         s.apply("PreCompact", &fixture("PreCompact"), 5);
         assert_eq!(s.card().unwrap().line, "Making room in its memory…");
@@ -1027,10 +1028,11 @@ mod tests {
         s.apply("PreToolUse", &fixture("PreToolUse"), 1);
         assert_eq!(s.card().unwrap().progress, Some(Progress::Running));
         s.apply("PostToolUse", &fixture("PostToolUse"), 2);
-        // The step is done but the turn is not: the card says Claude is still at it.
+        // The step is done but the turn is not: Claude thinks again, and the card says it is still at it.
         let card = s.card().unwrap();
         assert_eq!(card.lines.last().unwrap().progress, Some(Progress::Done));
         assert_eq!((card.line.as_str(), card.progress), (THINKING, Some(Progress::Running)));
+        assert_eq!((s.mood(), card.mood), (Mood::Thinking, Mood::Thinking));
         // Two at once, the second failing; a turn cut short leaves none running.
         let id = fixture("PreToolUse")["session_id"].as_str().unwrap().to_string();
         let call = |tool: &str| serde_json::json!({ "session_id": id, "tool_name": "Read", "tool_input": { "file_path": "a.rs" }, "tool_use_id": tool });
@@ -1039,6 +1041,8 @@ mod tests {
         s.apply("PostToolUseFailure", &call("t2"), 5);
         let progress: Vec<_> = s.card().unwrap().lines.iter().map(|l| l.progress).collect();
         assert_eq!(progress, vec![Some(Progress::Done), Some(Progress::Running), Some(Progress::Failed)]);
+        // One of them still runs: it is still working, not thinking yet.
+        assert_eq!(s.mood(), Mood::Working);
         assert!(s.stopped(&id, 6));
         assert!(s.list()[0].lines.iter().all(|l| l.progress != Some(Progress::Running)));
     }

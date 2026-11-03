@@ -22,8 +22,8 @@ message that started the work), `permission_mode` and `effort`.
 | SessionStart | `source` (`startup`, `resume`, `compact`) | a new session (after compacting, the same one) |
 | UserPromptSubmit | `prompt` | thinking |
 | PreToolUse | `tool_name`, `tool_input`, `tool_use_id` | working: the tool and its target |
-| PostToolUse | `tool_response`, `duration_ms`, `tool_use_id` | the step done (`tool_response` is dropped by the relay) |
-| PostToolUseFailure | `error`, `is_interrupt`, `duration_ms`, `tool_use_id` | the step failed |
+| PostToolUse | `tool_response`, `duration_ms`, `tool_use_id` | the step done (`tool_response` is dropped by the relay); with no step left running, thinking again |
+| PostToolUseFailure | `error`, `is_interrupt`, `duration_ms`, `tool_use_id` | the step failed; with no step left running, thinking again |
 | SubagentStart, SubagentStop | `agent_id`, `agent_type`; Stop also `last_assistant_message` (the helper's own) | nothing: a helper's end is not the session's |
 | PreCompact | `trigger` (`manual`, …), `custom_instructions` | "Making room in its memory…" |
 | PermissionRequest | `tool_name`, `tool_input`, `permission_suggestions` (no `tool_use_id`) | needs you: an approval card |

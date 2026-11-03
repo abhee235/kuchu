@@ -34,6 +34,9 @@ const PET_TURNS = 4
 const PET_WITHIN_MS = 1500
 /** Tones closer together than this ring once. */
 const TONE_GAP_MS = 1200
+/** Claude thinks again between its steps, but one tool handing over to the next passes through thinking for a moment
+ *  too: after work, the pet shows thinking only once it has lasted this long. */
+const THINK_AFTER_MS = 800
 /** The list of other sessions stays this long after the pointer leaves it. */
 const LIST_LINGER_MS = 300
 /** The stack of other sessions' cards: its tallest (it scrolls past this), the gap between cards, and the room it
@@ -91,7 +94,7 @@ export function PetWindow() {
     return () => offs.forEach((off) => off())
   }, [])
 
-  const mood = view.mood
+  const mood = useSettledMood(view.mood)
   // A small tone for each session on its own: one done, one needing you, one that did not finish. (The pet's mood is
   // everyone's: one session done while another works would never change it.) Two at once ring once.
   const sounds = useRef(false)
@@ -218,9 +221,24 @@ export function PetWindow() {
   )
 }
 
-/** One card per session, mood and turn: a card hidden in one turn comes back in the next. */
+/** The pet's mood as it comes, except that thinking after work shows only once it lasts (see THINK_AFTER_MS). */
+function useSettledMood(mood: PetMood): PetMood {
+  const [shown, setShown] = useState(mood)
+  useEffect(() => {
+    if (mood === 'thinking' && shown === 'working') {
+      const t = setTimeout(() => setShown(mood), THINK_AFTER_MS)
+      return () => clearTimeout(t)
+    }
+    setShown(mood)
+  }, [mood])
+  return shown
+}
+
+/** One card per session, mood and turn: a card hidden in one turn comes back in the next. Thinking and working are one
+ *  here, so a card hidden while Claude is at it stays hidden from one step to the next. */
 function cardKey(card: Card) {
-  return `${card.session}:${card.mood}:${card.at}`
+  const mood = card.mood === 'thinking' ? 'working' : card.mood
+  return `${card.session}:${mood}:${card.at}`
 }
 
 /** Which session, and what it is doing now (or the answer's first lines once done). A click opens the sessions. With
