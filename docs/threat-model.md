@@ -84,7 +84,10 @@ at once; a pipe that cannot be made is said in a box, naming whether a Kuchu or 
 account's program, holds it. What it left out, and why: checking the client's image against the relay's path proves
 nothing, since a program of this account can run the relay itself with any input; a cap on waiting requests per
 session adds nothing to the cap of five, since session ids are free to invent; a rate limit beyond the connection
-cap would only slow this account's own programs. The account is the boundary; inside it, nothing is checked.
+cap would only slow this account's own programs. The account is the boundary; inside it, nothing is checked. And
+the client is checked by its process, so a relay that has already exited, once Claude Code lets go of it, cannot
+be checked and its event is dropped. A relay for an ordinary event exits as soon as it has written; this has not
+been seen, and T3's stress test will show whether it happens.
 
 ### 2. The relay (relay/main.rs)
 
@@ -280,42 +283,42 @@ Each is one small commit with its tests.
 
 | | Piece | Severity | Status |
 |---|---|---|---|
-| T1 | Pipe: name taken first | High | Fixed on branch `security` (fix 2), awaiting review |
-| T2 | Pipe: anyone can send events | Medium | Fixed on branch `security` (fix 2), awaiting review; see what fix 2 left out |
-| T3 | Pipe: many connections | Low | Cap in with fix 2; closes with its stress test |
-| T4 | Pipe: another account reads | Low | Fixed on branch `security` (fix 2): T1's DACL |
-| T5 | Relay: impersonation on open | High | Fixed on branch `security` (fix 1), awaiting review |
-| T6 | Relay: trusts whoever answers | High | Fixed on branch `security` (fix 1), awaiting review |
-| T7 | Relay: record mode in release builds | Low | Fixed on branch `security` (fix 7): only with `--features record` |
+| T1 | Pipe: name taken first | High | Fixed in 76b59e5 |
+| T2 | Pipe: anyone can send events | Medium | Fixed in 76b59e5; see what fix 2 left out |
+| T3 | Pipe: many connections | Low | Cap in 76b59e5; closes with its stress test, which also shows whether a relay quick to exit is still heard |
+| T4 | Pipe: another account reads | Low | Fixed in 76b59e5: T1's DACL |
+| T5 | Relay: impersonation on open | High | Fixed in 6de09f5 |
+| T6 | Relay: trusts whoever answers | High | Fixed in 6de09f5 |
+| T7 | Relay: record mode in release builds | Low | Fixed in 306e661: only with `--features record` |
 | T8 | Relay: huge event | Low | Accepted: bounded by Claude Code and the line caps |
-| T9 | Card: hides part of the input | High | Fixed on branch `security` (fix 4), awaiting review |
-| T10 | Card: characters that lie | Medium | Fixed on branch `security` (fix 4), awaiting review |
-| T11 | Card: session named by the model | Medium | Fixed on branch `security` (fix 4), awaiting review |
-| T12 | Card: "Always allow" without the rule | Medium | Fixed on branch `security` (fix 4), awaiting review |
+| T9 | Card: hides part of the input | High | Fixed in cf1286c |
+| T10 | Card: characters that lie | Medium | Fixed in cf1286c |
+| T11 | Card: session named by the model | Medium | Fixed in cf1286c |
+| T12 | Card: "Always allow" without the rule | Medium | Fixed in cf1286c |
 | T13 | Card: a click meant for something else | Low | Watching: the 600 ms guard and the unfocusable window hold |
 | T14 | Card: answers never offered | Low | Watching: checked in `decision`; T6 adds the relay's check |
-| T15 | Paths: `transcript_path` opened under the lock | Medium | Fixed on branch `security` (fix 3), awaiting review; see what fix 3 left out |
-| T16 | settings.json: copy more readable than the original | Medium | Fixed on branch `security` (fix 5), awaiting review |
-| T17 | settings.json: copies pile up | Low | Fixed on branch `security` (fix 5), awaiting review |
-| T18 | settings.json: "ours" is a substring | Low | Fixed on branch `security` (fix 5), awaiting review |
+| T15 | Paths: `transcript_path` opened under the lock | Medium | Fixed in 7a1a2e0; see what fix 3 left out |
+| T16 | settings.json: copy more readable than the original | Medium | Fixed in 8a91d2c |
+| T17 | settings.json: copies pile up | Low | Fixed in 8a91d2c |
+| T18 | settings.json: "ours" is a substring | Low | Fixed in 8a91d2c |
 | T19 | settings.json: written while changed | Low | Watching: the fingerprint and the rename hold |
 | T20 | Conversations: typed text reaches stdin | Low | Watching: one JSON line per message |
-| T21 | Conversations: hand-off through `cmd /c start` | Low | Fixed on branch `security` (fix 6), awaiting review; see what fix 6 did |
-| T22 | Conversations: ending a turn by pid | Low | Fixed on branch `security` (fix 6) on Windows; Unix stays by group |
+| T21 | Conversations: hand-off through `cmd /c start` | Low | Fixed in 5fbd3c9; see what fix 6 did |
+| T22 | Conversations: ending a turn by pid | Low | Fixed in 5fbd3c9 on Windows; Unix stays by group; see what fix 6 left out |
 | T23 | Conversations: finding `claude` | Low | Accepted: the same account's `PATH` is theirs |
-| T24 | Conversations: growth | Low | Fixed on branch `security` (fix 6): entries capped; whole sent, bounded by the cap |
+| T24 | Conversations: growth | Low | Fixed in 5fbd3c9: entries capped; whole sent, bounded by the cap |
 | T25 | Pages: script in a page | High if ever | Watching: no HTML from text, strict CSP; the grep test to add |
 | T26 | On disk: the relay's path is the person's | Medium | Accepted for a per-user install; a per-machine install offered later |
-| T27 | Never a service | High (design) | Fixed in be8f21a, 75153eb, aaa38b2, 50c1f9a; its check is in (fix 7) |
+| T27 | Never a service | High (design) | Fixed in be8f21a, 75153eb, aaa38b2, 50c1f9a; its check is in 306e661 |
 | T28 | The install itself | Medium | Open: needs a signing identity for Windows and macOS, which is not code; provenance (T34) meanwhile |
-| T29 | One panic ends Kuchu | Medium | Fixed on branch `security` (fixes 3 and 7): locks, the garbage test, unwinding instead of aborting, the relay catching a panic and still exiting 0 |
+| T29 | One panic ends Kuchu | Medium | Fixed in 7a1a2e0 and 306e661: locks, the garbage test, unwinding instead of aborting, the relay catching a panic and still exiting 0 |
 | T30 | Kuchu gone without a word | Low | Open |
 | T31 | Secrets on the card | Low | Open |
 | T32 | What is on disk | Low | Watching: nothing from sessions |
-| T33 | A dependency turns | Medium | Fixed on branch `security` (fix 7): `cargo audit` and `npm audit` in a workflow; the rest done in e2766aa |
-| T34 | Release and checksum share an origin | Medium | Fixed on branch `security` (fix 7): provenance attested for every file and for SHA256SUMS, verified by the README's install when `gh` is signed in; proven by the next release |
-| T35 | Kuchu runs `claude` on its own | Low | Fixed on branch `security` (fix 7): relative and empty PATH entries skipped; `kuchu status` names the program. Settings does not say it yet |
-| T36 | The single-instance hand-off | Low | Accepted: same account, harmless arguments; `handed` pins them to quit, settings and show (fix 7) |
+| T33 | A dependency turns | Medium | Fixed in 306e661: `cargo audit` and `npm audit` in a workflow; the rest done in e2766aa |
+| T34 | Release and checksum share an origin | Medium | Fixed in 306e661: provenance attested for every file and for SHA256SUMS, verified by the README's install when `gh` is signed in; proven by the next release |
+| T35 | Kuchu runs `claude` on its own | Low | Fixed in 306e661: relative and empty PATH entries skipped; `kuchu status` names the program. Settings does not say it yet |
+| T36 | The single-instance hand-off | Low | Accepted: same account, harmless arguments; `handed` pins them to quit, settings and show (306e661) |
 
 ## Reviews
 
@@ -334,6 +337,15 @@ Each is one small commit with its tests.
   dialog when the pipe is taken, the cards for a rule, a padded command and an over-long one). What each fix left
   out, and why, is under its section. Open: T28 (a signing identity); T3's stress test; T34 until a release proves
   it; Settings naming the `claude` found (T35).
+- **2026-11-03**, the review of fixes 1 to 7 before they were committed (6de09f5 to 306e661): read in full as
+  diffs, against this record, and their tests run on each commit. Found, and fixed in the fix it belongs to: padding
+  of other blank characters (no-break, wide and thin spaces, letters drawn blank) passed the counted runs, and a card
+  not shown whole was kept from Allow by the page alone (fix 4); a `!` in a folder reached cmd with delayed expansion
+  possibly on, and a stop ended its process under the conversations' lock (fix 6). Checked and holding: a relay run
+  from an elevated terminal is still heard (Kuchu reads the token of an elevated process of the same account); the
+  pinned actions match their tags; provenance needs a public repository, which this is. Noted, not threats: the end
+  of a transcript is now read for every event, where before the name was read every 20 s and Claude's words on tool
+  events; what fixes 2, 4 and 6 left out is under each.
 
 ## Checks to keep
 
