@@ -107,6 +107,7 @@ function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<nu
   const [pace, setPace] = useState(0)
   const [asleep, setAsleep] = useState(false)
   const [waking, setWaking] = useState<Activity | null>(null)
+  const [woke, setWoke] = useState(0)
   const quietSince = useRef(Date.now())
   const nearNow = useRef(near)
   nearNow.current = near
@@ -115,16 +116,22 @@ function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<nu
     if (near || !on) quietSince.current = Date.now()
     if (asleep && (near || !on)) {
       setAsleep(false)
-      if (!on) return
-      setWaking('startle')
-      const yawn = setTimeout(() => setWaking('yawn'), STARTLE_MS)
-      const done = setTimeout(() => setWaking(null), STARTLE_MS + ACTIVITIES.yawn)
-      return () => {
-        clearTimeout(yawn)
-        clearTimeout(done)
-      }
+      if (on) setWoke(Date.now())
     }
   }, [near, on, asleep])
+
+  // Woken: a start, then a yawn. Its own effect: in the one above, the nap ending (or the pointer moving) runs it again,
+  // which would stop these timers and leave the start on its face for good.
+  useEffect(() => {
+    if (!woke) return
+    setWaking('startle')
+    const yawn = setTimeout(() => setWaking('yawn'), STARTLE_MS)
+    const done = setTimeout(() => setWaking(null), STARTLE_MS + ACTIVITIES.yawn)
+    return () => {
+      clearTimeout(yawn)
+      clearTimeout(done)
+    }
+  }, [woke])
 
   useEffect(() => {
     if (!on || asleep) return
@@ -178,7 +185,8 @@ function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<nu
     }
   }, [on, asleep, stroll])
 
-  return { activity: waking ?? activity, pace, asleep }
+  // Its own life shows only while it has one: work or a turn's end comes first, a wake-up under way included.
+  return { activity: on ? (waking ?? activity) : null, pace, asleep }
 }
 
 /** Heart eyes for a moment after each petting. */
