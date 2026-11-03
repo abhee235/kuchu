@@ -8,13 +8,26 @@ Windows and macOS first; Linux later. Work in progress: see [PLAN.md](PLAN.md).
 
 ## Install
 
-Say this to Claude Code, in any session:
+Kuchu installs for your account only: no administrator rights, never a service. Pick one way:
 
-> Install Kuchu from https://github.com/abhee235/kuchu
+- **Ask Claude Code.** Say this, in any session:
 
-Claude Code does the rest, for your account only. It installs the latest release, a download of a few MB, or builds
-Kuchu from its code if you ask for that. At the end Kuchu opens its Settings: click **Connect** there, after reading
-the change it shows you, and your Claude Code sessions appear beside it.
+  > Install Kuchu from https://github.com/abhee235/kuchu
+
+  It downloads the latest release and checks it, or builds Kuchu from its code if you ask for that.
+- **The Windows installer.** From the [latest release](https://github.com/abhee235/kuchu/releases/latest), download
+  `kuchu-windows-x64-setup.exe` (`kuchu-windows-arm64-setup.exe` on an Arm PC) and open it. **It is not code-signed
+  yet**, so Windows says "Windows protected your PC": click **More info**, then **Run anyway**. To check the file
+  first, compare its SHA-256 (`Get-FileHash` in PowerShell) with the release's `SHA256SUMS`.
+- **The Microsoft Store**, signed by Microsoft, with no warning: coming soon.
+- **On a Mac**, download `kuchu-macos-arm64.tar.gz` (`-x64` on an Intel Mac), open it and drag `Kuchu.app` into
+  Applications. The first time, macOS refuses to open it: in System Settings → Privacy & Security, click
+  **Open Anyway**. Not yet tried on a Mac.
+
+The first time Kuchu starts, it opens its Settings: click **Connect** there, after reading the change it shows you,
+and your Claude Code sessions appear beside it. To uninstall Kuchu installed with the Windows installer, use Windows'
+Settings → Apps; to remove everything, tick "Delete the application data", and Kuchu asks you to disconnect it in its
+Settings first.
 
 ### Claude Code, this part is for you
 
@@ -45,6 +58,7 @@ The releases are at https://github.com/abhee235/kuchu/releases. Each has:
 |---|---|
 | `kuchu-windows-x64.zip` | Windows 10 and 11 on Intel or AMD (also runs on Arm, emulated) |
 | `kuchu-windows-arm64.zip` | Windows 11 on Arm |
+| `kuchu-windows-x64-setup.exe`, `kuchu-windows-arm64-setup.exe` | the same, as an installer for people; use the zip |
 | `kuchu-macos-arm64.tar.gz` | macOS 11 or later on Apple silicon |
 | `kuchu-macos-x64.tar.gz` | macOS 11 or later on Intel |
 | `SHA256SUMS` | the SHA-256 of each file above |
