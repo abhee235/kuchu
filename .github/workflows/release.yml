@@ -1,6 +1,6 @@
 # A release, built only here and only from a version tag (v0.1.0, matching the version in tauri.conf.json): Kuchu and
-# its relay for Windows (x64, arm64) and macOS (Apple silicon, Intel), one archive each, named as the README's Install
-# expects, and SHA256SUMS for them all. It is left as a draft, to look over before it is published. The only action
+# its relay for Windows (x64, arm64: an installer and a zip each) and macOS (Apple silicon, Intel: an archive each),
+# named as the README's Install expects, and SHA256SUMS for them all. It is left as a draft, to look over before it is published. The only action
 # used is checkout, pinned to a commit; the rest is the runners' own tools.
 name: Release
 
@@ -35,8 +35,8 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: windows-latest, target: x86_64-pc-windows-msvc, asset: kuchu-windows-x64.zip }
-          - { os: windows-latest, target: aarch64-pc-windows-msvc, asset: kuchu-windows-arm64.zip }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, asset: kuchu-windows-x64.zip, setup: kuchu-windows-x64-setup.exe }
+          - { os: windows-latest, target: aarch64-pc-windows-msvc, asset: kuchu-windows-arm64.zip, setup: kuchu-windows-arm64-setup.exe }
           - { os: macos-latest, target: aarch64-apple-darwin, asset: kuchu-macos-arm64.tar.gz }
           - { os: macos-latest, target: x86_64-apple-darwin, asset: kuchu-macos-x64.tar.gz }
     runs-on: ${{ matrix.os }}
@@ -46,6 +46,7 @@ jobs:
     env:
       TARGET: ${{ matrix.target }}
       ASSET: ${{ matrix.asset }}
+      SETUP: ${{ matrix.setup }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -64,13 +65,18 @@ jobs:
       - name: The relay
         run: cargo build --release --locked -p kuchu-relay --target "$TARGET"
 
-      - name: Kuchu, zipped with its relay (Windows)
+      - name: Kuchu's installer, and Kuchu zipped with its relay (Windows)
         if: runner.os == 'Windows'
         run: |
-          (cd app && npx tauri build --no-bundle --target "$TARGET" -- --locked)
+          mkdir -p app/src-tauri/binaries
+          cp "target/$TARGET/release/kuchu-relay.exe" "app/src-tauri/binaries/kuchu-relay-$TARGET.exe"
+          config='{"bundle":{"externalBin":["binaries/kuchu-relay"]}}'
+          (cd app && npx tauri build --bundles nsis --target "$TARGET" --config "$config" -- --locked)
           mkdir -p out/kuchu
+          cp target/$TARGET/release/bundle/nsis/*-setup.exe "out/$SETUP"
           cp "target/$TARGET/release/kuchu.exe" "target/$TARGET/release/kuchu-relay.exe" LICENSE LICENSE-ASSETS.md out/kuchu/
           (cd out/kuchu && 7z a -tzip "../$ASSET" .)
+          rm -rf out/kuchu
 
       - name: Kuchu.app, its relay inside, signed ad hoc (macOS)
         if: runner.os == 'macOS'
@@ -85,7 +91,7 @@ jobs:
       - name: Onto the draft
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$TAG" "out/$ASSET" --clobber
+        run: gh release upload "$TAG" out/* --clobber
 
   sums:
     needs: build
