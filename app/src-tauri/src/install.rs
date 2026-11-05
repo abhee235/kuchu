@@ -67,11 +67,37 @@ pub fn bundled_relay() -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+/// Said when the system names no folder for the relay: one message wherever that is found out.
+const NO_DATA_DIR: &str = "Kuchu could not find this account's app data folder.";
+
 /// Puts the bundled relay where the hooks point. Returns where it is.
 pub fn place_relay() -> Result<PathBuf, String> {
     let from = bundled_relay().ok_or("The relay is missing beside Kuchu. Reinstall Kuchu.")?;
-    let dir = relay_dir().ok_or("Kuchu could not find this account's app data folder.")?;
+    let dir = relay_dir().ok_or(NO_DATA_DIR)?;
     hooks::place_relay(&from, &dir).map_err(|e| format!("Kuchu could not put its relay in place: {e}"))
+}
+
+/// The relay as Kuchu starts: put in place for the hooks, unless `tidy_relay` takes it away.
+pub fn start_relay() -> Result<PathBuf, String> {
+    if tidy_relay() {
+        return relay_dir().map(|dir| dir.join(hooks::RELAY_FILE)).ok_or_else(|| NO_DATA_DIR.into());
+    }
+    place_relay()
+}
+
+/// From the Store, the relay is in `~/.kuchu` only while Claude Code's settings run it: Windows takes the package away
+/// when Kuchu is uninstalled, but not that folder. Once they do not (disconnected, at start, on quitting), the relay
+/// goes, and the folder with it if nothing else is in it. Returns whether it went.
+pub fn tidy_relay() -> bool {
+    let Some(dir) = relay_dir().filter(|_| packaged()) else { return false };
+    if hooks::status(&hooks::settings_path(), &dir.join(hooks::RELAY_FILE)).state != "missing" {
+        return false;
+    }
+    hooks::remove_relay(&dir);
+    if let Some(kuchu) = dir.parent() {
+        let _ = std::fs::remove_dir(kuchu);
+    }
+    true
 }
 
 /// Whether a Kuchu is listening for Claude Code on this account. Asked as a relay would: a connection opened and
