@@ -348,6 +348,10 @@ Each is one small commit with its tests.
   events; what fixes 2, 4 and 6 left out is under each.
 - **2026-11-04**, release 0.1.2, the first since fix 7: `gh attestation verify` accepted all seven of its files
   (the four archives and installers for Windows, the two for macOS, `SHA256SUMS`). T34 holds.
+- **2026-11-05**, the Microsoft Store's policies (7.20) read against Kuchu. Two changes: from the Store the relay is
+  taken out of `~/.kuchu` once no hooks run it, and only then (T26: a check of `settings.json`, never a guess); and a
+  page can open the page for reporting an answer from Claude, a fixed address the command takes no argument for (T25:
+  a page can open that one page and nothing else).
 
 ## Checks to keep
 

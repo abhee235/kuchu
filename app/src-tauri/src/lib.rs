@@ -340,6 +340,7 @@ pub fn run() {
             chat_send,
             chat_stop,
             chat_terminal,
+            report_answer,
         ])
         .setup(move |app| {
             // Asked to quit with no other Kuchu to hand it to: nothing to do.
@@ -807,6 +808,24 @@ fn hooks_apply(app: AppHandle, install: bool, fingerprint: String) -> Result<App
 #[tauri::command]
 async fn open_settings(app: AppHandle) {
     show_settings(&app);
+}
+
+/// Where an answer from Claude in one of Kuchu's conversations is reported: the Store asks apps that show text an AI
+/// wrote for a way to report it from the app.
+const REPORT_URL: &str = "https://github.com/abhee235/kuchu/issues/new?title=About%20an%20answer%20from%20Claude";
+
+/// Opens the page for reporting an answer in the person's browser. Always that one page: the page names nothing.
+#[tauri::command]
+fn report_answer() -> Result<(), String> {
+    #[cfg(windows)]
+    let opened = std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", REPORT_URL]).spawn();
+    #[cfg(target_os = "macos")]
+    let opened = std::process::Command::new("open").arg(REPORT_URL).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let opened = std::process::Command::new("xdg-open").arg(REPORT_URL).spawn();
+    let mut child = opened.map_err(|e| format!("Kuchu could not open your browser: {e}"))?;
+    std::thread::spawn(move || child.wait());
+    Ok(())
 }
 
 /// The sessions list; given a conversation started from Kuchu, the list opens on it (a click on its card).
