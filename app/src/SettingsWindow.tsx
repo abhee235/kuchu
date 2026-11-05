@@ -200,6 +200,7 @@ function Connect({ report, onReport }: { report: HookReport | null; onReport: (r
                 : 'Kuchu listens through hooks in Claude Code’s settings. You see the change before anything is written, and a copy of the file is kept first.'}
           </span>
           {report && <span className="muted">{report.path}</span>}
+          {(state === 'installed' || state === 'outdated') && <span className="muted">Before you uninstall Kuchu, disconnect it here, so Claude Code stops running its hooks.</span>}
           {report?.disabled && <span className="note-warn">disableAllHooks is on in this file: Claude Code runs no hooks at all, Kuchu’s included.</span>}
         </div>
         {!plan && state !== 'unreadable' && (

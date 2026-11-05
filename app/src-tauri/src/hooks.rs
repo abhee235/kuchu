@@ -421,6 +421,15 @@ pub fn place_relay(bundled: &Path, dir: &Path) -> std::io::Result<PathBuf> {
     Ok(dest)
 }
 
+/// Takes the relay out of `dir`, with a copy moved aside or half-written, and the folder too if nothing else is in it.
+/// A copy that is running stays until the next try.
+pub fn remove_relay(dir: &Path) {
+    for name in [RELAY_FILE.to_string(), format!("{RELAY_FILE}.old"), format!("{RELAY_FILE}.new")] {
+        let _ = std::fs::remove_file(dir.join(name));
+    }
+    let _ = std::fs::remove_dir(dir);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -554,6 +563,25 @@ mod tests {
         }
         let copies = std::fs::read_dir(path.parent().unwrap()).unwrap().flatten().filter(|e| e.file_name().to_str().is_some_and(|n| n.contains(COPY_MARK))).count();
         assert_eq!(copies, KEPT_COPIES);
+    }
+
+    #[test]
+    fn the_relay_comes_out_with_its_folder_but_never_takes_anything_else() {
+        let root = temp("remove").parent().unwrap().to_path_buf();
+        let bundled = root.join("bundled");
+        std::fs::write(&bundled, b"relay").unwrap();
+        let dir = root.join("bin");
+        place_relay(&bundled, &dir).unwrap();
+        std::fs::write(dir.join(format!("{RELAY_FILE}.old")), b"older").unwrap();
+        remove_relay(&dir);
+        assert!(!dir.exists());
+
+        place_relay(&bundled, &dir).unwrap();
+        std::fs::write(dir.join("notes.txt"), b"mine").unwrap();
+        remove_relay(&dir);
+        assert!(!dir.join(RELAY_FILE).exists());
+        assert!(dir.join("notes.txt").exists());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

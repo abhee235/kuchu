@@ -338,6 +338,11 @@ impl Chats {
         self.all.hold().contains_key(id)
     }
 
+    /// Whether a conversation's process is open, and may run Kuchu's hooks.
+    pub fn running(&self) -> bool {
+        self.all.hold().values().any(|held| held.run.is_some())
+    }
+
     /// A new conversation in `cwd`, starting with `text`. Returns its session id.
     pub fn start(self: &Arc<Self>, cwd: &str, text: &str) -> Result<String, String> {
         if !Path::new(cwd).is_dir() {

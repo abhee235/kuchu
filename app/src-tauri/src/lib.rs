@@ -358,7 +358,7 @@ pub fn run() {
             let hub = Hub::new(app.handle().clone(), prefs.approvals);
             let window = app.get_webview_window("pet").expect("the pet's window is in tauri.conf.json");
             let at = prefs.at.filter(|at| still_on_screen(&window, *at)).unwrap_or_else(|| first_place(&window, prefs.width()));
-            let relay = install::place_relay();
+            let relay = install::start_relay();
             let handle = app.handle().clone();
             let chats = Chats::new(app.handle().clone(), hub.clone(), Box::new(move || own_settings(&handle)));
             let kuchu = Arc::new(Kuchu {
@@ -446,6 +446,9 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Kuchu could not start")
         .run(|_app, _event| {
+            if let tauri::RunEvent::Exit = _event {
+                install::tidy_relay();
+            }
             // Opened again while it runs (the system keeps an app to one copy on macOS).
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = _event {
@@ -783,11 +786,19 @@ struct Applied {
     report: hooks::Report,
 }
 
+/// Connecting puts the relay in place first (from the Store it is there only while connected); disconnecting takes it
+/// away again, unless one of Kuchu's own conversations may still run it (then on quitting).
 #[tauri::command]
 fn hooks_apply(app: AppHandle, install: bool, fingerprint: String) -> Result<Applied, String> {
     let relay = relay_path(&app)?;
+    if install {
+        install::place_relay()?;
+    }
     let path = hooks::settings_path();
     let backup = hooks::apply(&path, &relay, install, &fingerprint)?;
+    if !install && !kuchu(&app).chats.running() {
+        install::tidy_relay();
+    }
     let report = hooks::status(&path, &relay);
     let _ = app.emit("kuchu://hooks", report.clone());
     Ok(Applied { backup, report })
@@ -876,12 +887,14 @@ async fn chat_terminal(app: AppHandle, session: String) -> Result<(), String> {
 }
 
 /// Settings for a session Kuchu starts itself: nothing extra while Claude Code's settings have Kuchu's hooks; until
-/// they do, a file with only those hooks, so the session still shows beside the pet and asks for permission there.
+/// they do, a file with only those hooks, so the session still shows beside the pet and asks for permission there (and
+/// the relay put in place for them, since from the Store it is there only while connected).
 fn own_settings(app: &AppHandle) -> Option<PathBuf> {
     let relay = relay_path(app).ok()?;
     if hooks::status(&hooks::settings_path(), &relay).state != "missing" {
         return None;
     }
+    install::place_relay().ok()?;
     let path = app.path().app_local_data_dir().ok()?.join("hooks.json");
     std::fs::write(&path, serde_json::to_string_pretty(&hooks::own(&relay)).ok()?).ok()?;
     Some(path)
