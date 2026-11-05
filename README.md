@@ -19,15 +19,23 @@ Kuchu installs for your account only: no administrator rights, never a service. 
   `kuchu-windows-x64-setup.exe` (`kuchu-windows-arm64-setup.exe` on an Arm PC) and open it. **It is not code-signed
   yet**, so Windows says "Windows protected your PC": click **More info**, then **Run anyway**. To check the file
   first, compare its SHA-256 (`Get-FileHash` in PowerShell) with the release's `SHA256SUMS`.
-- **The Microsoft Store**, signed by Microsoft, with no warning: coming soon.
+- **[The Microsoft Store](https://apps.microsoft.com/detail/9NNK1Q800R84)**, signed by Microsoft, so Windows opens it
+  without a warning (x64 for now).
 - **On a Mac**, download `kuchu-macos-arm64.tar.gz` (`-x64` on an Intel Mac), open it and drag `Kuchu.app` into
   Applications. The first time, macOS refuses to open it: in System Settings → Privacy & Security, click
   **Open Anyway**. Not yet tried on a Mac.
 
 The first time Kuchu starts, it opens its Settings: click **Connect** there, after reading the change it shows you,
-and your Claude Code sessions appear beside it. To uninstall Kuchu installed with the Windows installer, use Windows'
-Settings → Apps; to remove everything, tick "Delete the application data", and Kuchu asks you to disconnect it in its
-Settings first.
+and your Claude Code sessions appear beside it.
+
+To uninstall Kuchu, first click **Disconnect** in its Settings, so Claude Code stops running its hooks. Then remove it
+from Windows' Settings → Apps. Installed with the Windows installer, tick "Delete the application data" to remove
+everything (Kuchu asks you to disconnect first if you have not). From the Store, Windows removes Kuchu and its data,
+and Kuchu took its relay away when you disconnected. Uninstalled without disconnecting, Kuchu's hooks stay in Claude
+Code's `settings.json` (and, from the Store, its relay in the `.kuchu` folder in your home folder). They do nothing
+while Kuchu is gone; to remove them, install Kuchu again and click Disconnect, or take out the hooks that run
+`kuchu-relay` and delete that folder yourself. The copies Kuchu kept of `settings.json`
+(`settings.json.kuchu-backup-…`, beside it) stay too: they are yours to keep or delete.
 
 ### Claude Code, this part is for you
 
