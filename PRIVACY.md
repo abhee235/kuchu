@@ -15,13 +15,25 @@ never connects to the internet itself.
 
 ## What it keeps
 
-Its own settings (the pet's size and place, your choices in Settings, the folders you started conversations in), in
-its own folder on your computer. Nothing from your sessions is ever written to disk by Kuchu.
+- Its own settings (the pet's size and place, your choices in Settings, the folders you started conversations in), in
+  its own folder on your computer.
+- A copy of its relay, where Claude Code's hooks run it: in Kuchu's own folder, or, installed from the Microsoft
+  Store, in the `.kuchu` folder in your home folder, only while Kuchu is connected.
+- The copies of Claude Code's settings.json it makes before each change, beside the file: the last few only.
+
+Nothing from your sessions is ever written to disk by Kuchu.
+
+## Removing it
+
+Click Disconnect in Kuchu's Settings before you uninstall it: Kuchu's hooks come out of Claude Code's settings.json,
+and, from the Store, its relay out of your home folder. Uninstalling then removes Kuchu and its settings. The copies
+of settings.json stay, as yours to keep or delete.
 
 ## Conversations started from Kuchu
 
 When you start a conversation from Kuchu, it runs Claude Code on your computer, which talks to Anthropic as it always
-does, under Anthropic's terms and privacy policy. Kuchu itself sends nothing.
+does, under Anthropic's terms and privacy policy. Kuchu itself sends nothing. The flag in a conversation opens a page
+on GitHub in your browser, to report an answer; nothing goes with it.
 
 ## Questions
 
