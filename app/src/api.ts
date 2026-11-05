@@ -181,6 +181,8 @@ export const core = {
   chatSend: (session: string, text: string) => invoke('chat_send', { session, text }),
   chatStop: (session: string) => invoke('chat_stop', { session }),
   chatTerminal: (session: string) => invoke('chat_terminal', { session }),
+  /** Opens the page for reporting an answer from Claude, in the browser. */
+  reportAnswer: () => invoke('report_answer'),
 }
 
 /** Listens to one of the core's events for as long as the effect lives. */

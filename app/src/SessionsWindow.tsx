@@ -5,7 +5,7 @@
 // takes their messages only there.)
 
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { ArrowLeft, ArrowUp, Folder, FolderOpen, MessageSquare, Plus, Settings, Square, SquareTerminal, X } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Flag, Folder, FolderOpen, MessageSquare, Plus, Settings, Square, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ago, core, MOOD_LABEL, on, type Chat, type ChatEntry, type HookReport, type Prefs, type Session, type View } from './api'
 import { Pet } from './pet/Pet'
@@ -111,6 +111,15 @@ export function SessionsWindow() {
             <span className="sheet-sub">{chat.project}</span>
           </span>
           <span className="grow" />
+          <button
+            type="button"
+            className="icon-btn"
+            title="Report an answer from Claude (opens GitHub in your browser)"
+            aria-label="Report an answer from Claude"
+            onClick={() => void core.reportAnswer().catch((e) => alertIn(chat.id, String(e)))}
+          >
+            <Flag />
+          </button>
           {!handed && (
             <button
               type="button"
