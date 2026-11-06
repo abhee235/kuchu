@@ -130,7 +130,7 @@ html[data-window='settings'] body {
 .bubble {
   position: absolute;
   left: 16px;
-  bottom: 14px;
+  bottom: calc(14px + var(--drop, 0px));
   width: var(--pet-w, 96px);
   height: var(--pet-h, 123px);
   cursor: grab;
@@ -160,10 +160,10 @@ html[data-window='settings'] body {
 
 .beside {
   position: absolute;
-  bottom: calc(14px + var(--pet-h) * 0.5);
+  bottom: calc(14px + var(--pet-h) * 0.5 + var(--drop, 0px));
   width: 304px;
   /* Never taller than the window: a card's scrolling part gives way first. */
-  max-height: calc(100% - 14px - var(--pet-h) * 0.5 - 8px);
+  max-height: calc(100% - 14px - var(--pet-h) * 0.5 - 8px - var(--drop, 0px));
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
