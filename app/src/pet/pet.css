@@ -127,8 +127,7 @@
 }
 .pet-happy,
 .pet-frown,
-.pet-hmm,
-.pet-mark {
+.pet-hmm {
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -426,7 +425,7 @@
   --ly: 3px;
 }
 
-/* Needing you: a wave, the antenna blinking, a small bob, a mark on the screen. */
+/* Needing you: a wave, the antenna blinking, a small bob. */
 .pet.is-needs .pet-arm-r {
   animation: pet-wave 0.9s ease-in-out infinite;
 }
@@ -438,12 +437,6 @@
 }
 .pet.is-needs .pet-pointer {
   transform: translate(1px, -2px) rotate(-14deg);
-}
-.pet.is-needs .pet-mark {
-  opacity: 1;
-}
-.pet.is-needs .pet-smile {
-  opacity: 0;
 }
 
 /* Hello, as a message is sent: the arm up and waving three times, happy eye, a hop; then it thinks. */

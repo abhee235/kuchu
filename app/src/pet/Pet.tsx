@@ -662,10 +662,6 @@ export function Pet({
                   {/* Pondering, the mouth pushed to one side; the idea, an "o". */}
                   <path className="pet-line pet-ponder" d="M56 65.2 Q61 66 66.5 62.6" />
                   <circle className="pet-line pet-wow" cx="60" cy="64.5" r="3" />
-                  <g className="pet-mark">
-                    <rect x="58.4" y="58" width="3.2" height="6" rx="1.6" fill="#fff6ea" />
-                    <circle cx="60" cy="67.5" r="1.7" fill="#fff6ea" />
-                  </g>
                 </g>
                 {/* The face its screen flips to: both eyes happy, a wide smile. */}
                 <g className="pet-face-alt">
