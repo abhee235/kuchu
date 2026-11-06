@@ -123,7 +123,10 @@ the line break excepted; an answer to a question is matched against the option a
 it. The session's folder is under its name on every card. The "Always" button keeps its short label, and under the
 buttons the card says what it does and where: "“Always allow” allows `Bash(git commit:*)`, in this project, for
 you." (session, local, project and user settings each have their words; a deny rule, an empty offer or a mode Kuchu
-does not know makes no button). What it left out: the detail for a Write or Edit is still the path, not the content;
+does not know makes no button). A single rule for the very command on the card, by the same tool, says "this exact
+command" instead: the box above shows that command whole, and a rule that long ran out of the card. Any other rule shows
+itself in full, scrolling in its own few lines; the card asks the window for the height it needs, and the buttons never
+give way. What it left out: the detail for a Write or Edit is still the path, not the content;
 the card approves where Claude writes, as Claude Code's own prompt does, and the content is in the terminal. And
 20,000 characters is some 500 lines at the card's width, in a box that shows five: all of it is on the card, but only
 for someone who scrolls. A lower limit is worth weighing once real commands show how long they run.

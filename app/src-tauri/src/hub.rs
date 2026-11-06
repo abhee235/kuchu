@@ -55,12 +55,14 @@ pub struct Approval {
     pub question: Option<Question>,
 }
 
-/// What "Always" would do: the button's label, what it allows, and where that is kept.
+/// What "Always" would do: the button's label, what it allows, and where that is kept. `code` says that `what` is a rule
+/// to show as it is, not words.
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Always {
     pub label: String,
     pub what: String,
     pub scope: String,
+    pub code: bool,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -446,7 +448,9 @@ fn single_question(input: &Value) -> Option<Question> {
 }
 
 /// Claude Code's first "don't ask again" offer, as a button and what it does: the rule, folder or mode it would add,
-/// and where that is kept. None for an offer to stop asking altogether, or one Kuchu does not know.
+/// and where that is kept. None for an offer to stop asking altogether, or one Kuchu does not know. A rule for just the
+/// command on the card says so instead of repeating it: the card already shows that command whole, and a rule as long as
+/// the command is more than a card can hold.
 fn always_for(request: &Value) -> Option<Always> {
     let first = request.get("permission_suggestions")?.as_array()?.first()?;
     if first.get("behavior").and_then(Value::as_str).is_some_and(|b| b != "allow") {
@@ -459,7 +463,7 @@ fn always_for(request: &Value) -> Option<Always> {
         "userSettings" => "for you, in every project".to_string(),
         other => plain(other),
     };
-    let (label, what) = match first.get("type").and_then(Value::as_str)? {
+    let (label, what, code) = match first.get("type").and_then(Value::as_str)? {
         "addRules" => {
             let rule = |r: &Value| {
                 let tool = r.get("toolName")?.as_str()?;
@@ -472,22 +476,33 @@ fn always_for(request: &Value) -> Option<Always> {
             if rules.is_empty() {
                 return None;
             }
-            ("Always allow", rules.join(", "))
+            if is_this_command(request, first) {
+                ("Always allow", "this exact command".to_string(), false)
+            } else {
+                ("Always allow", rules.join(", "), true)
+            }
         }
         "addDirectories" => {
             let folders: Vec<&str> = first.get("directories")?.as_array()?.iter().filter_map(Value::as_str).collect();
             if folders.is_empty() {
                 return None;
             }
-            ("Allow this folder", format!("work in {}", folders.join(", ")))
+            ("Allow this folder", format!("work in {}", folders.join(", ")), false)
         }
         "setMode" => match first.get("mode").and_then(Value::as_str)? {
-            "acceptEdits" => ("Allow edits for now", "edits to files without asking".to_string()),
+            "acceptEdits" => ("Allow edits for now", "edits to files without asking".to_string(), false),
             _ => return None,
         },
         _ => return None,
     };
-    Some(Always { label: label.into(), what: plain(&what), scope })
+    Some(Always { label: label.into(), what: plain(&what), scope, code })
+}
+
+/// Whether an offer is one rule for the very command the request asks about, by the same tool, and nothing more.
+fn is_this_command(request: &Value, offer: &Value) -> bool {
+    let Some([rule]) = offer.get("rules").and_then(Value::as_array).map(Vec::as_slice) else { return false };
+    let command = request.get("tool_input").and_then(|input| input.get("command")).and_then(Value::as_str);
+    command.is_some() && rule.get("ruleContent").and_then(Value::as_str) == command && rule.get("toolName") == request.get("tool_name")
 }
 
 /// The decision for a click on `card`. A card that could not show the whole input takes only a "no", whatever the
@@ -685,6 +700,25 @@ mod tests {
         assert!(offer(json!({ "type": "addRules", "behavior": "deny", "rules": [{ "toolName": "Bash" }] })).is_none());
         assert!(offer(json!({ "type": "setMode", "mode": "bypassPermissions" })).is_none());
         assert!(offer(json!({ "type": "addRules", "rules": [] })).is_none());
+    }
+
+    #[test]
+    fn a_rule_for_just_the_command_on_the_card_says_so_and_any_other_rule_shows_itself() {
+        let command = "docker compose up -d && curl -s localhost:3000/health";
+        let offer = |tool: &str, rules: Value| {
+            always_for(&json!({ "tool_name": tool, "tool_input": { "command": command }, "permission_suggestions": [{ "type": "addRules", "behavior": "allow", "destination": "localSettings", "rules": rules }] })).unwrap()
+        };
+        let same = json!({ "toolName": "Bash", "ruleContent": command });
+        let exact = offer("Bash", json!([same]));
+        assert_eq!((exact.what.as_str(), exact.code, exact.scope.as_str()), ("this exact command", false, "in this project, for you"));
+        // Anything wider than that command, or more than it, must show what it is: "exact" would be untrue.
+        let wider = offer("Bash", json!([{ "toolName": "Bash", "ruleContent": "docker compose up:*" }]));
+        assert_eq!((wider.what.as_str(), wider.code), ("Bash(docker compose up:*)", true));
+        let two = offer("Bash", json!([same, { "toolName": "Bash", "ruleContent": "rm:*" }]));
+        assert!(two.code && two.what.ends_with("Bash(rm:*)"));
+        let whole_tool = offer("Bash", json!([{ "toolName": "Bash" }]));
+        assert_eq!((whole_tool.what.as_str(), whole_tool.code), ("Bash", true));
+        assert_eq!(offer("PowerShell", json!([same])).what, format!("Bash({command})"));
     }
 
     #[test]
