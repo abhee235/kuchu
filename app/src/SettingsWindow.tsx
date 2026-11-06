@@ -2,9 +2,9 @@
 // opens, connecting to Claude Code (the change to settings.json shown before it is made, a copy kept), and permission
 // requests. Each change reaches the pet at once.
 
-import { Bot, CircleAlert, CircleCheck, MessageSquareText, Plug, ShieldCheck, TriangleAlert, Volume2 } from 'lucide-react'
+import { BookOpen, Bot, CircleAlert, CircleCheck, ExternalLink, Globe, MessageSquareText, Plug, ShieldCheck, Sparkles, TriangleAlert, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { core, on, SIZES, type HookPlan, type HookReport, type Prefs, type Start } from './api'
+import { core, on, SIZES, type HookPlan, type HookReport, type Prefs, type SitePage, type Start } from './api'
 import { Pet, type PetKind } from './pet/Pet'
 import robot3d from './pet/robot3d.webp'
 import type { PetMood } from './pet/petMood'
@@ -33,6 +33,13 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'requests', label: 'Permission requests', icon: <ShieldCheck /> },
 ]
 
+/** Where to read more: Kuchu's own website, which is always the place to look. */
+const LINKS: { page: SitePage; label: string; icon: React.ReactNode }[] = [
+  { page: 'docs', label: 'Help and docs', icon: <BookOpen /> },
+  { page: 'changelog', label: 'What’s new', icon: <Sparkles /> },
+  { page: 'home', label: 'Kuchu website', icon: <Globe /> },
+]
+
 export function SettingsWindow() {
   const [prefs, setPrefs] = useState<Prefs | null>(null)
   const [hooks, setHooks] = useState<HookReport | null>(null)
@@ -54,20 +61,31 @@ export function SettingsWindow() {
 
   return (
     <div className="settings">
-      <nav className="settings-nav" role="tablist" aria-orientation="vertical">
+      <div className="settings-nav">
         <span className="brand">
           <Pet size={24} mood="idle" />
           Kuchu
           <span className="brand-version">{version}</span>
         </span>
-        {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className="tab" onClick={() => setTab(t.id)}>
-            {t.icon}
-            {t.label}
-            {t.id === 'claude' && hooks && hooks.state !== 'installed' && <span className="state-dot" aria-label="Not connected" />}
-          </button>
-        ))}
-      </nav>
+        <nav className="settings-tabs" role="tablist" aria-orientation="vertical">
+          {TABS.map((t) => (
+            <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className="tab" onClick={() => setTab(t.id)}>
+              {t.icon}
+              {t.label}
+              {t.id === 'claude' && hooks && hooks.state !== 'installed' && <span className="state-dot" aria-label="Not connected" />}
+            </button>
+          ))}
+        </nav>
+        <div className="settings-links">
+          {LINKS.map((l) => (
+            <button key={l.page} type="button" className="tab is-link" onClick={() => void core.openPage(l.page)}>
+              {l.icon}
+              {l.label}
+              <ExternalLink className="tab-out" />
+            </button>
+          ))}
+        </div>
+      </div>
 
       <section className="settings-pane" role="tabpanel" aria-label={current.label}>
         <h2>{current.label}</h2>
@@ -296,6 +314,12 @@ function Connect({ report, onReport }: { report: HookReport | null; onReport: (r
       )}
       {done && <p className="note-ok">{done}</p>}
       {error && <p className="note-warn">{error}</p>}
+      <p className="muted connect-help">
+        Something not working?{' '}
+        <button type="button" className="text-link" onClick={() => void core.openPage('troubleshooting')}>
+          See what to check
+        </button>
+      </p>
     </>
   )
 }

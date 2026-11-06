@@ -360,7 +360,8 @@ Each is one small commit with its tests.
   (the four archives and installers for Windows, the two for macOS, `SHA256SUMS`). T34 holds.
 - **2026-11-05**, the Microsoft Store's policies (7.20) read against Kuchu. Two changes: from the Store the relay is
   taken out of `~/.kuchu` once no hooks run it, and only then (T26: a check of `settings.json`, never a guess); and a
-  page can open the page for reporting an answer from Claude, a fixed address the command takes no argument for (T25:
+  page can open Kuchu's own pages by name (`open_page`, the core holding the addresses, so a page can name none) and the
+  page for reporting an answer from Claude, a fixed address the command takes no argument for (T25:
   a page can open that one page and nothing else).
 
 ## Checks to keep

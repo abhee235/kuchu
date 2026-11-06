@@ -339,6 +339,7 @@ pub fn run() {
             pet_clicked,
             forget,
             open_app,
+            open_page,
             decide,
             approval_shown,
             set_wide,
@@ -889,18 +890,42 @@ async fn open_settings(app: AppHandle) {
 /// wrote for a way to report it from the app.
 const REPORT_URL: &str = "https://github.com/abhee235/kuchu/issues/new?title=About%20an%20answer%20from%20Claude";
 
-/// Opens the page for reporting an answer in the person's browser. Always that one page: the page names nothing.
-#[tauri::command]
-fn report_answer() -> Result<(), String> {
+/// Kuchu's website, where its docs and its news live: every address a page can send the browser to. A page asks by name, so it
+/// can name no address of its own.
+const PAGES: &[(&str, &str)] = &[
+    ("home", "https://abhee235.github.io/kuchu/"),
+    ("docs", "https://abhee235.github.io/kuchu/docs/"),
+    ("changelog", "https://abhee235.github.io/kuchu/changelog/"),
+    ("troubleshooting", "https://abhee235.github.io/kuchu/docs/troubleshooting/"),
+];
+
+fn page_address(name: &str) -> Option<&'static str> {
+    PAGES.iter().find(|(page, _)| *page == name).map(|(_, address)| *address)
+}
+
+/// Hands an address to the person's browser. Kuchu itself connects to nothing.
+fn browse(address: &str) -> Result<(), String> {
     #[cfg(windows)]
-    let opened = std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", REPORT_URL]).spawn();
+    let opened = std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", address]).spawn();
     #[cfg(target_os = "macos")]
-    let opened = std::process::Command::new("open").arg(REPORT_URL).spawn();
+    let opened = std::process::Command::new("open").arg(address).spawn();
     #[cfg(all(unix, not(target_os = "macos")))]
-    let opened = std::process::Command::new("xdg-open").arg(REPORT_URL).spawn();
+    let opened = std::process::Command::new("xdg-open").arg(address).spawn();
     let mut child = opened.map_err(|e| format!("Kuchu could not open your browser: {e}"))?;
     std::thread::spawn(move || child.wait());
     Ok(())
+}
+
+/// Opens the page for reporting an answer in the person's browser. Always that one page: the page names nothing.
+#[tauri::command]
+fn report_answer() -> Result<(), String> {
+    browse(REPORT_URL)
+}
+
+/// Opens one of Kuchu's own pages in the person's browser.
+#[tauri::command]
+fn open_page(page: String) -> Result<(), String> {
+    browse(page_address(&page).ok_or("Kuchu has no such page.")?)
 }
 
 /// The sessions list; given a conversation started from Kuchu, the list opens on it (a click on its card).
@@ -999,11 +1024,12 @@ fn tray(app: &AppHandle) -> tauri::Result<()> {
     let shown = CheckMenuItem::with_id(app, "shown", "Show Kuchu", true, true, None::<&str>)?;
     let sessions = MenuItem::with_id(app, "sessions", "Sessions", true, Some("Ctrl+Alt+K"))?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
+    let help = MenuItem::with_id(app, "help", "Help and docs…", true, None::<&str>)?;
     let sounds = CheckMenuItem::with_id(app, "sounds", "Sounds", true, kuchu(app).prefs.hold().sounds, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Kuchu", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let separator2 = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&shown, &sessions, &settings, &separator, &sounds, &separator2, &quit])?;
+    let menu = Menu::with_items(app, &[&shown, &sessions, &settings, &help, &separator, &sounds, &separator2, &quit])?;
 
     let mut builder = TrayIconBuilder::with_id("kuchu").tooltip("Kuchu").menu(&menu).show_menu_on_left_click(false);
     if let Some(icon) = app.default_window_icon() {
@@ -1022,6 +1048,11 @@ fn tray(app: &AppHandle) -> tauri::Result<()> {
                 }
                 "sessions" => toggle_sessions(app),
                 "settings" => show_settings(app),
+                "help" => {
+                    if let Some(address) = page_address("docs") {
+                        let _ = browse(address);
+                    }
+                }
                 "sounds" => {
                     let k = kuchu(app);
                     let mut next = k.prefs.hold().clone();
@@ -1048,6 +1079,14 @@ fn tray(app: &AppHandle) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_page_can_open_only_kuchus_own_site() {
+        assert!(PAGES.iter().all(|(_, address)| address.starts_with("https://abhee235.github.io/kuchu/")));
+        assert_eq!(page_address("docs"), Some("https://abhee235.github.io/kuchu/docs/"));
+        assert_eq!(page_address("https://example.com"), None);
+        assert_eq!(page_address(""), None);
+    }
 
     #[test]
     fn a_second_kuchu_can_only_ask_to_quit_show_settings_or_show() {

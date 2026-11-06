@@ -1341,6 +1341,49 @@ kbd {
   width: 18px;
   height: 18px;
 }
+/* Where to read more, at the foot of the list: Kuchu's website, opened in the browser. */
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+}
+.settings-links {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--line-light);
+}
+.tab.is-link {
+  height: 32px;
+  color: var(--fg-2);
+  font-size: var(--text-caption);
+}
+.tab.is-link svg {
+  width: 16px;
+  height: 16px;
+}
+.tab.is-link .tab-out {
+  width: 13px;
+  height: 13px;
+  margin-left: auto;
+  opacity: 0.55;
+}
+.connect-help {
+  margin-top: 4px;
+}
+.text-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.text-link:hover {
+  color: var(--tint);
+}
 .tab .state-dot {
   margin-left: auto;
   width: 7px;
