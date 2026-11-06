@@ -4,6 +4,8 @@ A small desk pet for Claude Code. It sits above your windows and shows what your
 Claude reads your message, works while tools run, waves when a session needs you and hops when one is done. Its card
 says which project and what is happening now, and a permission request can be answered from it.
 
+**Website and docs: [abhee235.github.io/kuchu](https://abhee235.github.io/kuchu/)**, with the pet live.
+
 Windows and macOS first; Linux later. Work in progress: see [PLAN.md](PLAN.md).
 
 ## Install
