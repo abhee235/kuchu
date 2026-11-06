@@ -20,7 +20,8 @@ Kuchu installs for your account only: no administrator rights, never a service. 
   yet**, so Windows says "Windows protected your PC": click **More info**, then **Run anyway**. To check the file
   first, compare its SHA-256 (`Get-FileHash` in PowerShell) with the release's `SHA256SUMS`.
 - **[The Microsoft Store](https://apps.microsoft.com/detail/9NNK1Q800R84)**, signed by Microsoft, so Windows opens it
-  without a warning (x64 for now).
+  without a warning (x64 for now). It updates through the Store: Windows closes Kuchu for a moment and starts the new
+  one.
 - **On a Mac**, download `kuchu-macos-arm64.tar.gz` (`-x64` on an Intel Mac), open it and drag `Kuchu.app` into
   Applications. The first time, macOS refuses to open it: in System Settings → Privacy & Security, click
   **Open Anyway**. Not yet tried on a Mac.
