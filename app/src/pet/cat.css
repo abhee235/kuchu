@@ -1,0 +1,154 @@
+/* cat.css — what only the cat has (CatBody.tsx). Everything else it does comes from pet.css, through the parts it shares with the
+   robot. Lines on fur want to be dark and fine, where the robot's on its screen are light and thick. Its eyes are round, so they turn
+   about their own middles, not about a pointer's tip. */
+
+.pet.is-cat .pet-shell {
+  stroke: rgba(122, 62, 12, 0.34);
+}
+.pet.is-cat .pet-joint {
+  fill: #dc8731;
+}
+.pet.is-cat .pet-line {
+  stroke: #5a3418;
+  stroke-width: 2.3;
+}
+.pet.is-cat .pet-eye {
+  transform-origin: 42px 50px;
+}
+/* As quick as the left: it would otherwise take the robot's slower pointer time, and lag behind on every blink. */
+.pet.is-cat .pet-pointer {
+  transform-origin: 78px 50px;
+  transition: transform 0.07s ease, opacity 0.2s ease;
+}
+.pet-stripe {
+  fill: none;
+  stroke: #d0701c;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+.pet-toes {
+  fill: none;
+  stroke: #d9a877;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+.pet-whisker {
+  fill: none;
+  stroke: #6b3f1c;
+  stroke-opacity: 0.55;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+.pet-nose {
+  fill: #e0705f;
+  stroke: #a8473a;
+  stroke-width: 0.5;
+}
+.pet-bell-slit {
+  fill: none;
+  stroke: #7a4210;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+.pet-tail-ring {
+  fill: none;
+  stroke: #d0701c;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+/* The robot's orange question mark would vanish on orange fur. */
+.pet.is-cat .pet-ask path {
+  stroke: #5a3418;
+}
+.pet.is-cat .pet-ask circle {
+  fill: #5a3418;
+}
+
+/* A blink shuts both its eyes, and so does a wink: a cat with one eye shut looks hurt, not playful. */
+.pet.is-cat.is-blink .pet-pointer,
+.pet.is-cat.is-wink .pet-pointer {
+  transform: scaleY(0.12);
+  transition: transform 0.07s ease;
+}
+/* Its eyelids move together: the scenes in pet.css lower only the left, since the robot's right eye is a pointer. */
+.pet.is-cat.is-m-yawn .pet-pointer {
+  animation: yawn-lid 4.4s ease-in-out both, yawn-open 4.4s linear both;
+}
+.pet.is-cat.is-m-bored .pet-pointer {
+  animation: bored-lid 4.6s ease-in-out both;
+}
+.pet.is-cat.is-m-drowsy .pet-pointer {
+  animation: drowsy-lid 5s ease-in-out both;
+}
+.pet.is-cat.is-m-droop .pet-pointer {
+  animation: droop-lid 5s ease-in-out both;
+}
+.pet.is-cat.is-m-startle .pet-pointer {
+  animation: startle-eyes 1.2s ease-out both;
+}
+.pet.is-cat.is-m-pop .pet-pointer {
+  animation: pop-eye 3.2s ease-out both;
+}
+/* Its right eye stays an eye where the robot's pointer turns or gives way to a busy ring. */
+.pet.is-cat.is-needs .pet-pointer,
+.pet.is-cat.is-insight .pet-pointer {
+  transform: none;
+}
+.pet.is-cat.is-t-busy .pet-pointer {
+  opacity: 1;
+}
+
+/* The tail sways; waiting for you, it goes quicker, the way a cat's does. */
+.pet-tail {
+  transform-origin: 82px 120px;
+  animation: cat-tail 3.4s ease-in-out infinite;
+}
+.pet.is-needs .pet-tail {
+  animation-duration: 1.1s;
+}
+.pet.is-asleep .pet-tail {
+  animation: none;
+  transform: rotate(14deg);
+  transition: transform 0.6s ease;
+}
+@keyframes cat-tail {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(9deg);
+  }
+}
+
+/* An ear flicks now and then. */
+.pet.is-cat .pet-ear-r {
+  transform-origin: 84px 26px;
+  animation: cat-ear 7s ease-in-out infinite;
+}
+@keyframes cat-ear {
+  0%,
+  91%,
+  100% {
+    transform: none;
+  }
+  93.5% {
+    transform: rotate(9deg);
+  }
+  96% {
+    transform: rotate(-2deg);
+  }
+}
+
+/* What belongs to a screen it does not have, and what sits over its ears moves clear of them. */
+.pet.is-cat .pet-above {
+  transform: translate(6px, -5px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-tail,
+  .pet.is-cat .pet-ear-r {
+    animation: none;
+  }
+}
