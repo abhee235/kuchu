@@ -2,7 +2,8 @@ import { isTauri } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Pet, SCENE_MS } from './pet/Pet'
+import { core, on, type Prefs } from './api'
+import { ChosenPet, Pet, SCENE_MS, type PetKind } from './pet/Pet'
 import type { PetMood } from './pet/petMood'
 import { PetWindow } from './PetWindow'
 import { SessionsWindow } from './SessionsWindow'
@@ -61,6 +62,17 @@ function Poses({ plan }: { plan: string }) {
   )
 }
 
+/** Every window draws the pet the user chose, and changes it as they do. Nothing shows until that is known, so a cat
+ *  never starts out as the robot. */
+function Chosen({ children }: { children: React.ReactNode }) {
+  const [pet, setPet] = useState<PetKind | null>(null)
+  useEffect(() => {
+    void core.prefs().then((p) => setPet(p.pet))
+    return on<Prefs>('prefs', (p) => setPet(p.pet))
+  }, [])
+  return pet && <ChosenPet.Provider value={pet}>{children}</ChosenPet.Provider>
+}
+
 function Root() {
   if (icon)
     return (
@@ -69,9 +81,7 @@ function Root() {
       </div>
     )
   if (pose) return <Poses plan={pose} />
-  if (label === 'sessions') return <SessionsWindow />
-  if (label === 'settings') return <SettingsWindow />
-  return <PetWindow />
+  return <Chosen>{label === 'sessions' ? <SessionsWindow /> : label === 'settings' ? <SettingsWindow /> : <PetWindow />}</Chosen>
 }
 
 createRoot(document.getElementById('root')!).render(

@@ -2,6 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import type { PetKind } from './pet/Pet'
 import type { PetMood } from './pet/petMood'
 
 export interface Session {
@@ -101,6 +102,7 @@ export interface View {
 }
 
 export interface Prefs {
+  pet: PetKind
   size: 'small' | 'base' | 'big'
   seeThrough: boolean
   card: 'line' | 'lines' | 'off'

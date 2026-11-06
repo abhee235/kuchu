@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Prefs {
+    /// Which pet it is: "robot", "cat", "dog", "owl", "frog" or "duck".
+    pub pet: String,
     /// "small" (64 px), "base" (96) or "big" (128).
     pub size: String,
     /// The pet fades while the pointer is on it.
@@ -33,7 +35,7 @@ const FOLDERS: usize = 6;
 
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, sounds: true, click: "sessions".into(), approvals: true, lively: true, at: None, folders: Vec::new() }
+        Prefs { pet: "robot".into(), size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, sounds: true, click: "sessions".into(), approvals: true, lively: true, at: None, folders: Vec::new() }
     }
 }
 
@@ -49,6 +51,9 @@ impl Prefs {
     /// Unknown values from an older or hand-edited file fall back to the defaults.
     fn checked(mut self) -> Self {
         let d = Prefs::default();
+        if !matches!(self.pet.as_str(), "robot" | "cat" | "dog" | "owl" | "frog" | "duck") {
+            self.pet = d.pet;
+        }
         if !matches!(self.size.as_str(), "small" | "base" | "big") {
             self.size = d.size;
         }
@@ -119,6 +124,23 @@ mod tests {
         assert_eq!((q.width(), q.sounds, q.card.as_str()), (128, false, "line"));
         let r = q.merged(&serde_json::json!({ "card": "sideways" }));
         assert_eq!(r.card, "line");
+    }
+
+    #[test]
+    fn the_chosen_pet_is_kept_and_a_file_from_before_pets_or_after_more_of_them_gives_the_robot() {
+        assert_eq!(Prefs::default().merged(&serde_json::json!({ "pet": "cat" })).pet, "cat");
+        assert_eq!(Prefs::default().merged(&serde_json::json!({ "pet": "dragon" })).pet, "robot");
+
+        let dir = std::env::temp_dir().join(format!("kuchu-prefs-pet-{}", std::process::id()));
+        let path = path_in(dir.clone());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&path, r#"{ "size": "big" }"#).unwrap();
+        let older = Prefs::load(&path);
+        assert_eq!((older.pet.as_str(), older.width()), ("robot", 128));
+        std::fs::write(&path, r#"{ "pet": "dragon", "size": "big" }"#).unwrap();
+        let newer = Prefs::load(&path);
+        assert_eq!((newer.pet.as_str(), newer.width()), ("robot", 128));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
