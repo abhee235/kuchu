@@ -224,9 +224,11 @@ files.
 - **Talk to Claude from Kuchu.** Start a conversation in a folder from the sessions list, answer it, stop it, or take
   it on in a terminal. Sessions started in a terminal or an editor are followed, not typed into: Claude Code takes
   their messages only there.
-- **A life of its own.** With no work it stretches, yawns, looks around, taps a foot, flips its screen, whistles or
+- **A life of its own.** With no work it stretches, yawns, looks around, taps a foot, flips its face, whistles or
   takes a short walk, and naps after a few quiet minutes. It walks when you drag it and likes being petted.
-- **Its own Settings.** Size, see-through under the pointer, sounds, starting at sign-in, what shows beside the pet,
+- **Your choice of pet.** A robot, a cat, a dog, an owl, a frog or a rubber duck, each with its own face, and each doing
+  all the same things.
+- **Its own Settings.** Your pet, size, see-through under the pointer, sounds, starting at sign-in, what shows beside the pet,
   what a click opens, and connecting to Claude Code: the change to `settings.json` is shown first, and a copy of the
   file is kept.
 - **Out of the way.** It never takes the focus, and clicks go through everywhere but the pet and its cards. The tray
