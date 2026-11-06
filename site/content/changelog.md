@@ -4,6 +4,14 @@ description: Every Kuchu release and what changed, from the first version to the
 ---
 Every release is on [GitHub]({{RELEASES}}), with its files' checksums and build attestations.
 
+## 0.1.7, 6 November 2026
+
+- A long command no longer runs out of the bottom of a permission card. The card makes room for itself, and "Always allow" says
+  "this exact command" when that is what it means.
+- The pet's eye opens again if a blink is cut short. It could stay shut through a whole wave.
+- The pet keeps its smile when it needs you, with no mark on its screen.
+- The "+N" count rests at the end of the card and the words take the room. Both move aside on hover.
+
 ## 0.1.6, 6 November 2026
 
 - Kuchu now works on PCs without Visual C++. There, Claude Code showed a hook error on every message and the pet never
