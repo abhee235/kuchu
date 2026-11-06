@@ -5,3 +5,4 @@ dist/
 /fixtures/raw/
 app/src-tauri/gen/
 app/src-tauri/binaries/
+site/.gen/
