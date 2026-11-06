@@ -55,6 +55,11 @@ not offered, so those two requests, Notification and StopFailure still need an i
 - **Answered in Claude Code's own window** while the card shows (seen 2026-11-03, a question in the editor): Claude
   Code goes on, but the relay's connection stays open, and the card stayed with it. The card now goes when that
   call's PostToolUse or PostToolUseFailure arrives, or the turn ends.
+- **In the VS Code panel** (checked 2026-11-06 on Windows 10, extension 2.1.318, CLI 2.1.319): a session there sends the
+  same events, and a PermissionRequest shows in the panel and on the card at once. Allow on the card closed the panel's
+  prompt and the edit landed. Deny closed it too: the panel said `Edit failed`, Claude said the edit was declined, and
+  the file stayed as it was. Nobody touched the panel in either run. "Always" and "Allow edits for now" were not tried
+  there.
 - Deny (with a `message`), "Always" (`updatedPermissions` with Claude Code's first `permission_suggestions` entry),
   answers to a question and plan approval (`updatedInput`) are built from the recorded shapes and covered by tests;
   each is checked live before the first release.
