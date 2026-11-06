@@ -124,9 +124,13 @@ function useMoment(on: boolean, idle: boolean): string | null {
       )
     }
     next()
-    return () => clearTimeout(timer)
+    // Stopped part way through a blink, the blink ends with it: nothing else would open the eye again.
+    return () => {
+      clearTimeout(timer)
+      setNow(null)
+    }
   }, [on, idle])
-  return now
+  return on ? now : null
 }
 
 /** Kuchu's own life while there is no work: a scene now and then (never the same twice running), nodding off into a
