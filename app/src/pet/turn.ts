@@ -45,6 +45,7 @@ const PARTS: Part[] = [
   { sel: '.pet-arm-r', kind: 'limb', x: 94.5, y: 96, hides: true },
   { sel: '.pet-leg-l', kind: 'limb', x: 49.5, y: 124 },
   { sel: '.pet-leg-r', kind: 'limb', x: 70.5, y: 124 },
+  { sel: '.pet-tail', kind: 'limb', x: 82, y: 120, z: -18 },
 ]
 /** The line it turns round: the middle of the drawing across, and its waist up and down for the backflip. */
 const MIDDLE_X = 60
@@ -74,13 +75,16 @@ export function play(root: Element, turn: Turn): Animation[] {
   return PARTS.flatMap((part) => {
     const el = root.querySelector<SVGGraphicsElement>(part.sel)
     if (!el) return []
+    // A pet's own drawing can stand a part somewhere else: a cat's ears are nearer the middle than the robot's lights.
+    const near = Number(el.dataset.x)
+    const part_ = near ? { ...part, x: near } : part
     // The origin pet.css gives the part (an arm's shoulder), which every transform here is measured from.
     const [ox = 0, oy = 0] = getComputedStyle(el).transformOrigin.split(' ').map(parseFloat)
     const moves: Keyframe[] = []
     const shows: Keyframe[] = []
     for (let i = 0; i <= steps; i++) {
       const t = i / steps
-      const at = place(part, turn.way, turn.pace(t) * turn.turns * 2 * Math.PI)
+      const at = place(part_, turn.way, turn.pace(t) * turn.turns * 2 * Math.PI)
       const swing = part.hides ? turn.arms(t) * (part.x < MIDDLE_X ? 1 : -1) : 0
       moves.push({ offset: t, transform: transform(at, turn.way, part, ox, oy, swing) })
       shows.push({ offset: t, opacity: at.shown ? 1 : 0, easing: 'steps(1, end)' })
