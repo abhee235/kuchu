@@ -8,7 +8,8 @@
   --desk: #f6f7f6;
   --fg: #0d0d0d;
   --fg-2: #5b645e;
-  --fg-3: #858e88;
+  /* The app's lightest grey, a step darker: small print on a page must reach 4.5:1 on white. */
+  --fg-3: #6c756f;
   --hover: #f3f3f3;
   --line: rgba(0, 0, 0, 0.2);
   --line-light: rgba(0, 0, 0, 0.1);
@@ -245,44 +246,44 @@ p {
   max-width: 62em;
 }
 
-/* ── Home: the hero and its live desk ─────────────────────────────────────────────────────────────────────────── */
+/* ── Home: the hero, with the pet at work ─────────────────────────────────────────────────────────────────────── */
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 48px;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 40px;
   align-items: center;
   max-width: var(--wide);
   margin: 0 auto;
-  padding: 64px 24px 72px;
+  padding: 56px 24px 96px;
 }
 .hero h1 {
-  margin: 0 0 22px;
-  font-size: clamp(44px, 5.6vw, 70px);
+  margin: 0 0 20px;
+  font-size: clamp(44px, 5.4vw, 68px);
   font-weight: 680;
-  line-height: 0.98;
-  letter-spacing: -0.048em;
+  line-height: 1;
+  letter-spacing: -0.046em;
 }
 .lede {
-  max-width: 30em;
+  max-width: 21em;
   margin: 0 0 30px;
   color: var(--fg-2);
-  font-size: 19px;
-  line-height: 1.55;
+  font-size: 20px;
+  line-height: 1.45;
 }
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+.also {
+  margin: 18px 0 0;
+  color: var(--fg-2);
+  font-size: 15px;
 }
 .fine {
-  margin: 20px 0 0;
+  margin: 8px 0 0;
   color: var(--fg-3);
   font-size: 14px;
 }
 .hero-demo {
   position: relative;
-  min-height: 460px;
+  min-height: 500px;
 }
 .still {
   position: absolute;
@@ -290,21 +291,17 @@ p {
   bottom: 28px;
 }
 
-/* The desk: a terminal where the session runs, and Kuchu in the corner above it, as on a screen. */
-.desk {
+/* The pet stands on the page itself, above a small terminal, as it stands above your windows. */
+.stage {
   position: relative;
-  height: 460px;
-  border: 0.5px solid var(--line-light);
-  border-radius: 22px;
-  background: var(--desk);
-  overflow: hidden;
+  height: 500px;
 }
 .term {
   position: absolute;
-  left: 22px;
-  top: 22px;
-  width: 64%;
-  height: 58%;
+  left: 0;
+  top: 10px;
+  width: 402px;
+  height: 226px;
   display: flex;
   flex-direction: column;
   border-radius: 12px;
@@ -316,46 +313,48 @@ p {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
+  height: 28px;
+  flex: none;
   padding: 0 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .term-bar span {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.16);
 }
 .term-bar em {
   margin-left: 8px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 12px;
   font-style: normal;
 }
 .term-body {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 2px;
-  padding: 10px 14px 12px;
+  gap: 1px;
+  padding: 8px 14px 10px;
   color: #c9cfcb;
   font-family: var(--mono);
-  font-size: 12.5px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
   overflow: hidden;
 }
 .term-body .is-you {
   color: #ffffff;
 }
 .term-body .is-out {
-  color: #8b938e;
+  color: #99a19c;
   white-space: pre;
 }
 .caret {
   display: inline-block;
   width: 7px;
-  height: 14px;
+  height: 13px;
   margin-left: 1px;
   vertical-align: -2px;
   background: #ffffff;
@@ -366,17 +365,35 @@ p {
     opacity: 0;
   }
 }
+/* In the terminal's title bar on a wide screen; on a phone, where there is no terminal, under the pet's card. */
+.btn.demo-pause {
+  position: absolute;
+  left: 306px;
+  top: 10px;
+  z-index: 2;
+  height: 28px;
+  padding: 0 10px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-weight: 500;
+}
+.btn.demo-pause:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
 
 .pet-spot {
   position: absolute;
-  right: 16px;
-  bottom: 12px;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .demo-pet {
   flex: none;
+  /* As on the desktop: a thin warm edge and a close shadow lift its white shell off a white page. */
+  filter: drop-shadow(0 0 0.8px rgba(60, 42, 22, 0.5)) drop-shadow(0 2px 3px rgba(40, 28, 14, 0.22)) drop-shadow(0 8px 18px rgba(0, 0, 0, 0.18));
 }
 .demo-card,
 .shot-card {
@@ -393,7 +410,8 @@ p {
   animation: card-in 0.22s ease-out both;
 }
 .demo-card {
-  margin-bottom: 42px;
+  z-index: 1;
+  margin-bottom: 56px;
 }
 .demo-title,
 .shot-card > strong {
@@ -435,14 +453,10 @@ p {
   font-size: 14px;
 }
 .ask-head svg {
+  flex: none;
   width: 16px;
   height: 16px;
   color: var(--amber);
-}
-.ask-where {
-  margin-top: 1px;
-  color: var(--fg-3);
-  font-size: 12px;
 }
 .ask-what {
   margin: 8px 0 6px;
@@ -500,52 +514,46 @@ p {
   }
 }
 
-/* ── Home: the sections ───────────────────────────────────────────────────────────────────────────────────────── */
+/* ── Home: what it gives you, its life, and the way to get it ─────────────────────────────────────────────────── */
 
-.feature {
+.gains {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 64px;
-  align-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px;
   max-width: var(--wide);
   margin: 0 auto;
-  padding: 72px 24px;
-  border-top: 0.5px solid var(--line-light);
+  padding: 0 24px 104px;
 }
-.feature.is-flipped .feature-copy {
-  order: 2;
+.gain-shot {
+  display: flex;
+  align-items: flex-end;
+  min-height: 196px;
+  margin-bottom: 28px;
 }
-.feature h2,
-.plain h2,
-.install h2 {
-  margin: 0 0 16px;
-  font-size: clamp(28px, 3.3vw, 40px);
-  font-weight: 650;
-  line-height: 1.08;
-  letter-spacing: -0.032em;
+.gain h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 640;
+  line-height: 1.2;
+  letter-spacing: -0.022em;
 }
-.feature-copy p {
-  max-width: 34em;
-  margin: 0 0 14px;
-  color: var(--fg-2);
-  font-size: 17px;
-}
-.feature-shot {
-  display: grid;
-  place-items: center;
-  min-height: 300px;
+.gain p {
+  max-width: 23em;
   margin: 0;
-  padding: 40px 24px;
-  border-radius: 22px;
-  background: var(--desk);
+  color: var(--fg-2);
+  font-size: 16px;
+  line-height: 1.5;
 }
 .shot-card {
-  width: 300px;
-  padding-right: 64px;
+  max-width: 100%;
   animation: none;
 }
-.shot-card.is-ask {
-  padding-right: 16px;
+.shot-card.is-line {
+  width: 204px;
+}
+.shot-card:has(.shot-more) {
+  width: 300px;
+  padding-right: 64px;
 }
 .shot-more {
   position: absolute;
@@ -564,100 +572,103 @@ p {
   font-size: 13px;
   font-weight: 700;
 }
+.shot-needs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mini-pet {
+  flex: none;
+  width: 76px;
+  height: 98px;
+}
+
+.life {
+  padding: 88px 24px 92px;
+  background: var(--desk);
+  text-align: center;
+}
+.life h2,
+.get h2 {
+  margin: 0 0 10px;
+  font-size: clamp(30px, 3.6vw, 44px);
+  font-weight: 650;
+  line-height: 1.08;
+  letter-spacing: -0.034em;
+}
+.life > p {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 18px;
+}
 .play {
   display: grid;
   justify-items: center;
-  gap: 22px;
+  gap: 26px;
+  margin-top: 28px;
 }
 .play-pet {
   display: grid;
   place-items: center;
-  min-height: 180px;
+  min-height: 284px;
 }
 .play-buttons {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  max-width: 360px;
 }
 
-.plain {
+.trust {
   max-width: var(--wide);
   margin: 0 auto;
-  padding: 72px 24px;
-  border-top: 0.5px solid var(--line-light);
+  padding: 104px 24px 0;
 }
-.plain h2 {
-  font-size: clamp(24px, 2.6vw, 30px);
+.trust-line {
+  max-width: 22em;
+  margin: 0 0 14px;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 620;
+  line-height: 1.18;
+  letter-spacing: -0.026em;
 }
-.plain h2:not(:first-child) {
-  margin-top: 40px;
-}
-.plain > * {
-  max-width: 46rem;
-}
-.plain p {
-  margin: 0 0 12px;
-  color: var(--fg-2);
-  font-size: 17px;
-}
-.plain h3 {
-  margin: 26px 0 6px;
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.install {
-  max-width: var(--wide);
-  margin: 0 auto;
-  padding: 72px 24px;
-  border-top: 0.5px solid var(--line-light);
-}
-.ways {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 28px;
-}
-.way {
+.trust-links {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 24px;
-  border: 0.5px solid var(--line);
-  border-radius: 18px;
-}
-.way h3 {
+  gap: 20px;
   margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-}
-.way p {
-  flex: 1;
-  margin: 0 0 6px;
   color: var(--fg-2);
   font-size: 15px;
+}
+
+.get {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 40px;
+  align-items: end;
+  max-width: var(--wide);
+  margin: 0 auto;
+  padding: 96px 24px 72px;
+}
+.get .fine {
+  margin: 0 0 24px;
+  color: var(--fg-2);
+  font-size: 16px;
 }
 .say {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
+  max-width: 34em;
+  margin-top: 8px;
   padding: 6px 6px 6px 12px;
   border-radius: 12px;
   background: var(--code-bg);
 }
 .say code {
   flex: 1;
-  font-size: 12.5px;
+  font-size: 13px;
   overflow-wrap: anywhere;
-}
-.then {
-  margin: 26px 0 0;
-  color: var(--fg-2);
-  font-size: 16px;
 }
 
 /* ── Docs and plain pages ─────────────────────────────────────────────────────────────────────────────────────── */
@@ -788,20 +799,23 @@ p {
 
 /* ── Smaller screens ──────────────────────────────────────────────────────────────────────────────────────────── */
 
-@media (max-width: 900px) {
-  .hero,
-  .feature {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 36px;
-  }
+/* Below this the card and the pet need more room than their column has, and would reach the words. */
+@media (max-width: 1000px) {
   .hero {
-    padding-top: 40px;
-  }
-  .feature.is-flipped .feature-copy {
-    order: 0;
-  }
-  .ways {
     grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding-top: 40px;
+    padding-bottom: 72px;
+  }
+}
+@media (max-width: 900px) {
+  .gains {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 56px;
+    padding-bottom: 80px;
+  }
+  .gain-shot {
+    min-height: 0;
   }
   .docs {
     grid-template-columns: minmax(0, 1fr);
@@ -820,46 +834,76 @@ p {
     white-space: nowrap;
   }
 }
+/* On a phone the pet goes straight under the words, without the terminal, so it shows in the first screen. */
 @media (max-width: 640px) {
-  .top-nav a:nth-child(n + 3) {
-    display: none;
-  }
   .top-get {
     display: none;
   }
+  .lede {
+    margin-bottom: 22px;
+    font-size: 18px;
+  }
+  .also {
+    margin-top: 14px;
+  }
+  .hero {
+    padding-top: 28px;
+    gap: 20px;
+  }
   .hero-demo,
-  .desk {
-    min-height: 420px;
-    height: 420px;
+  .stage {
+    min-height: 346px;
+    height: 346px;
   }
   .term {
-    left: 14px;
-    top: 14px;
-    width: calc(100% - 28px);
-    height: 40%;
+    display: none;
+  }
+  .btn.demo-pause {
+    left: 0;
+    top: auto;
+    bottom: 0;
+    padding: 0;
+    color: var(--fg-2);
+  }
+  .btn.demo-pause:hover {
+    background: none;
+    color: var(--fg);
   }
   .pet-spot {
-    left: 10px;
-    right: 8px;
-    justify-content: flex-end;
+    position: static;
+    display: block;
   }
   .demo-card,
   .demo-card.is-ask {
-    flex: 1;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
     width: auto;
-    min-width: 0;
-    margin-bottom: 30px;
+    margin: 0;
   }
-  .lede {
-    font-size: 17.5px;
+  .demo-pet {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+  }
+  .get {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 80px;
+  }
+  .get-pet {
+    justify-self: end;
+    grid-row: 1;
+  }
+  .trust {
+    padding-top: 80px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .caret,
   .mark.is-running,
-  .demo-card,
-  .shot-card {
+  .demo-card {
     animation: none;
   }
 }

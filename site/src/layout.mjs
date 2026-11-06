@@ -47,10 +47,9 @@ export function layout({ page, pages, site }) {
         <nav class="top-nav" aria-label="Site">
           <a href="${base}docs/"${page.kind === 'doc' ? ' aria-current="true"' : ''}>Docs</a>
           <a href="${base}faq/"${at({ path: 'faq/' })}>FAQ</a>
-          <a href="${base}changelog/"${at({ path: 'changelog/' })}>Changelog</a>
           <a href="${repo}">GitHub</a>
         </nav>
-        <a class="btn is-primary is-small top-get" href="${base}docs/install/">Get Kuchu</a>
+        <a class="btn${page.kind === 'home' ? '' : ' is-primary'} is-small top-get" href="${base}docs/install/">Get Kuchu</a>
       </div>
     </header>`
 

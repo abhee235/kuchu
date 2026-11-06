@@ -1,6 +1,6 @@
-// The live pet on the home page: Kuchu's own pet (from the app's source) acting out one Claude Code session beside a
-// copy of its card, with a terminal for the session; and a pet that plays its scenes when asked. Its eyes follow the
-// pointer, as they do on the desktop.
+// The live pets on the home page, all Kuchu's own pet from the app's source: one acting out a Claude Code session beside
+// a copy of its card, with a small terminal for the session; one showing how it asks for you; one that plays its scenes
+// when asked; and one that waves as you reach the end. Their eyes follow the pointer, as they do on the desktop.
 
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -16,8 +16,22 @@ const SESSION = 'Fix the failing date test'
 const PROMPT = 'fix the failing date test'
 /** How long the card waits for a click on Allow before the demo answers it itself. */
 const ASK_MS = 7000
+/** A long wait in the demo is cut into these, so that a pause takes hold at once. */
+const WAIT_SLICE_MS = 100
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const narrow = window.matchMedia('(max-width: 640px)')
+
+/** A pet's width, smaller on a phone. */
+function usePetSize(wide: number, small: number) {
+  const [size, setSize] = useState(narrow.matches ? small : wide)
+  useEffect(() => {
+    const change = () => setSize(narrow.matches ? small : wide)
+    narrow.addEventListener('change', change)
+    return () => narrow.removeEventListener('change', change)
+  }, [wide, small])
+  return size
+}
 
 function Mark({ progress }: { progress: Progress }) {
   return (
@@ -61,13 +75,31 @@ function HeroDemo() {
   const [term, setTerm] = useState<string[]>([])
   const [typed, setTyped] = useState('')
   const [asked, setAsked] = useState(0)
+  const [paused, setPaused] = useState(false)
   const answer = useRef<((c: Choice) => void) | null>(null)
+  const stage = useRef<HTMLDivElement>(null)
   const petRef = useRef<HTMLDivElement>(null)
+  // The story holds still while paused, or while nobody can see it.
+  const held = useRef({ paused: false, away: false })
+  const size = usePetSize(236, 132)
   const { look, near } = useLook(petRef)
 
   useEffect(() => {
+    const seen = new IntersectionObserver(([e]) => (held.current.away = !e.isIntersecting))
+    if (stage.current) seen.observe(stage.current)
+    return () => seen.disconnect()
+  }, [])
+
+  useEffect(() => {
     let live = true
-    const wait = (ms: number) => new Promise<void>((go, stop) => setTimeout(() => (live ? go() : stop(new Error('gone'))), ms))
+    const wait = async (ms: number) => {
+      for (let left = ms; left > 0; ) {
+        const slice = Math.min(left, WAIT_SLICE_MS)
+        await new Promise((go) => setTimeout(go, slice))
+        if (!live) throw new Error('gone')
+        if (!held.current.paused && !held.current.away && !document.hidden) left -= slice
+      }
+    }
     const say = (line: string) => setTerm((t) => [...t, line])
     const steps: Step[] = []
     const show = () => setCard({ kind: 'steps', steps: [...steps] })
@@ -88,7 +120,7 @@ function HeroDemo() {
         setTyped('')
         setCard(null)
         setMood('idle')
-        await wait(2200)
+        await wait(1400)
         for (let i = 1; i <= PROMPT.length; i++) {
           setTyped(PROMPT.slice(0, i))
           await wait(reduced() ? 0 : 55)
@@ -145,9 +177,13 @@ function HeroDemo() {
   }, [])
 
   const choose = (c: Choice) => answer.current?.(c)
+  const pause = () => {
+    held.current.paused = !paused
+    setPaused(!paused)
+  }
 
   return (
-    <div className="desk" role="group" aria-label="A demo of Kuchu following a Claude Code session">
+    <div ref={stage} className="stage" role="group" aria-label="A demo of Kuchu following a Claude Code session">
       <div className="term" aria-hidden="true">
         <div className="term-bar">
           <span />
@@ -168,6 +204,9 @@ function HeroDemo() {
           </div>
         </div>
       </div>
+      <button type="button" className="btn is-small is-quiet demo-pause" aria-pressed={paused} onClick={pause}>
+        {paused ? 'Play demo' : 'Pause demo'}
+      </button>
       <div className="pet-spot">
         {card && (
           <div className={`demo-card${card.kind === 'ask' ? ' is-ask' : ''}`}>
@@ -214,7 +253,7 @@ function HeroDemo() {
           </div>
         )}
         <div ref={petRef} className="demo-pet">
-          <Pet size={112} mood={mood} look={look} near={near} asked={asked} lively />
+          <Pet size={size} mood={mood} look={look} near={near} asked={asked} lively />
         </div>
       </div>
     </div>
@@ -236,6 +275,7 @@ function PlayPet() {
   const [asked, setAsked] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const size = usePetSize(204, 156)
   const { look, near } = useLook(ref)
   const play = (name: string) => {
     clearTimeout(timer.current)
@@ -249,7 +289,7 @@ function PlayPet() {
   return (
     <div className="play">
       <div ref={ref} className="play-pet">
-        <Pet size={128} look={scene ? undefined : look} near={near} scene={scene} asked={asked} lively />
+        <Pet size={size} look={scene ? undefined : look} near={near} scene={scene} asked={asked} lively />
       </div>
       <div className="play-buttons" role="group" aria-label="Make Kuchu play">
         {SCENES.map(([name, label]) => (
@@ -262,7 +302,32 @@ function PlayPet() {
   )
 }
 
+/** Waves as it comes into view, the page's goodbye. */
+function WavePet() {
+  const [asked, setAsked] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+  const size = usePetSize(168, 124)
+  const { look, near } = useLook(ref)
+  useEffect(() => {
+    const seen = new IntersectionObserver(([e]) => e.isIntersecting && setAsked(Date.now()), { threshold: 0.6 })
+    if (ref.current) seen.observe(ref.current)
+    return () => seen.disconnect()
+  }, [])
+  return (
+    <div ref={ref}>
+      <Pet size={size} look={look} near={near} asked={asked} lively />
+    </div>
+  )
+}
+
+const PETS: Record<string, React.ReactNode> = {
+  hero: <HeroDemo />,
+  play: <PlayPet />,
+  needs: <Pet size={76} mood="needs" />,
+  wave: <WavePet />,
+}
+
 for (const el of document.querySelectorAll<HTMLElement>('[data-pet]')) {
   el.replaceChildren()
-  createRoot(el).render(el.dataset.pet === 'play' ? <PlayPet /> : <HeroDemo />)
+  createRoot(el).render(PETS[el.dataset.pet ?? 'hero'])
 }

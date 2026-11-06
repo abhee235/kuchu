@@ -4,121 +4,76 @@ description: Kuchu is a free desk pet for Claude Code on Windows and macOS. It s
 ---
 <section class="hero">
   <div class="hero-copy">
-    <h1>A desk&nbsp;pet for Claude&nbsp;Code</h1>
-    <p class="lede">Kuchu sits above your windows and shows what every Claude Code session is doing. It thinks while
-    Claude reads, works while tools run, and asks you when Claude needs a yes.</p>
-    <div class="actions">
-      <a class="btn is-primary is-large" href="{{STORE}}">Get it from the Microsoft Store</a>
-      <a class="btn is-large" href="{{BASE}}docs/install/">More ways to install</a>
-    </div>
-    <p class="fine">Free and open source, for Windows 10 and 11, with macOS in preview. Kuchu needs Claude Code,
-    installed separately.</p>
+    <h1>A desk&nbsp;pet for&nbsp;Claude&nbsp;Code</h1>
+    <p class="lede">It shows what Claude is doing, and lets you say yes without switching windows.</p>
+    <a class="btn is-primary is-large" href="{{STORE}}">Get it from the Microsoft Store</a>
+    <p class="also"><a href="{{BASE}}docs/install/">Or download for Windows and macOS (preview)</a></p>
+    <p class="fine">Free and open source. Needs Claude Code.</p>
   </div>
   <div class="hero-demo" data-pet="hero">
-    <img class="still" src="{{BASE}}icon-180.png" width="112" height="112" alt="Kuchu, a small white robot with an orange antenna">
+    <img class="still" src="{{BASE}}icon-180.png" width="180" height="180" alt="Kuchu, a small white robot with an orange antenna">
   </div>
 </section>
 
-<section class="feature">
-  <div class="feature-copy">
-    <h2>Every session, at a glance</h2>
-    <p>Each Claude Code session gets a card beside the pet: what it is about, and what Claude is doing now, step by
-    step. A ring while a step runs, a check once it is done. When Claude finishes, the card shows the first line of its
-    answer.</p>
-    <p>With several sessions at work, <strong>+N</strong> lists the others. Click one and the card follows it. Click
-    the pet for all your sessions, or press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd> from anywhere.</p>
-    <p><a href="{{BASE}}docs/cards/">How the card works</a></p>
-  </div>
-  <figure class="feature-shot" aria-label="A card for a session at work, with two more sessions behind it">
-    <div class="shot-card">
-      <strong>Add dark mode to settings</strong>
-      <span><span class="mark is-done" role="img" aria-label="Done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>Reading src/theme.ts</span>
-      <span><span class="mark is-done" role="img" aria-label="Done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>Editing src/theme.ts</span>
-      <span class="is-now"><span class="mark is-running" role="img" aria-label="Running"></span>Running npm test</span>
-      <b class="shot-more" aria-label="2 more sessions at work">+2</b>
-    </div>
-  </figure>
-</section>
-
-<section class="feature is-flipped">
-  <div class="feature-copy">
-    <h2>Say yes from the card</h2>
-    <p>When Claude Code asks to run a command or change a file, the request shows on Kuchu with Allow and Deny. You see
-    the whole command before you allow it; if it is too long for the card, Kuchu offers no Allow and leaves it to
-    Claude Code.</p>
-    <p>Nothing is allowed without your click. If you don't answer, Claude Code asks in its own window, as it always
-    does.</p>
-    <p><a href="{{BASE}}docs/permissions/">About permission requests</a></p>
-  </div>
-  <figure class="feature-shot" aria-label="A permission request on Kuchu's card">
-    <div class="shot-card is-ask">
-      <div class="ask-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/></svg><strong>Release notes</strong></div>
-      <div class="ask-where">C:\Users\you\projects\website</div>
-      <div class="ask-what">Running a command</div>
-      <code class="ask-detail">git push origin release-notes</code>
-      <div class="ask-buttons">
-        <span class="btn is-primary is-small">Allow</span>
-        <span class="btn is-small">Deny</span>
-        <span class="btn is-small is-quiet">In Claude Code</span>
+<section class="gains" aria-label="What Kuchu does for you">
+  <article class="gain">
+    <div class="gain-shot">
+      <div class="shot-needs">
+        <div class="shot-card is-line"><strong>Release notes</strong><span>Has a question for you</span></div>
+        <div class="mini-pet" data-pet="needs"></div>
       </div>
     </div>
-  </figure>
+    <h2>Know when Claude needs you</h2>
+    <p>It waves the moment a session is waiting, so you can stop watching the terminal.</p>
+  </article>
+  <article class="gain">
+    <div class="gain-shot">
+      <div class="shot-card is-ask">
+        <div class="ask-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/></svg><strong>Release notes</strong></div>
+        <div class="ask-what">Running a command</div>
+        <code class="ask-detail">git push origin release-notes</code>
+        <div class="ask-buttons">
+          <span class="btn is-primary is-small">Allow</span>
+          <span class="btn is-small">Deny</span>
+        </div>
+      </div>
+    </div>
+    <h2>Say yes from the card</h2>
+    <p>Allow or deny a request in one click, and see the whole command first.</p>
+  </article>
+  <article class="gain">
+    <div class="gain-shot">
+      <div class="shot-card">
+        <strong>Add dark mode to settings</strong>
+        <span><span class="mark is-done" role="img" aria-label="Done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>Reading src/theme.ts</span>
+        <span><span class="mark is-done" role="img" aria-label="Done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>Editing src/theme.ts</span>
+        <span class="is-now"><span class="mark is-running" role="img" aria-label="Running"></span>Running npm test</span>
+        <b class="shot-more" aria-label="2 more sessions at work">+2</b>
+      </div>
+    </div>
+    <h2>Every session at a glance</h2>
+    <p>One card for each session, showing what Claude is doing right now.</p>
+  </article>
 </section>
 
-<section class="feature is-life">
-  <div class="feature-copy">
-    <h2>A life of its own</h2>
-    <p>With no work to show, Kuchu stretches, yawns, looks around, dances, flips its screen or takes a short walk, and
-    naps after a few quiet minutes. It waves hello when you send Claude a message. Drag it and it walks; stroke it
-    with your pointer and it likes it.</p>
-    <p>It never takes the focus, and clicks go through everywhere but the pet and its cards.</p>
+<section class="life">
+  <h2>A life of its own</h2>
+  <p>With no work to show, it stretches, dances and naps. Try it.</p>
+  <div data-pet="play"></div>
+</section>
+
+<section class="trust">
+  <p class="trust-line">Collects nothing. Open source. No admin rights. Shows every change before making it.</p>
+  <p class="trust-links"><a href="{{BASE}}privacy/">Privacy policy</a><a href="{{BASE}}docs/how-it-works/">How it works</a></p>
+</section>
+
+<section class="get" id="install">
+  <div class="get-copy">
+    <h2>Get Kuchu</h2>
+    <p class="fine">For Windows 10 and 11, with macOS in preview. Needs Claude Code, installed separately.</p>
+    <a class="btn is-primary is-large" href="{{STORE}}">Get it from the Microsoft Store</a>
+    <p class="also">Or say this to Claude Code:</p>
+    <div class="say"><code>Install Kuchu from https://github.com/abhee235/kuchu</code><button type="button" class="btn is-small" data-copy="Install Kuchu from https://github.com/abhee235/kuchu">Copy</button></div>
   </div>
-  <div class="feature-shot" data-pet="play"></div>
-</section>
-
-<section class="plain">
-  <h2>Talk to Claude from Kuchu</h2>
-  <p>Start a conversation in any folder from your sessions list. Kuchu runs your own Claude Code for it, so Claude
-  answers under your own Claude account. Stop it any time, or carry it on in a terminal. <a href="{{BASE}}docs/conversations/">About conversations</a></p>
-  <h2>Yours alone</h2>
-  <p>Kuchu collects nothing and sends nothing anywhere: no account, no analytics, no ads. It installs for your account
-  only, never runs as a service or with administrator rights, and shows you every change to Claude Code's settings
-  before making it. <a href="{{BASE}}privacy/">The privacy policy</a> and <a href="{{BASE}}docs/how-it-works/">how
-  it works</a> say exactly what it reads.</p>
-</section>
-
-<section class="install" id="install">
-  <h2>Install Kuchu</h2>
-  <div class="ways">
-    <div class="way">
-      <h3>Windows, from the Microsoft Store</h3>
-      <p>Signed by Microsoft, so Windows opens it without a warning, and it updates itself.</p>
-      <a class="btn is-primary" href="{{STORE}}">Get it from the Microsoft Store</a>
-    </div>
-    <div class="way">
-      <h3>Windows or Mac, from GitHub</h3>
-      <p>The installer for Windows (x64 or Arm), or the app for macOS, from the latest release.</p>
-      <a class="btn" href="{{RELEASES}}">Download from GitHub</a>
-    </div>
-    <div class="way">
-      <h3>Or ask Claude Code</h3>
-      <p>Say this in any session. It downloads the latest release, checks it, and installs it for your account.</p>
-      <div class="say"><code>Install Kuchu from https://github.com/abhee235/kuchu</code><button type="button" class="btn is-small" data-copy="Install Kuchu from https://github.com/abhee235/kuchu">Copy</button></div>
-    </div>
-  </div>
-  <p class="then">Then, in the Settings Kuchu opens the first time, click <strong>Connect</strong>. <a href="{{BASE}}docs/">Getting started</a></p>
-</section>
-
-<section class="plain faq-teaser">
-  <h2>Questions</h2>
-  <h3>Is Kuchu made by Anthropic?</h3>
-  <p>No. Kuchu is an independent, open-source app that works with Claude Code. It is not made or endorsed by
-  Anthropic.</p>
-  <h3>Can Kuchu allow something without me?</h3>
-  <p>Never. A request is allowed only by your click. If you don't answer, it goes back to Claude Code, which asks in
-  its own window.</p>
-  <h3>Does it slow Claude Code down?</h3>
-  <p>No. Claude Code hands each event to a tiny helper that passes it to Kuchu and exits at once. If Kuchu is not
-  running, the helper does nothing.</p>
-  <p><a href="{{BASE}}faq/">More questions and answers</a></p>
+  <div class="get-pet" data-pet="wave"></div>
 </section>
