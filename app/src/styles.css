@@ -1381,6 +1381,27 @@ kbd {
 .choice-picture.is-size {
   padding-bottom: 8px;
 }
+/* A pet on its way: seen, but not yet to choose. */
+.choice.is-coming,
+.choice.is-coming:hover {
+  background: var(--composer);
+  color: var(--fg);
+  cursor: default;
+}
+.choice.is-coming img {
+  display: block;
+  height: 84px;
+}
+.choice-soon {
+  padding: 1px 8px;
+  border: 0.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--composer);
+  color: var(--fg-2);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  line-height: 16px;
+}
 .mini-card {
   position: absolute;
   top: 12px;

@@ -1,16 +1,30 @@
-// Kuchu's Settings: the pet (size, see-through, sounds, starting at sign-in), what shows beside it and what a click
+// Kuchu's Settings: the pet (which one, size, see-through, sounds, starting at sign-in), what shows beside it and what a click
 // opens, connecting to Claude Code (the change to settings.json shown before it is made, a copy kept), and permission
 // requests. Each change reaches the pet at once.
 
 import { Bot, CircleAlert, CircleCheck, MessageSquareText, Plug, ShieldCheck, TriangleAlert, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { core, on, SIZES, type HookPlan, type HookReport, type Prefs, type Start } from './api'
-import { Pet } from './pet/Pet'
+import { Pet, type PetKind } from './pet/Pet'
+import robot3d from './pet/robot3d.webp'
 import type { PetMood } from './pet/petMood'
 import { playTone, TONE_MOODS } from './pet/petSound'
 import { StepMark } from './StepMark'
 
 type Tab = 'pet' | 'beside' | 'claude' | 'requests'
+
+/** The pets in the gallery: each one's name, and what sets it apart. */
+const PETS: readonly { pet: PetKind; name: string; about: string }[] = [
+  { pet: 'robot', name: 'Robot', about: 'One lit eye, and a pointer for the other.' },
+  { pet: 'cat', name: 'Cat', about: 'A ginger tabby with a bell.' },
+  { pet: 'dog', name: 'Dog', about: 'A brown pup with a patch over one eye.' },
+  { pet: 'owl', name: 'Owl', about: 'Huge amber eyes that miss nothing.' },
+  { pet: 'frog', name: 'Frog', about: 'Eyes on top and a very wide smile.' },
+  { pet: 'duck', name: 'Duck', about: 'You explain your bugs to it.' },
+]
+
+/** Pets on their way: in the gallery, with no way to choose them yet. To open one, give it a `pet` and move it up to PETS. */
+const COMING: readonly { name: string; about: string; picture: string }[] = [{ name: '3D robot', about: 'A real 3D pet on two wheels.', picture: robot3d }]
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'pet', label: 'Pet', icon: <Bot /> },
@@ -60,6 +74,29 @@ export function SettingsWindow() {
         <div className="settings-rows">
           {tab === 'pet' && (
             <>
+              <Row label="Your pet" desc="Who sits on your desk. Each does all the same things, with its own face." stacked>
+                <div className="choices" role="radiogroup" aria-label="Your pet">
+                  {PETS.map(({ pet, name, about }) => (
+                    <button key={pet} type="button" role="radio" aria-checked={prefs.pet === pet} className="choice" onClick={() => set({ pet })}>
+                      <span className="choice-picture is-size">
+                        <Pet kind={pet} size={64} mood="idle" />
+                      </span>
+                      <span className="choice-name">{name}</span>
+                      <span className="muted">{about}</span>
+                    </button>
+                  ))}
+                  {COMING.map(({ name, about, picture }) => (
+                    <button key={name} type="button" role="radio" aria-checked="false" aria-disabled="true" disabled className="choice is-coming">
+                      <span className="choice-picture is-size">
+                        <img src={picture} alt="" />
+                      </span>
+                      <span className="choice-name">{name}</span>
+                      <span className="muted">{about}</span>
+                      <span className="choice-soon">Coming soon</span>
+                    </button>
+                  ))}
+                </div>
+              </Row>
               <Row label="Size" desc="How big Kuchu is on your screen." stacked>
                 <div className="choices" role="radiogroup" aria-label="Size">
                   {(['small', 'base', 'big'] as const).map((size) => (
@@ -78,7 +115,7 @@ export function SettingsWindow() {
               </Row>
               <Row
                 label="Plays when there is no work"
-                desc="Now and then Kuchu stretches, yawns, looks around, taps a foot, flips its screen, whistles, glitches, pops its head up or takes a short walk. After a few quiet minutes it naps; your pointer or a session wakes it."
+                desc="Now and then Kuchu stretches, yawns, looks around, taps a foot, flips its face, whistles, pops its head up or takes a short walk. After a few quiet minutes it naps; your pointer or a session wakes it."
               >
                 <Toggle label="Plays when there is no work" on={prefs.lively} set={(lively) => set({ lively })} />
               </Row>
