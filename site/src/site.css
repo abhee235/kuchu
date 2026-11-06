@@ -1060,6 +1060,23 @@ p {
   font-size: 14px;
 }
 
+/* ── Larger screens ───────────────────────────────────────────────────────────────────────────────────────────────
+
+   The home page is one composition: scaled up as a whole it keeps its proportions, where a wider column would only spread
+   it thin. A big monitor at normal scaling would otherwise show it as a small strip down the middle. Only where the screen
+   is tall enough for the pet to stay in the first view. The docs keep their size: they are for reading. */
+
+@media (min-width: 1700px) and (min-height: 1020px) {
+  .is-home {
+    zoom: 1.2;
+  }
+}
+@media (min-width: 2200px) and (min-height: 1200px) {
+  .is-home {
+    zoom: 1.4;
+  }
+}
+
 /* ── Smaller screens ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /* Below this the words stack, and the editor gives the pet less room beside it. */
