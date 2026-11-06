@@ -213,6 +213,8 @@ impl Kuchu {
                 }
             }
         }
+        // A list or a card beside the pet may stay open through this: its room is not what it was.
+        let _ = window.emit("kuchu://reach", list_reach(self, window));
         // The pet moved with the sessions list open: the list moves out of its way.
         let app = window.app_handle();
         if let Some(list) = app.get_webview_window("sessions").filter(|l| l.is_visible().unwrap_or(false)) {
