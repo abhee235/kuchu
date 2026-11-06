@@ -50,6 +50,10 @@ const LIST_GAP_PX = 6
 const LIST_PAD_PX = 8
 /** The room the window gains above the pet while a card shows, and the pet's margins in its box (as in lib.rs). */
 const CARD_H_PX = 210
+/** How far a card keeps from the top of the window (`.beside` in styles.css). */
+const BESIDE_TOP_PX = 8
+/** The parts of a permission card that scroll, and so give way when the screen has no more room. */
+const CARD_SCROLLS = '.approval-what, .approval-detail, .approval-rule'
 const BOX_MARGIN_PX = 14 + 22
 
 const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
@@ -183,9 +187,9 @@ export function PetWindow() {
   return (
     <div ref={stageRef} className={`stage ${side}${wide ? ' is-wide' : ''}`} style={stage}>
       {wide && (
-        <div ref={sideRef} className="beside">
+        <div ref={sideRef} className={`beside${approval ? ' is-asking' : ''}`}>
           {approval ? (
-            <ApprovalCard key={approval.id} approval={approval} more={view.approvals.length - 1} />
+            <ApprovalCard key={approval.id} approval={approval} more={view.approvals.length - 1} boxH={height + BOX_MARGIN_PX} onBelow={(b) => (below.current = b)} />
           ) : (
             card && (
               <SessionCard
@@ -437,8 +441,39 @@ function Steps({ line, progress, lines, few, answer = false, needs = false }: {
 }
 
 /** A permission request: what it wants to do, on what, and the choices. Nothing is decided without a click. */
-function ApprovalCard({ approval, more }: { approval: Approval; more: number }) {
+function ApprovalCard({ approval, more, boxH, onBelow }: { approval: Approval; more: number; boxH: number; onBelow: (below: boolean) => void }) {
   const shownAt = useRef(0)
+  // As tall as it needs: the window grows up for it, as it does for the list of sessions, or, for a pet high on its
+  // screen, down, the card reaching down beside the pet. Where the screen has no more room, the parts that scroll give
+  // way and the buttons stay. Measured after every layout, so again as the window grows.
+  const cardRef = useRef<HTMLDivElement>(null)
+  const asked = useRef('0:false')
+  const [reach, setReach] = useState<[number, number] | null>(null)
+  useEffect(() => void core.listRoom().then(setReach), [])
+  useLayoutEffect(
+    () => () => {
+      void core.setRoom(0, false)
+      onBelow(false)
+    },
+    [],
+  )
+  useLayoutEffect(() => {
+    const el = cardRef.current
+    if (!el?.parentElement || !reach) return
+    const wanted = [...el.querySelectorAll<HTMLElement>(CARD_SCROLLS)].reduce((h, part) => {
+      const most = parseFloat(getComputedStyle(part).maxHeight) || Infinity
+      return h + Math.min(part.scrollHeight, most) - part.clientHeight
+    }, el.offsetHeight)
+    // The room the window has before it grows: how far it has grown already does not come into it.
+    const under = window.innerHeight - el.parentElement.getBoundingClientRect().bottom
+    const need = Math.ceil(Math.max(0, wanted - (boxH + CARD_H_PX - under - BESIDE_TOP_PX)))
+    const down = reach[0] < need && reach[1] > reach[0]
+    onBelow(down)
+    const key = `${need}:${down}`
+    if (key === asked.current) return
+    asked.current = key
+    void core.setRoom(need, down)
+  })
   useEffect(() => {
     // Told once it is on the screen; until then the request is the terminal's.
     const frame = requestAnimationFrame(() => {
@@ -453,7 +488,7 @@ function ApprovalCard({ approval, more }: { approval: Approval; more: number }) 
   }
   const what = approval.kind === 'question' ? approval.question?.text || 'Has a question for you' : approval.kind === 'plan' ? 'Has a plan ready' : approval.title
   return (
-    <div className="approval" role="alertdialog" aria-label={`${approval.project}: ${what}`}>
+    <div ref={cardRef} className="approval" role="alertdialog" aria-label={`${approval.project}: ${what}`}>
       <div className="approval-head">
         {approval.kind === 'question' ? <MessageCircleQuestion size={18} /> : <ShieldAlert size={18} />}
         <span className="name">{approval.project}</span>
@@ -463,7 +498,7 @@ function ApprovalCard({ approval, more }: { approval: Approval; more: number }) 
       <div className="approval-what">{what}</div>
       {approval.detail && approval.kind !== 'question' && <pre className="approval-detail">{approval.detail}</pre>}
       {!approval.whole && <div className="approval-note">Too long for the card: answer it in Claude Code.</div>}
-      <div className="approval-actions">
+      <div className={`approval-actions${approval.whole && approval.always ? ' is-pairs' : ''}`}>
         {approval.kind === 'question' && approval.question ? (
           approval.question.options.map((o, i) => (
             <button key={o} type="button" className={`btn is-small${i === 0 ? ' is-primary' : ''}`} onClick={() => choose('answer', o)}>
@@ -493,7 +528,7 @@ function ApprovalCard({ approval, more }: { approval: Approval; more: number }) 
       </div>
       {approval.whole && approval.always && (
         <div className="approval-rule">
-          “{approval.always.label}” allows <code>{approval.always.what}</code>, {approval.always.scope}.
+          “{approval.always.label}” allows {approval.always.code ? <code>{approval.always.what}</code> : approval.always.what}, {approval.always.scope}.
         </div>
       )}
     </div>

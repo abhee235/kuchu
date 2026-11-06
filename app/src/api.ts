@@ -68,8 +68,9 @@ export interface Approval {
   detail: string
   /** Whether `detail` is all of it. When it is not, Allow is not offered. */
   whole: boolean
-  /** Claude Code's own "don't ask again" offer: the button's label, what it allows, and where that is kept. */
-  always?: { label: string; what: string; scope: string } | null
+  /** Claude Code's own "don't ask again" offer: the button's label, what it allows, where that is kept, and whether
+      what it allows is a rule to show as code rather than words. */
+  always?: { label: string; what: string; scope: string; code: boolean } | null
   question?: { text: string; options: string[] } | null
 }
 

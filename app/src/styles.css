@@ -168,6 +168,11 @@ html[data-window='settings'] body {
   flex-direction: column;
   justify-content: flex-end;
 }
+/* Where the window grows down for a permission card, the card goes with it, past the pet, which stays where it was. */
+.beside.is-asking {
+  bottom: calc(14px + var(--pet-h) * 0.5);
+  max-height: calc(100% - 14px - var(--pet-h) * 0.5 - 8px);
+}
 /* Beside the pet with a small gap: the pet is 16 px in from its side, the card 8 px clear of it. */
 .stage.is-right .beside {
   right: calc(var(--pet-w) + 24px);
@@ -455,7 +460,10 @@ html[data-window='settings'] body {
   overflow-wrap: anywhere;
 }
 .approval-what {
+  flex: 0 1 auto;
+  min-height: 20px;
   margin-top: 10px;
+  overflow-y: auto;
   font-size: var(--text-label);
   line-height: 20px;
   color: var(--fg-2);
@@ -468,15 +476,21 @@ html[data-window='settings'] body {
   line-height: 18px;
   color: var(--amber-fg);
 }
-/* What "Always" would do, in full, under the buttons. */
+/* What "Always" would do, in full, under the buttons. A long rule scrolls in its own few lines. */
 .approval-rule {
+  flex: 0 1 auto;
+  min-height: 16px;
+  max-height: 64px;
   margin-top: 10px;
+  overflow-y: auto;
   font-size: var(--text-caption);
   line-height: 16px;
   color: var(--fg-3);
   overflow-wrap: anywhere;
 }
 .approval-rule code {
+  padding: 0;
+  background: none;
   font-family: 'Geist Mono Variable', ui-monospace, 'Cascadia Code', Consolas, monospace;
   color: var(--fg-2);
 }
@@ -495,10 +509,20 @@ html[data-window='settings'] body {
 }
 .approval-actions {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-top: 14px;
+}
+.approval-actions .btn.is-quiet {
+  padding-inline: 6px;
+}
+/* With an "Always" button there are four: two rows of two, each in line with the other. */
+.approval-actions.is-pairs {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-items: start;
 }
 
 @keyframes card-in {
@@ -780,7 +804,10 @@ html[data-window='settings'] body {
 /* Thin scrollbars, the hairline's colour. */
 .list,
 .talk,
-.folders {
+.folders,
+.approval-what,
+.approval-detail,
+.approval-rule {
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
