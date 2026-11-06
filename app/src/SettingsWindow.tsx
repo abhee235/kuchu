@@ -23,8 +23,10 @@ export function SettingsWindow() {
   const [prefs, setPrefs] = useState<Prefs | null>(null)
   const [hooks, setHooks] = useState<HookReport | null>(null)
   const [tab, setTab] = useState<Tab>('pet')
+  const [version, setVersion] = useState('')
   useEffect(() => {
     void core.prefs().then(setPrefs)
+    void core.version().then(setVersion)
     void core.hooksStatus().then((h) => {
       setHooks(h)
       if (h.state !== 'installed') setTab('claude')
@@ -42,6 +44,7 @@ export function SettingsWindow() {
         <span className="brand">
           <Pet size={24} mood="idle" />
           Kuchu
+          <span className="brand-version">{version}</span>
         </span>
         {TABS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className="tab" onClick={() => setTab(t.id)}>

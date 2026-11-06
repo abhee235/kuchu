@@ -1206,6 +1206,11 @@ kbd {
   padding: 0 10px;
   margin-bottom: 6px;
 }
+.brand-version {
+  font-size: var(--text-caption);
+  font-weight: 400;
+  color: var(--fg-3);
+}
 .tab {
   display: flex;
   align-items: center;
