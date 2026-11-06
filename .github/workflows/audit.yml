@@ -32,3 +32,6 @@ jobs:
       - name: npm audit, against package-lock.json
         working-directory: app
         run: npm audit --audit-level=high
+      - name: npm audit, the website's package-lock.json
+        working-directory: site
+        run: npm audit --audit-level=high
