@@ -13,6 +13,10 @@ path = "src/main.rs"
 kuchu-wire = { path = "../wire" }
 serde_json = "1"
 
+[build-dependencies]
+# The Visual C++ runtime built in (build.rs): the relay must start on a PC that never installed it.
+static_vcruntime = "3"
+
 [features]
 # `kuchu-relay record`, which writes raw payloads to disk to learn what Claude Code sends: only in a relay built with
 # `--features record`, never in a release.
