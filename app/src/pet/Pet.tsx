@@ -15,16 +15,24 @@
 // pointer moved to and fro over it).
 // Its eyes and head follow the pointer. Asked for less motion, it keeps its expressions and drops the movement.
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import './pet.css'
 import { CatBody } from './CatBody'
+import { DogBody } from './DogBody'
+import { DuckBody } from './DuckBody'
+import { FrogBody } from './FrogBody'
+import { OwlBody } from './OwlBody'
 import type { PetMood } from './petMood'
 import { FLIP, play, SPIN } from './turn'
 
 /** The drawing: 120 wide, 154 tall from y = -14 (room for the thought bubble). */
 const RATIO = 154 / 120
 /** The pets there are. */
-export type PetKind = 'robot' | 'cat'
+export type PetKind = 'robot' | 'cat' | 'dog' | 'owl' | 'frog' | 'duck'
+/** The pet the user chose: what every drawing shows unless it names its own. */
+export const ChosenPet = createContext<PetKind>('robot')
+/** Each pet's own drawing, but for the robot, whose is the one all the others are built on. */
+const BODIES = { cat: CatBody, dog: DogBody, owl: OwlBody, frog: FrogBody, duck: DuckBody }
 /** The wink's pointer, at the screen's right eye. */
 const POINTER = 'M66 39 v13.2 l3.5 -3.1 l2.4 5.4 l2.3 -1 l-2.3 -5.2 h4.25 Z'
 /** A heart, 12 wide, its centre at 0, 0. */
@@ -138,8 +146,8 @@ function useMoment(on: boolean, idle: boolean): string | null {
 
 /** Kuchu's own life while there is no work: a scene now and then (never the same twice running), nodding off into a
  *  nap after a long quiet, and a start and a yawn when woken. `stroll` walks it `dx` px and back, and says how far it
- *  really went. */
-function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<number>) {
+ *  really went. `screen`: it has a screen to glitch; on an animal the scene would leave a head with no face. */
+function useLife(on: boolean, near: boolean, screen: boolean, stroll?: (dx: number) => Promise<number>) {
   const [activity, setActivity] = useState<Activity | null>(null)
   const [pace, setPace] = useState(0)
   const [asleep, setAsleep] = useState(false)
@@ -148,6 +156,8 @@ function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<nu
   const quietSince = useRef(Date.now())
   const nearNow = useRef(near)
   nearNow.current = near
+  const hasScreen = useRef(screen)
+  hasScreen.current = screen
 
   useEffect(() => {
     if (near || !on) quietSince.current = Date.now()
@@ -192,7 +202,9 @@ function useLife(on: boolean, near: boolean, stroll?: (dx: number) => Promise<nu
           setActivity('drowsy')
           return after(DROWSY_MS, () => setAsleep(true))
         }
-        const choices = (Object.keys(ACTIVITIES) as Activity[]).filter((a) => a !== last && (a !== 'stroll' || (stroll && !still)))
+        const choices = (Object.keys(ACTIVITIES) as Activity[]).filter(
+          (a) => a !== last && (a !== 'stroll' || (stroll && !still)) && (a !== 'glitch' || hasScreen.current),
+        )
         const pick = choices[Math.floor(Math.random() * choices.length)]!
         last = pick
         if (pick !== 'stroll') {
@@ -500,7 +512,7 @@ function RobotBody({ u }: { u: (name: string) => string }) {
 
 export function Pet({
   size,
-  kind = 'robot',
+  kind: named,
   mood = 'idle',
   look,
   float = false,
@@ -514,7 +526,7 @@ export function Pet({
   stroll,
 }: {
   size: number
-  /** Which pet it is. Each has its own drawing and face, on one skeleton. */
+  /** Which pet it is, if not the chosen one. Each has its own drawing and face, on one skeleton. */
   kind?: PetKind
   mood?: PetMood
   look?: { x: number; y: number }
@@ -535,7 +547,10 @@ export function Pet({
   scene?: string
   stroll?: (dx: number) => Promise<number>
 }) {
-  const own = useLife(lively && mood === 'idle', near || over, stroll)
+  const chosen = useContext(ChosenPet)
+  const kind = named ?? chosen
+  const Body = kind === 'robot' ? null : BODIES[kind]
+  const own = useLife(lively && mood === 'idle', near || over, kind === 'robot', stroll)
   const life = scene ? { ...own, activity: scene as Activity, asleep: false } : own
   const loved = usePetted(petted)
   // Hello comes first: the thinking it set off shows once the wave is over.
@@ -562,7 +577,7 @@ export function Pet({
   } as React.CSSProperties
   const classes = [
     'pet',
-    kind !== 'robot' && `is-${kind}`,
+    kind !== 'robot' && `is-creature is-${kind}`,
     `is-${shown}`,
     (beat || insight) && 'is-t',
     beat && !insight && `is-t-${beat}`,
@@ -694,7 +709,7 @@ export function Pet({
             <path className="pet-love-heart pet-love2" d={HEART} />
           </g>
         </g>
-        {kind === 'cat' ? <CatBody id={id} u={u} heart={HEART} /> : <RobotBody u={u} />}
+        {Body ? <Body id={id} u={u} heart={HEART} /> : <RobotBody u={u} />}
         {/* Whistling: notes rising past the top of its head, in front of it. */}
         <g className="pet-notes">
           <g className="pet-note">

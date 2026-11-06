@@ -3,6 +3,7 @@
 // part and its collar bell the antenna's light. What only a cat has, its tail and its own settings of those parts, is in cat.css.
 
 import './cat.css'
+import './creature.css'
 
 /** One of its eyes: an amber iris, a slit of a pupil, and the light caught in it. */
 function Eye({ x, u }: { x: number; u: (name: string) => string }) {
