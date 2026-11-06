@@ -5,6 +5,7 @@
 mod alive;
 mod chat;
 mod hooks;
+mod host;
 mod hub;
 mod install;
 mod locks;
@@ -337,6 +338,7 @@ pub fn run() {
             set_prefs,
             pet_clicked,
             forget,
+            open_app,
             decide,
             approval_shown,
             set_wide,
@@ -683,6 +685,12 @@ fn forget(app: AppHandle, session: String) {
     let k = kuchu(&app);
     k.hub.forget(&session);
     k.chats.forget(&session);
+}
+
+/// A click on a card's button: the app that session runs in comes forward. False if it has gone, or Windows would not.
+#[tauri::command]
+fn open_app(app: AppHandle, session: String) -> bool {
+    kuchu(&app).hub.open_app(&session)
 }
 
 /// A click on a permission card. The sessions list, if open, has the focus back (the click took it), so it still hides

@@ -29,5 +29,5 @@ tauri-plugin-single-instance = "2"
 # Starting at sign-in: the current user's Run key.
 winreg = "0.56"
 # A conversation's process and everything it starts, ended together by handle (chat.rs); Kuchu started again after
-# a Store update (install.rs).
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Recovery"] }
+# a Store update (install.rs); the app a session runs in, and its window (host.rs).
+windows-sys = { version = "0.61", features = ["Wdk_System_Threading", "Win32_Foundation", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_Kernel", "Win32_System_Recovery", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

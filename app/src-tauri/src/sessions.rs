@@ -7,6 +7,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::alive::Running;
+use crate::host::Host;
 
 /// A session silent this long while it was working is taken as gone quiet (a closed terminal sends nothing).
 const QUIET_MS: u64 = 30 * 60 * 1000;
@@ -93,6 +94,9 @@ pub struct Session {
     /// Claude Code ended the session while its answer was unseen: it goes once the pet is clicked.
     #[serde(skip)]
     pub closed: bool,
+    /// The app it runs in, once found.
+    #[serde(skip)]
+    host: Option<Host>,
     #[serde(skip)]
     title: Option<String>,
     #[serde(skip)]
@@ -123,6 +127,10 @@ pub struct Card {
     pub session: String,
     /// What the session is called.
     pub title: String,
+    /// The project folder's name.
+    pub project: String,
+    /// The app it runs in, when a click can go there.
+    pub host: Option<String>,
     pub line: String,
     /// Where `line` stands, when it is a step.
     pub progress: Option<Progress>,
@@ -141,6 +149,8 @@ pub struct Card {
 pub struct Other {
     pub session: String,
     pub name: String,
+    pub project: String,
+    pub host: Option<String>,
     pub mood: Mood,
     pub line: String,
     pub progress: Option<Progress>,
@@ -202,6 +212,7 @@ impl Sessions {
             ended: None,
             turn: now,
             closed: false,
+            host: None,
             title: None,
             first_prompt: String::new(),
             name_read: 0,
@@ -414,6 +425,8 @@ impl Sessions {
             .map(|s| Other {
                 session: s.id.clone(),
                 name: s.name.clone(),
+                project: s.project.clone(),
+                host: s.host.as_ref().map(|h| h.name.clone()),
                 mood: s.mood,
                 line: s.line.clone(),
                 progress: progress_of(s),
@@ -423,6 +436,8 @@ impl Sessions {
         Some(Card {
             session: pick.id.clone(),
             title: pick.name.clone(),
+            project: pick.project.clone(),
+            host: pick.host.as_ref().map(|h| h.name.clone()),
             others,
             pinned: self.followed.as_deref() == Some(pick.id.as_str()),
             line: pick.line.clone(),
@@ -451,6 +466,26 @@ impl Sessions {
     /// What a session is called (its name, else its first message, else its folder).
     pub fn name(&self, id: &str) -> Option<String> {
         self.all.get(id).map(|s| s.name.clone())
+    }
+
+    /// Whether to look for the app `id` runs in: until it is found, and again as a session starts or takes a message, since one can be
+    /// resumed somewhere else.
+    pub fn wants_host(&self, id: &str, event: &str) -> bool {
+        matches!(event, "SessionStart" | "UserPromptSubmit") || self.all.get(id).is_none_or(|s| s.host.is_none())
+    }
+
+    /// The app `id` runs in, if one was found. One that was not leaves what is known: a relay can be gone before it is asked about.
+    /// Whether anything changed.
+    pub fn hosted_in(&mut self, id: &str, host: Option<Host>) -> bool {
+        let (Some(s), Some(host)) = (self.all.get_mut(id), host) else { return false };
+        let changed = s.host.as_ref() != Some(&host);
+        s.host = Some(host);
+        changed
+    }
+
+    /// The app `id` runs in, and the project, to tell its window among others.
+    pub fn host_of(&self, id: &str) -> Option<(Host, String)> {
+        self.all.get(id).and_then(|s| Some((s.host.clone()?, s.project.clone())))
     }
 }
 

@@ -15,6 +15,8 @@ use std::time::{Duration, Instant};
 #[cfg(windows)]
 pub use owner::OnlyMe;
 pub use owner::client_is_me;
+#[cfg(windows)]
+pub use owner::client_pid;
 
 /// The protocol's version, in every message.
 pub const VERSION: u32 = 1;
@@ -173,15 +175,19 @@ mod owner {
         }
     }
 
+    /// The process at the client end of the pipe instance `server`, as the system knows it, whatever it says of itself.
+    pub fn client_pid(server: RawHandle) -> Option<u32> {
+        let mut pid = 0u32;
+        // Safety: a connected server handle, and an out-value.
+        (unsafe { GetNamedPipeClientProcessId(server as HANDLE, &mut pid) } != 0).then_some(pid)
+    }
+
     /// Whether the process at the client end of the pipe instance `server` runs as this account. The pipe is made so
     /// that no other account can open it; this is the check on the other side of that door.
     pub fn client_is_me(server: RawHandle) -> bool {
-        // Safety: a connected server handle; the client's process is opened for its token's user, then closed.
+        let Some(pid) = client_pid(server) else { return false };
+        // Safety: the client's process is opened for its token's user, then closed.
         unsafe {
-            let mut pid = 0u32;
-            if GetNamedPipeClientProcessId(server as HANDLE, &mut pid) == 0 {
-                return false;
-            }
             let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
             if process.is_null() {
                 return false;

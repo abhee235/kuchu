@@ -131,6 +131,12 @@ the card approves where Claude writes, as Claude Code's own prompt does, and the
 20,000 characters is some 500 lines at the card's width, in a box that shows five: all of it is on the card, but only
 for someone who scrolls. A lower limit is worth weighing once real commands show how long they run.
 
+### 3a. Going to a session's app (host.rs)
+
+| | Threat | Severity | Stands today | To do |
+|---|---|---|---|---|
+| T37 | **A button that brings another app forward.** Each card offers the app its session runs in. If a message could name that app, anything reaching the pipe (T2) could steer Kuchu at any window. | Low | No message takes part. The system names the process at the other end of the pipe (`client_pid`) and its parents (read from each process's own handle, a parent started after its child being no parent), so a fake session of this account can only offer the app it itself runs under. Only apps on a short list count (`host::APPS`, the desktop app, a console's own window). A click does one thing: it brings that app's window forward, after checking its process is still that program. Nothing is started, and no path or link is opened. The session's project is compared with window titles to tell windows apart; titles are not kept. Windows lets only the program with the last input bring a window forward, and a click on a card goes to the page's process, so Kuchu sends an empty mouse input, which moves nothing. | macOS: no button yet. |
+
 ### 4. Paths named in payloads (sessions.rs `tail_of`)
 
 | | Threat | Severity | Stands today | To do |
@@ -315,6 +321,7 @@ Each is one small commit with its tests.
 | T27 | Never a service | High (design) | Fixed in be8f21a, 75153eb, aaa38b2, 50c1f9a; its check is in 306e661 |
 | T28 | The install itself | Medium | Open: needs a signing identity for Windows and macOS, which is not code; provenance (T34) meanwhile |
 | T29 | One panic ends Kuchu | Medium | Fixed in 7a1a2e0 and 306e661: locks, the garbage test, unwinding instead of aborting, the relay catching a panic and still exiting 0 |
+| T37 | A button that brings another app forward | Low | Accepted: the system names the app, never a message; only a window comes forward |
 | T30 | Kuchu gone without a word | Low | Open |
 | T31 | Secrets on the card | Low | Open |
 | T32 | What is on disk | Low | Watching: nothing from sessions |
