@@ -162,6 +162,9 @@ export type ChoiceKind = 'allow' | 'deny' | 'always' | 'answer' | 'terminal'
 
 export const SIZES = { small: 64, base: 96, big: 128 } as const
 
+/** Kuchu's own pages on its website, by name: the core holds the addresses. */
+export type SitePage = 'home' | 'docs' | 'changelog' | 'troubleshooting'
+
 export const core = {
   view: () => invoke<View>('view'),
   /** Kuchu's version, for Settings. */
@@ -198,6 +201,8 @@ export const core = {
   chatSend: (session: string, text: string) => invoke('chat_send', { session, text }),
   chatStop: (session: string) => invoke('chat_stop', { session }),
   chatTerminal: (session: string) => invoke('chat_terminal', { session }),
+  /** Opens one of Kuchu's own pages, in the browser. */
+  openPage: (page: SitePage) => invoke('open_page', { page }),
   /** Opens the page for reporting an answer from Claude, in the browser. */
   reportAnswer: () => invoke('report_answer'),
 }
