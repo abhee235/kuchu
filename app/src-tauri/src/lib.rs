@@ -314,6 +314,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             view,
+            version,
             get_prefs,
             set_prefs,
             pet_clicked,
@@ -617,6 +618,12 @@ fn show_settings(app: &AppHandle) {
 #[tauri::command]
 fn view(app: AppHandle) -> View {
     kuchu(&app).hub.view()
+}
+
+/// Kuchu's version, shown in Settings, where an update can be seen to have come.
+#[tauri::command]
+fn version(app: AppHandle) -> String {
+    app.package_info().version.to_string()
 }
 
 #[tauri::command]

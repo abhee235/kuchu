@@ -155,6 +155,8 @@ export const SIZES = { small: 64, base: 96, big: 128 } as const
 
 export const core = {
   view: () => invoke<View>('view'),
+  /** Kuchu's version, for Settings. */
+  version: () => invoke<string>('version'),
   prefs: () => invoke<Prefs>('get_prefs'),
   setPrefs: (patch: Partial<Prefs>) => invoke<Prefs>('set_prefs', { patch }),
   petClicked: () => invoke('pet_clicked'),
