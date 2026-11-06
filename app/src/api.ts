@@ -164,6 +164,10 @@ export const core = {
   decide: (id: number, kind: ChoiceKind, answer?: string) => invoke('decide', { id, choice: { kind, answer } }),
   approvalShown: (id: number) => invoke('approval_shown', { id }),
   setWide: (wide: boolean) => invoke('set_wide', { wide }),
+  /** How far the window can grow for the list of other sessions: up, and down past the pet. */
+  listRoom: () => invoke<[number, number]>('list_room'),
+  /** How much taller the window must be for the list of other sessions, above the card or below it; 0 once it closes. */
+  setRoom: (more: number, below: boolean) => invoke('set_room', { more, below }),
   setRects: (rects: { x: number; y: number; w: number; h: number }[]) => invoke('set_rects', { rects }),
   isRight: () => invoke<boolean>('is_right'),
   stroll: (dx: number) => invoke<number>('stroll', { dx }),

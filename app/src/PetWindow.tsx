@@ -48,6 +48,9 @@ const LIST_LINGER_MS = 300
 const LIST_MAX_PX = 320
 const LIST_GAP_PX = 6
 const LIST_PAD_PX = 8
+/** The room the window gains above the pet while a card shows, and the pet's margins in its box (as in lib.rs). */
+const CARD_H_PX = 210
+const BOX_MARGIN_PX = 14 + 22
 
 const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
 
@@ -139,6 +142,11 @@ export function PetWindow() {
   const sideRef = useRef<HTMLDivElement>(null)
   const sent = useRef('')
   const [, setResized] = useState(0)
+  // The window grows down past the pet for the list below a card: the pet and its card are kept where they were, in
+  // the same frame as the window's new size, so neither jumps.
+  const stageRef = useRef<HTMLDivElement>(null)
+  const below = useRef(false)
+  const boxH = useRef(0)
   useLayoutEffect(() => {
     // The list of other sessions opens above the card, outside it: it takes the mouse too.
     const parts = [petRef.current, sideRef.current, ...document.querySelectorAll<HTMLElement>('.card-others')].filter((el): el is HTMLElement => !!el)
@@ -153,7 +161,11 @@ export function PetWindow() {
     }
   })
   useEffect(() => {
-    const again = () => setResized((n) => n + 1)
+    const again = () => {
+      const drop = below.current ? Math.max(0, window.innerHeight - boxH.current - CARD_H_PX) : 0
+      stageRef.current?.style.setProperty('--drop', `${drop}px`)
+      setResized((n) => n + 1)
+    }
     window.addEventListener('resize', again)
     return () => window.removeEventListener('resize', again)
   }, [])
@@ -164,11 +176,12 @@ export function PetWindow() {
   const press = useRef<{ x: number; y: number } | null>(null)
   const width = SIZES[prefs?.size ?? 'base']
   const height = Math.round((width * 154) / 120)
+  boxH.current = height + BOX_MARGIN_PX
   const stage = { '--pet-w': `${width}px`, '--pet-h': `${height}px` } as React.CSSProperties
   const side = right ? 'is-right' : 'is-left'
 
   return (
-    <div className={`stage ${side}${wide ? ' is-wide' : ''}`} style={stage}>
+    <div ref={stageRef} className={`stage ${side}${wide ? ' is-wide' : ''}`} style={stage}>
       {wide && (
         <div ref={sideRef} className="beside">
           {approval ? (
@@ -182,6 +195,8 @@ export function PetWindow() {
                 onClose={() => setClosed(key)}
                 held={held}
                 onHold={setHeld}
+                onBelow={(b) => (below.current = b)}
+                boxH={height + BOX_MARGIN_PX}
               />
             )
           )}
@@ -254,13 +269,15 @@ function cardKey(card: Card) {
 /** Which session, and what it is doing now (or the answer's first lines once done). A click opens the sessions. With
  *  other sessions at work, "+N" lists them while hovered, or until it is clicked off once clicked on; a click on one
  *  switches the card to it. */
-function SessionCard({ card, lines, leaving, onClose, held, onHold }: {
+function SessionCard({ card, lines, leaving, onClose, held, onHold, onBelow, boxH }: {
   card: Card
   lines: boolean
   leaving: boolean
   onClose: () => void
   held: boolean
   onHold: (held: boolean) => void
+  onBelow: (below: boolean) => void
+  boxH: number
 }) {
   const [hovered, setList] = useState(false)
   const list = (held || hovered) && card.others.length > 0
@@ -268,16 +285,51 @@ function SessionCard({ card, lines, leaving, onClose, held, onHold }: {
   const cardRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const shut = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  // The list stacks on the card, edge to edge: above it where the window has the room, else below if there is more
-  // room there, never past the window's edge (it scrolls instead). Measured before it is drawn, again as it grows.
+  // The list stacks on the card, edge to edge: above it, the window growing up to make room for it as far as the
+  // screen allows; with more room below (a pet high on its screen), below it, the window growing down past the pet.
+  // The core says how far the window can grow each way; the room the window has without growing does not change as it
+  // grows (the card stays put), so what is asked for does not either. Short of room both ways, each session takes one
+  // line (its name and its step) until the list closes; past that it scrolls. Measured before it is drawn (it shows
+  // once the core has answered), again as it grows and as the window does.
+  const [reach, setReach] = useState<[number, number] | null>(null)
+  const [short, setShort] = useState(false)
+  const way = useRef<'up' | 'down'>('up')
+  const asked = useRef('')
+  const ask = (more: number, under: boolean) => {
+    const key = `${more}:${under}`
+    if (asked.current === key) return
+    asked.current = key
+    void core.setRoom(more, under)
+  }
+  useEffect(() => {
+    if (!list) return setReach(null)
+    void core.listRoom().then(setReach)
+  }, [list])
+  useEffect(() => () => ask(0, false), [])
   useLayoutEffect(() => {
     const box = cardRef.current?.getBoundingClientRect()
     const el = listRef.current
-    if (!list || !box || !el) return setRoom(null)
+    if (!list || !box || !el || !reach) {
+      if (!list) {
+        ask(0, false)
+        onBelow(false)
+        setShort(false)
+      }
+      return setRoom(null)
+    }
     const need = Math.min(el.scrollHeight, LIST_MAX_PX)
     const above = box.top - LIST_GAP_PX + LIST_PAD_PX
     const below = window.innerHeight - box.bottom - LIST_GAP_PX + LIST_PAD_PX
-    const under = above < need && below > above
+    // The window's growth so far, one way or the other, taken out: the room it has without growing.
+    const grown = Math.max(0, window.innerHeight - boxH - CARD_H_PX)
+    const baseAbove = above - (way.current === 'up' ? grown : 0)
+    const baseBelow = below - (way.current === 'down' ? grown : 0)
+    const [up, down] = reach
+    const under = baseAbove + up < need && baseBelow + down > baseAbove + up
+    way.current = under ? 'down' : 'up'
+    onBelow(under)
+    ask(Math.ceil(Math.max(0, need - (under ? baseBelow : baseAbove))), under)
+    if (lines && !short && el.scrollHeight > Math.min(LIST_MAX_PX, Math.max(baseAbove + up, baseBelow + down))) setShort(true)
     const max = Math.max(0, Math.min(LIST_MAX_PX, under ? below : above))
     setRoom((r) => (r?.below === under && r.max === max ? r : { below: under, max }))
   })
@@ -344,7 +396,7 @@ function SessionCard({ card, lines, leaving, onClose, held, onHold }: {
           {card.others.map((o) => (
             <button key={o.session} type="button" role="menuitem" className="card-other" title={o.name} onClick={() => follow(o.session)}>
               <span className="card-other-name">{o.name}</span>
-              <Steps line={o.line} progress={o.progress} lines={o.lines} few={lines} needs={o.mood === 'needs'} />
+              <Steps line={o.line} progress={o.progress} lines={o.lines} few={lines && !short} needs={o.mood === 'needs'} />
             </button>
           ))}
         </div>

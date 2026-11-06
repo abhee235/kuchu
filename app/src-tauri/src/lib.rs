@@ -12,7 +12,7 @@ mod prefs;
 mod sessions;
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -92,6 +92,10 @@ struct Layout {
     pet: Mutex<(i32, i32)>,
     /// A card shows: the window is bigger, the pet staying where it is.
     wide: AtomicBool,
+    /// How much taller still (logical px) for the list of other sessions above a card, as far as the screen allows; or,
+    /// with no room there, below the pet for the list below the card.
+    lift: AtomicU32,
+    drop: AtomicU32,
     /// The pet is on the screen's right half: its cards go to its left.
     right: AtomicBool,
     rects: Mutex<Vec<Rect>>,
@@ -131,10 +135,21 @@ impl Kuchu {
         if !self.layout.wide.load(Ordering::Relaxed) {
             return (px, py, bw, bh);
         }
+        let above = self.above();
         let more_x = (CARD_W * scale).round() as i32;
-        let more_y = (CARD_H * scale).round() as i32;
+        let more_y = (above * scale).round() as i32;
         let x = if self.layout.right.load(Ordering::Relaxed) { px - more_x } else { px };
-        (x, py - more_y, bw + CARD_W, bh + CARD_H)
+        (x, py - more_y, bw + CARD_W, bh + above + self.below())
+    }
+
+    /// The room the window has above the pet while a card shows (logical px): the card's, and the list's above it.
+    fn above(&self) -> f64 {
+        CARD_H + self.layout.lift.load(Ordering::Relaxed) as f64
+    }
+
+    /// The room the window has below the pet while the list of other sessions shows below a card (logical px).
+    fn below(&self) -> f64 {
+        self.layout.drop.load(Ordering::Relaxed) as f64
     }
 
     /// The pet and the room its cards take beside and above it (physical px), whether a card shows or not: the
@@ -142,8 +157,9 @@ impl Kuchu {
     fn zone(&self, scale: f64) -> (f64, f64, f64, f64) {
         let (bw, bh) = box_of(self.width());
         let (px, py) = *self.layout.pet.hold();
+        let above = self.above();
         let x = if self.layout.right.load(Ordering::Relaxed) { px as f64 - CARD_W * scale } else { px as f64 };
-        (x, py as f64 - CARD_H * scale, (bw + CARD_W) * scale, (bh + CARD_H) * scale)
+        (x, py as f64 - above * scale, (bw + CARD_W) * scale, (bh + above + self.below()) * scale)
     }
 
     /// Where the pet is, from where its window is.
@@ -152,7 +168,7 @@ impl Kuchu {
             return (at.x, at.y);
         }
         let more_x = (CARD_W * scale).round() as i32;
-        let more_y = (CARD_H * scale).round() as i32;
+        let more_y = (self.above() * scale).round() as i32;
         let x = if self.layout.right.load(Ordering::Relaxed) { at.x + more_x } else { at.x };
         (x, at.y + more_y)
     }
@@ -162,7 +178,7 @@ impl Kuchu {
         let width = self.width() as f64;
         let height = pet_height(self.width());
         let (bw, _) = box_of(self.width());
-        let (w, h) = if self.layout.wide.load(Ordering::Relaxed) { (bw + CARD_W, box_of(self.width()).1 + CARD_H) } else { box_of(self.width()) };
+        let (w, h) = if self.layout.wide.load(Ordering::Relaxed) { (bw + CARD_W, box_of(self.width()).1 + self.above()) } else { box_of(self.width()) };
         let x = if self.layout.wide.load(Ordering::Relaxed) && self.layout.right.load(Ordering::Relaxed) { w - SIDE - width } else { SIDE };
         Rect { x, y: h - BOTTOM - height, w: width, h: height }
     }
@@ -322,6 +338,8 @@ pub fn run() {
             decide,
             approval_shown,
             set_wide,
+            list_room,
+            set_room,
             set_rects,
             is_right,
             stroll,
@@ -367,7 +385,7 @@ pub fn run() {
             let kuchu = Arc::new(Kuchu {
                 prefs: Mutex::new(prefs),
                 prefs_path,
-                layout: Layout { pet: Mutex::new(at), wide: false.into(), right: true.into(), rects: Mutex::new(Vec::new()), moved: Mutex::new(None), taking: false.into(), walking: 0.into(), strolls: 0.into() },
+                layout: Layout { pet: Mutex::new(at), wide: false.into(), lift: 0.into(), drop: 0.into(), right: true.into(), rects: Mutex::new(Vec::new()), moved: Mutex::new(None), taking: false.into(), walking: 0.into(), strolls: 0.into() },
                 hub: hub.clone(),
                 relay: Mutex::new(relay),
                 chats,
@@ -688,11 +706,50 @@ fn set_wide(app: AppHandle, wide: bool) {
     if k.layout.wide.swap(wide, Ordering::Relaxed) == wide {
         return;
     }
+    if !wide {
+        k.layout.lift.store(0, Ordering::Relaxed);
+        k.layout.drop.store(0, Ordering::Relaxed);
+    }
     if let Some(window) = app.get_webview_window("pet") {
         k.place(&window);
     }
     if wide {
         raise_pet(&app);
+    }
+}
+
+/// How far the pet's window can grow for the list of other sessions (logical px): up from where a card puts its top,
+/// and down past the pet, to the edges of the pet's screen.
+fn list_reach(k: &Kuchu, window: &WebviewWindow) -> (f64, f64) {
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let (bw, bh) = box_of(k.width());
+    let (px, py) = *k.layout.pet.hold();
+    let Ok(Some(monitor)) = window.monitor_from_point(px as f64 + bw * scale / 2.0, py as f64) else { return (0.0, 0.0) };
+    let a = monitor.work_area();
+    let up = (py - a.position.y) as f64 / scale - CARD_H;
+    let down = (a.position.y + a.size.height as i32 - py) as f64 / scale - bh;
+    (up.max(0.0), down.max(0.0))
+}
+
+#[tauri::command]
+fn list_room(app: AppHandle) -> (f64, f64) {
+    app.get_webview_window("pet").map_or((0.0, 0.0), |window| list_reach(&kuchu(&app), &window))
+}
+
+/// The list of other sessions beside a card needs the window `more` logical px taller (0 once it closes), above the
+/// card or `below` it: it grows up that much, or down past the pet (which the page keeps in its place), never past the
+/// edge of the pet's screen, where the list scrolls instead.
+#[tauri::command]
+fn set_room(app: AppHandle, more: f64, below: bool) {
+    let k = kuchu(&app);
+    let Some(window) = app.get_webview_window("pet") else { return };
+    let (up, down) = list_reach(&k, &window);
+    let more = more.max(0.0);
+    let (lift, drop) = if below { (0, more.min(down).round() as u32) } else { (more.min(up).round() as u32, 0) };
+    let lifted = k.layout.lift.swap(lift, Ordering::Relaxed) != lift;
+    let dropped = k.layout.drop.swap(drop, Ordering::Relaxed) != drop;
+    if (lifted || dropped) && k.layout.wide.load(Ordering::Relaxed) {
+        k.place(&window);
     }
 }
 
