@@ -3,7 +3,9 @@
   Kuchu as a Microsoft Store package (MSIX). pack.sh fills in the @…@ values: the package's name and publisher are the
   ones Partner Center gives Kuchu, the version is tauri.conf.json's with a fourth part of 0 (the Store's), the CPU is
   the build's. A full-trust desktop app, started at sign-in by its own startup task, which Windows switches on after
-  Kuchu's first start and the person can switch off in Windows' Settings.
+  Kuchu's first start and the person can switch off in Windows' Settings. To update Kuchu while it runs, Windows closes
+  it, then starts the new one because Kuchu asks it to (install.rs, restart_after_update). Not UpdateWhileInUse=defer:
+  with it, an update to a running Kuchu fails and waits for a retry, and Kuchu runs all day.
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"

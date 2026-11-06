@@ -360,6 +360,7 @@ pub fn run() {
             let window = app.get_webview_window("pet").expect("the pet's window is in tauri.conf.json");
             let at = prefs.at.filter(|at| still_on_screen(&window, *at)).unwrap_or_else(|| first_place(&window, prefs.width()));
             let relay = install::start_relay();
+            install::restart_after_update();
             let handle = app.handle().clone();
             let chats = Chats::new(app.handle().clone(), hub.clone(), Box::new(move || own_settings(&handle)));
             let kuchu = Arc::new(Kuchu {

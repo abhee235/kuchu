@@ -58,6 +58,18 @@ pub fn packaged() -> bool {
         && std::env::current_exe().is_ok_and(|exe| exe.parent().is_some_and(|dir| dir.join("AppxManifest.xml").is_file()))
 }
 
+/// From the Store, asks Windows to start Kuchu again when it closes Kuchu to update it: without this, an update leaves
+/// no Kuchu until the next sign-in. Not after a crash, a hang or a restart of the computer: the startup task starts it
+/// at sign-in.
+pub fn restart_after_update() {
+    #[cfg(windows)]
+    if packaged() {
+        use windows_sys::Win32::System::Recovery::{RegisterApplicationRestart, RESTART_NO_CRASH, RESTART_NO_HANG, RESTART_NO_REBOOT};
+        // Safety: no command line (it starts as from the Start menu), and flags only.
+        unsafe { RegisterApplicationRestart(std::ptr::null(), RESTART_NO_CRASH | RESTART_NO_HANG | RESTART_NO_REBOOT) };
+    }
+}
+
 /// The relay shipped beside Kuchu (or, while developing, the one cargo built).
 pub fn bundled_relay() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
