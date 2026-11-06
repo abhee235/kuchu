@@ -2,97 +2,140 @@
 title: Kuchu: a desk pet for Claude Code
 description: Kuchu is a free desk pet for Claude Code on Windows and macOS. It shows what every Claude Code session is doing, in VS Code or any terminal, and lets you answer its permission requests from a card beside it.
 ---
-<section class="hero">
+<section class="hero dunes">
   <div class="hero-head">
-    <h1>A desk&nbsp;pet for&nbsp;Claude&nbsp;Code</h1>
-    <div class="hero-side">
-      <p class="lede">It shows what Claude is doing, and lets you say yes without switching windows. In VS Code or any terminal.</p>
-      <div class="actions">
-        <a class="btn is-primary is-large" href="{{STORE}}">Get it from the Microsoft Store</a>
-        <a class="also" href="{{BASE}}docs/install/">More ways to install</a>
-      </div>
-      <p class="fine">Free and open source. Needs Claude Code.</p>
+    <h1>A desk pet for Claude&nbsp;Code</h1>
+    <p class="lede">It shows what Claude is doing, and lets you say yes without switching windows, in VS Code or any terminal.</p>
+    <div class="actions">
+      <a class="btn is-primary is-large" href="{{STORE}}">Get it from the Microsoft Store</a>
+      <a class="btn is-large" href="{{BASE}}docs/install/">More ways to install</a>
     </div>
+    <p class="fine">Free and open source. Windows 10 and 11, macOS in preview. Needs Claude Code.</p>
   </div>
-  <noscript><style>.hero-demo { min-height: 0; } .still { position: static; }</style></noscript>
   <div class="hero-demo" data-pet="hero">
-    <img class="still" src="{{BASE}}icon-180.png" width="180" height="180" alt="Kuchu, a small white robot with an orange antenna">
+    <div class="stage">
+      <div class="desk-window">
+        <div class="window"><img class="is-on" src="{{BASE}}hero/ask.webp" width="1898" height="1039" alt="Claude Code in the side panel of VS Code, asking to edit date.ts, with the change shown in the file"></div>
+        <div class="pet-spot"><img class="still" src="{{BASE}}icon-180.png" width="180" height="180" alt="Kuchu, a small white robot with an orange antenna"></div>
+      </div>
+    </div>
   </div>
 </section>
 
-<section class="gains" aria-label="What Kuchu does for you">
-  <article class="gain">
-    <div class="gain-shot">
+<div class="wrap">
+  <ul class="proof">
+    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Works in VS Code and any terminal</li>
+    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Free and open source</li>
+    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>No account, no analytics</li>
+    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>No administrator rights needed</li>
+  </ul>
+</div>
+
+<section class="gains wrap">
+  <div class="gains-head">
+    <h2>Keep working. Kuchu keeps watch.</h2>
+    <p>It sits above your windows and shows what every Claude Code session is doing.</p>
+  </div>
+  <div class="tiles">
+    <article class="tile tile-needs dunes">
+      <h3>Know when Claude needs you</h3>
+      <p>It waves the moment a session is waiting, so you can stop watching the panel.</p>
       <div class="shot-needs">
         <div class="shot-card is-line"><strong>Release notes</strong><span>Has a question for you</span></div>
         <div class="mini-pet" data-pet="needs"></div>
       </div>
-    </div>
-    <h2>Know when Claude needs you</h2>
-    <p>It waves the moment a session is waiting, so you can stop watching the panel.</p>
-  </article>
-  <article class="gain">
-    <div class="gain-shot">
+    </article>
+    <article class="tile tile-ask">
+      <h3>Say yes from the card</h3>
+      <p>Allow or deny a request in one click, and see the whole command first. A timeout never allows anything.</p>
       <div class="shot-card is-ask">
         <div class="ask-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/></svg><strong>Release notes</strong></div>
         <div class="ask-what">Running a command</div>
         <code class="ask-detail">git push origin release-notes</code>
         <div class="ask-buttons">
-          <span class="btn is-primary is-small">Allow</span>
-          <span class="btn is-small">Deny</span>
+          <span class="btn is-primary">Allow</span>
+          <span class="btn">Deny</span>
         </div>
       </div>
-    </div>
-    <h2>Say yes from the card</h2>
-    <p>Allow or deny a request in one click, and see the whole command first.</p>
-  </article>
-  <article class="gain">
-    <div class="gain-shot">
-      <div class="shot-card">
-        <strong>Add dark mode to settings</strong>
-        <span><span class="mark is-done" role="img" aria-label="Done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>Reading src/theme.ts</span>
-        <span><span class="mark is-done" role="img" aria-label="Done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>Editing src/theme.ts</span>
-        <span class="is-now"><span class="mark is-running" role="img" aria-label="Running"></span>Running npm test</span>
-        <b class="shot-more" aria-label="2 more sessions at work">+2</b>
+    </article>
+    <article class="tile tile-sessions">
+      <div class="tile-copy">
+        <h3>Every session at a glance</h3>
+        <p>One card for each session, showing what Claude is doing right now. <strong>+N</strong> lists the others, and a click follows one.</p>
       </div>
-    </div>
-    <h2>Every session at a glance</h2>
-    <p>One card for each session, showing what Claude is doing right now.</p>
-  </article>
+      <div class="shot-pair">
+        <div class="shot-card">
+          <strong>Add dark mode to settings</strong>
+          <span><span class="mark is-done" role="img" aria-label="Done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>Reading src/theme.ts</span>
+          <span><span class="mark is-done" role="img" aria-label="Done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>Editing src/theme.ts</span>
+          <span class="is-now"><span class="mark is-running" role="img" aria-label="Running"></span>Running npm test</span>
+          <b class="shot-more" aria-label="2 more sessions at work">+2</b>
+        </div>
+        <div class="shot-list">
+          <div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4M12 16h.01"/></svg>
+            <p><strong>Release notes</strong>Has a question for you</p>
+          </div>
+          <div>
+            <span class="mark is-done" role="img" aria-label="Done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <p><strong>Date utils test failures</strong>Done</p>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
 </section>
 
 <section class="life">
-  <div class="life-inner">
-    <div class="life-copy">
-      <h2>A life of its own</h2>
-      <p>With no work to show, it stretches, dances and naps. It waves hello when you send Claude a message. Try it.</p>
-    </div>
-    <div class="life-play" data-pet="play"></div>
+  <svg class="life-stars" viewBox="0 0 1416 320" preserveAspectRatio="xMidYMin slice" aria-hidden="true">
+    <circle cx="96" cy="74" r="1.6" opacity=".7"/><circle cx="212" cy="168" r="1.2" opacity=".5"/><circle cx="318" cy="52" r="1.4" opacity=".6"/><circle cx="1104" cy="62" r="1.6" opacity=".7"/><circle cx="1228" cy="154" r="1.2" opacity=".5"/><circle cx="1336" cy="84" r="1.5" opacity=".65"/><circle cx="1012" cy="196" r="1.1" opacity=".45"/><circle cx="142" cy="256" r="1.1" opacity=".4"/><circle cx="1290" cy="262" r="1.2" opacity=".4"/>
+  </svg>
+  <svg class="life-dunes" viewBox="0 0 1416 250" preserveAspectRatio="none" aria-hidden="true">
+    <path fill="#6e3a10" d="M0 74C150 26 300 14 470 44s330 66 500 32 300-58 446-34v208H0Z"/>
+    <path fill="#f7a52c" d="M0 118c170-44 330-54 520-24s340 62 520 26 280-40 376-22v152H0Z"/>
+    <path fill="#ea8a1c" d="M0 186c200-30 420 8 640 6s520-50 776-14v72H0Z"/>
+  </svg>
+  <div class="life-copy">
+    <h2>A life of its own</h2>
+    <p>With no work to show, it stretches, dances and naps. It waves hello when you send Claude a message. Drag it anywhere, or stroke it with your pointer. Try it.</p>
+  </div>
+  <div class="life-play" data-pet="life">
+    <ul class="moods">
+      <li><div class="mood-pet"><img class="still" src="{{BASE}}icon-180.png" width="180" height="180" alt=""></div><strong>Thinks</strong><span>while Claude reads</span></li>
+      <li><div class="mood-pet"><img class="still" src="{{BASE}}icon-180.png" width="180" height="180" alt=""></div><strong>Works</strong><span>while tools run</span></li>
+      <li><div class="mood-pet"><img class="still" src="{{BASE}}icon-180.png" width="180" height="180" alt=""></div><strong>Asks</strong><span>when Claude needs a yes</span></li>
+      <li><div class="mood-pet"><img class="still" src="{{BASE}}icon-180.png" width="180" height="180" alt=""></div><strong>Cheers</strong><span>when Claude is done</span></li>
+    </ul>
   </div>
 </section>
 
-<section class="more">
+<section class="more wrap">
   <h2>Everything else it does</h2>
   <div class="more-list">
-    <div><h3><a href="{{BASE}}docs/cards/">Works in VS Code and any terminal</a></h3><p>Every Claude Code session on your computer shows up, wherever you started it.</p></div>
-    <div><h3><a href="{{BASE}}docs/cards/#more-than-one-session">Several sessions at once</a></h3><p>Each has its own card. "+N" lists the others, and a click follows one.</p></div>
-    <div><h3><a href="{{BASE}}docs/conversations/">Talk to Claude from Kuchu</a></h3><p>Start a conversation in any folder, stop it, or carry it on in a terminal.</p></div>
-    <div><h3><a href="{{BASE}}docs/settings/">Stays out of your way</a></h3><p>It never takes the focus, and clicks go through everywhere but the pet and its cards.</p></div>
-    <div><h3><a href="{{BASE}}docs/permissions/">Nothing without your click</a></h3><p>An unanswered request goes back to Claude Code. A timeout never allows anything.</p></div>
-    <div><h3><a href="{{BASE}}privacy/">Collects nothing</a></h3><p>No account and no analytics. Open source, and no administrator rights needed.</p></div>
+    <div>
+      <span class="more-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></svg></span>
+      <h3><a href="{{BASE}}docs/cards/">Works in VS Code and any terminal</a></h3>
+      <p>Every Claude Code session on your computer shows up, wherever you started it.</p>
+    </div>
+    <div>
+      <span class="more-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
+      <h3><a href="{{BASE}}docs/conversations/">Talk to Claude from Kuchu</a></h3>
+      <p>Start a conversation in any folder, stop it, or carry it on in a terminal.</p>
+    </div>
+    <div>
+      <span class="more-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"/></svg></span>
+      <h3><a href="{{BASE}}docs/settings/">Stays out of your way</a></h3>
+      <p>It never takes the focus, and clicks go through everywhere but the pet and its cards.</p>
+    </div>
+    <div>
+      <span class="more-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+      <h3><a href="{{BASE}}privacy/">Collects nothing</a></h3>
+      <p>No account and no analytics. Open source, and no administrator rights needed.</p>
+    </div>
   </div>
 </section>
 
-<section class="steps-wrap">
-  <h2>Set it up in three steps</h2>
-  <ol class="steps">
-    <li><h3>Install Kuchu</h3><p>From the Microsoft Store, or from GitHub for Windows and macOS.</p></li>
-    <li><h3>Click Connect</h3><p>Kuchu shows the change to Claude Code's settings first, and keeps a copy.</p></li>
-    <li><h3>Use Claude Code as usual</h3><p>Every session in VS Code or a terminal shows up beside the pet.</p></li>
-  </ol>
-</section>
-
-<section class="faq">
+<section class="faq wrap">
   <div class="faq-head">
     <h2>Questions about Kuchu</h2>
     <p><a href="{{BASE}}faq/">All questions and answers</a></p>
@@ -102,13 +145,18 @@ description: Kuchu is a free desk pet for Claude Code on Windows and macOS. It s
   </div>
 </section>
 
-<section class="get" id="install">
+<section class="get dunes" id="install">
   <div class="get-copy">
-    <h2>Get Kuchu</h2>
+    <h2>Put Kuchu on your desk</h2>
     <p class="fine">For Windows 10 and 11, with macOS in preview. Needs Claude Code, installed separately.</p>
     <a class="btn is-primary is-large" href="{{STORE}}">Get it from the Microsoft Store</a>
     <p class="also">Or say this to Claude Code:</p>
     <div class="say"><code>Install Kuchu from https://github.com/abhee235/kuchu</code><button type="button" class="btn is-small" data-copy="Install Kuchu from https://github.com/abhee235/kuchu">Copy</button></div>
   </div>
   <div class="get-pet" data-pet="wave"></div>
+  <ol class="steps">
+    <li><h3>Install Kuchu</h3><p>From the Microsoft Store, or from GitHub for Windows and macOS.</p></li>
+    <li><h3>Click Connect</h3><p>Kuchu shows the change to Claude Code's settings first, and keeps a copy.</p></li>
+    <li><h3>Use Claude Code as usual</h3><p>Every session in VS Code or a terminal shows up beside the pet.</p></li>
+  </ol>
 </section>

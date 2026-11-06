@@ -10,7 +10,8 @@ a card beside it for each session's steps, and it lets you answer Claude Code's 
 ## Does Kuchu work with Claude Code in VS Code?
 
 Yes. Kuchu follows Claude Code through its hooks, so a session in the VS Code extension shows up beside the pet just as
-one in a terminal does. Kuchu sits above your windows, so you can see it while you work in the editor.
+one in a terminal does. When Claude asks for permission, the question shows in the panel and on Kuchu's card at once, and
+Allow or Deny on the card answers it. Kuchu sits above your windows, so you can see it while you work in the editor.
 
 ## Is Kuchu made by Anthropic?
 

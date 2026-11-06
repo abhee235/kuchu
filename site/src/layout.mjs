@@ -56,19 +56,34 @@ export function layout({ page, pages, site }) {
   const footer = `
     <footer class="bottom">
       <div class="bottom-inner">
-        <nav class="bottom-nav" aria-label="More">
-          <a href="${base}docs/">Docs</a>
-          <a href="${base}docs/install/">Install</a>
-          <a href="${base}docs/troubleshooting/">Troubleshooting</a>
-          <a href="${base}faq/">FAQ</a>
-          <a href="${base}changelog/">Changelog</a>
-          <a href="${base}privacy/">Privacy</a>
-          <a href="${repo}">Source code</a>
-          <a href="${repo}/issues">Report a problem</a>
-        </nav>
-        <p>Kuchu ${esc(site.version)} is free and open source, under the MIT licence. © 2026 the Kuchu authors.</p>
-        <p>Kuchu is an independent app. It is not made or endorsed by Anthropic. Claude and Claude Code are trademarks of
-        Anthropic. Visual Studio Code is a trademark of Microsoft.</p>
+        <div class="bottom-main">
+          <div class="bottom-brand">
+            ${brand(base)}
+            <p>A desk pet for Claude Code.</p>
+          </div>
+          <nav class="bottom-nav" aria-label="Product">
+            <strong>Product</strong>
+            <a href="${base}docs/">Docs</a>
+            <a href="${base}docs/install/">Install</a>
+            <a href="${base}changelog/">Changelog</a>
+          </nav>
+          <nav class="bottom-nav" aria-label="Help">
+            <strong>Help</strong>
+            <a href="${base}faq/">FAQ</a>
+            <a href="${base}docs/troubleshooting/">Troubleshooting</a>
+            <a href="${repo}/issues">Report a problem</a>
+          </nav>
+          <nav class="bottom-nav" aria-label="Project">
+            <strong>Project</strong>
+            <a href="${repo}">Source code</a>
+            <a href="${base}privacy/">Privacy</a>
+          </nav>
+        </div>
+        <div class="bottom-legal">
+          <p>Kuchu ${esc(site.version)} is free and open source, under the MIT licence. © 2026 the Kuchu authors.</p>
+          <p>Kuchu is an independent app. It is not made or endorsed by Anthropic. Claude and Claude Code are trademarks of
+          Anthropic. Visual Studio Code is a trademark of Microsoft.</p>
+        </div>
       </div>
     </footer>`
 

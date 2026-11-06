@@ -143,7 +143,8 @@ const qa = faq.md
     const html = marked.parse(rest.join('\n'))
     return { q: q.trim(), a: plain(html), html }
   })
-// The home page answers the commonest questions, folded: short to look at, and all there for search engines to read.
+// The home page answers the commonest questions, folded but for the first: short to look at, and all there for search
+// engines to read.
 const HOME_QUESTIONS = [
   'What is Kuchu?',
   'Does Kuchu work with Claude Code in VS Code?',
@@ -154,10 +155,10 @@ const HOME_QUESTIONS = [
   'Does Kuchu send my code or prompts anywhere?',
   'Does it slow Claude Code down?',
 ]
-const foldedFaq = HOME_QUESTIONS.map((q) => {
+const foldedFaq = HOME_QUESTIONS.map((q, i) => {
   const found = qa.find((x) => x.q === q)
   if (!found) throw new Error(`The home page asks a question the FAQ does not have: ${q}`)
-  return `    <details class="qa"><summary>${q}</summary>${found.html}</details>`
+  return `    <details class="qa"${i === 0 ? ' open' : ''}><summary>${q}</summary>${found.html}</details>`
 }).join('\n')
 pages[0].body = pages[0].body.replace('<!-- faq -->', foldedFaq)
 pages.push({

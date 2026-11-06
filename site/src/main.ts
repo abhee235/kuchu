@@ -17,3 +17,11 @@ document.addEventListener('click', (e) => {
 const here = document.querySelector<HTMLElement>('.docs-nav [aria-current]')
 const row = here?.closest('ul')
 if (here && row && row.scrollWidth > row.clientWidth) row.scrollLeft = here.offsetLeft - 12
+
+// On the home page the header stands in the hero's sky, with no background of its own until the page moves under it.
+const top = document.querySelector<HTMLElement>('.is-home .top')
+if (top) {
+  const place = () => top.classList.toggle('is-top', window.scrollY < 8)
+  place()
+  window.addEventListener('scroll', place, { passive: true })
+}
