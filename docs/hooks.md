@@ -9,6 +9,12 @@ replaced, are in [`fixtures/claude-code-2.1.310/`](../fixtures/claude-code-2.1.3
   `C:/Program Files/Git/usr/bin/bash` for a session started from PowerShell. So the command is a quoted path with
   forward slashes, then arguments: `"C:/…/kuchu-relay.exe" <event>`.
 - The event's JSON comes on stdin; the hook's `env` settings reach the relay.
+- No payload says which app a session runs in. The relay's parents do (measured on Windows 11, 2026-11-07): the VS Code
+  panel `bash.exe < claude.exe < Code.exe < Code.exe`, the outer `Code.exe` being `VSCODE_PID` and owning the windows;
+  Windows Terminal `claude.exe < powershell.exe < WindowsTerminal.exe`; the desktop app `claude.exe < claude.exe`, only the
+  outer one with a window; a plain console, the shell itself reporting the console's window. A shell Windows hands
+  over to Windows Terminal has `explorer.exe` for a parent. A relay ends as soon as it has written, so its parents are
+  read the moment it connects.
 - `CLAUDE_CODE_ENTRYPOINT` is inherited from whatever started the session (it read `claude-vscode` for a session
   started from a terminal inside the editor), so it is a hint, not a fact.
 

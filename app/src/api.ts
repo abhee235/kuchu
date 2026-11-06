@@ -33,6 +33,10 @@ export interface Line {
 export interface Card {
   session: string
   title: string
+  /** The project folder's name. */
+  project: string
+  /** The app it runs in, when a click can go there. */
+  host: string | null
   line: string
   /** Where `line` stands, when it is a step. */
   progress: Progress | null
@@ -50,6 +54,8 @@ export interface Card {
 export interface Other {
   session: string
   name: string
+  project: string
+  host: string | null
   mood: PetMood
   line: string
   /** Where `line` stands, when it is a step. */
@@ -164,6 +170,8 @@ export const core = {
   setPrefs: (patch: Partial<Prefs>) => invoke<Prefs>('set_prefs', { patch }),
   petClicked: () => invoke('pet_clicked'),
   forget: (session: string) => invoke('forget', { session }),
+  /** Brings forward the app a session runs in. False if it has gone, or Windows would not. */
+  openApp: (session: string) => invoke<boolean>('open_app', { session }),
   decide: (id: number, kind: ChoiceKind, answer?: string) => invoke('decide', { id, choice: { kind, answer } }),
   approvalShown: (id: number) => invoke('approval_shown', { id }),
   setWide: (wide: boolean) => invoke('set_wide', { wide }),

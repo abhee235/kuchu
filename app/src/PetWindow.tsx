@@ -4,7 +4,7 @@
 // and sends the sessions as one view; this page draws them, moves the pet, and plays its tones.
 
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { List, MessageCircleQuestion, ShieldAlert, X } from 'lucide-react'
+import { ExternalLink, List, MessageCircleQuestion, ShieldAlert, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { core, on, SIZES, type Approval, type Card, type Line, type Prefs, type Progress, type View } from './api'
 import { Pet } from './pet/Pet'
@@ -382,10 +382,16 @@ function SessionCard({ card, lines, leaving, onClose, held, onHold, onBelow, box
       onPointerEnter={() => clearTimeout(shut.current)}
       onPointerLeave={close}
     >
-      <button type="button" className="card-body" onClick={() => void core.openSessions(card.session)} title="Your sessions">
-        <span className="card-title">{card.title}</span>
-        <Steps line={card.line} progress={card.progress} lines={card.lines} few={lines} answer={card.mood === 'done'} />
-      </button>
+      <div className="card-main">
+        <button type="button" className="card-body" onClick={() => void core.openSessions(card.session)} title="Your sessions">
+          <span className="card-head">
+            <span className="card-title">{card.title}</span>
+            <Project project={card.project} name={card.title} />
+          </span>
+          <Steps line={card.line} progress={card.progress} lines={card.lines} few={lines} answer={card.mood === 'done'} />
+        </button>
+        <OpenApp session={card.session} host={card.host} />
+      </div>
       {card.others.length > 0 && (
         <button
           type="button"
@@ -417,14 +423,37 @@ function SessionCard({ card, lines, leaving, onClose, held, onHold, onBelow, box
           aria-label="Sessions at work"
         >
           {card.others.map((o) => (
-            <button key={o.session} type="button" role="menuitem" className="card-other" title={o.name} onClick={() => follow(o.session)}>
-              <span className="card-other-name">{o.name}</span>
-              <Steps line={o.line} progress={o.progress} lines={o.lines} few={lines && !short} needs={o.mood === 'needs'} />
-            </button>
+            <div key={o.session} className="card-other-slot" role="none">
+              <button type="button" role="menuitem" className="card-other" title={o.name} onClick={() => follow(o.session)}>
+                <span className="card-head">
+                  <span className="card-other-name">{o.name}</span>
+                  <Project project={o.project} name={o.name} />
+                </span>
+                <Steps line={o.line} progress={o.progress} lines={o.lines} few={lines && !short} needs={o.mood === 'needs'} />
+              </button>
+              <OpenApp session={o.session} host={o.host} />
+            </div>
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+/** Which project a session is in, beside its name: names say what it is doing, not where. A name that is the project says it already. */
+function Project({ project, name }: { project: string; name: string }) {
+  if (!project || project === name) return null
+  return <span className="card-project">{project}</span>
+}
+
+/** Goes to the app a session runs in, when that is known. */
+function OpenApp({ session, host }: { session: string; host: string | null }) {
+  if (!host) return null
+  const label = `Open in ${host}`
+  return (
+    <button type="button" className="card-open" aria-label={label} title={label} onClick={() => void core.openApp(session)}>
+      <ExternalLink size={14} />
+    </button>
   )
 }
 

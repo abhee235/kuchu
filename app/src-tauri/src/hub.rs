@@ -12,6 +12,7 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWrite
 use tokio::sync::{oneshot, Semaphore};
 
 use crate::alive::Running;
+use crate::host::{self, Host};
 use crate::locks::Hold;
 use crate::sessions::{cut_to, plain, step, tail_of, Card, Mood, Session, Sessions};
 
@@ -189,6 +190,19 @@ impl Hub {
         }
     }
 
+    /// The app `session` runs in, found from its relay's parents. The card offers it once this is known.
+    fn hosted_in(&self, session: &str, host: Option<Host>) {
+        if self.inner.hold().sessions.hosted_in(session, host) {
+            self.publish();
+        }
+    }
+
+    /// A click on a card's button: the app the session runs in comes forward. False if it has gone, or Windows would not.
+    pub fn open_app(&self, session: &str) -> bool {
+        let Some((host, project)) = self.inner.hold().sessions.host_of(session) else { return false };
+        host::raise(&host, &project)
+    }
+
     pub fn expire(&self) {
         if self.inner.hold().sessions.expire(now()) {
             self.publish();
@@ -248,8 +262,9 @@ impl Hub {
         self.publish();
     }
 
-    /// One relay's connection: an event to take in, or a permission request to answer.
-    async fn handle<S: AsyncRead + AsyncWrite + Unpin>(self: Arc<Self>, stream: S) {
+    /// One relay's connection: an event to take in, or a permission request to answer. `chain` is the process at the other end and
+    /// its parents, as the system knows them.
+    async fn handle<S: AsyncRead + AsyncWrite + Unpin>(self: Arc<Self>, stream: S, chain: Vec<host::Proc>) {
         let (r, mut w) = tokio::io::split(stream);
         let mut reader = BufReader::new(r);
         let mut line = Vec::new();
@@ -261,11 +276,20 @@ impl Hub {
         let Ok(message) = serde_json::from_slice::<Value>(&line) else { return };
         let Some((event, payload)) = accepted(&message) else { return };
         let tail = tail_for(&payload).await;
+        let session = payload.get("session_id").and_then(Value::as_str).unwrap_or("").to_string();
+        let look = self.inner.hold().sessions.wants_host(&session, event);
         if event != "PermissionRequest" {
             self.event(event, &payload, tail.as_deref());
+            if look {
+                self.hosted_in(&session, hosted(chain).await);
+            }
             return;
         }
-        let Some((id, shown, decide)) = self.register(&payload, tail.as_deref()) else { return };
+        let registered = self.register(&payload, tail.as_deref());
+        if look {
+            self.hosted_in(&session, hosted(chain).await);
+        }
+        let Some((id, shown, decide)) = registered else { return };
         let answer = tokio::select! {
             answer = wait(shown, decide) => answer,
             // The relay went away (Claude Code stopped waiting): the card goes at once.
@@ -277,6 +301,11 @@ impl Hub {
             let _ = w.flush().await;
         }
     }
+}
+
+/// The app in a relay's chain of processes, found on a thread of its own: it asks the system about every window.
+async fn hosted(chain: Vec<host::Proc>) -> Option<Host> {
+    tokio::task::spawn_blocking(move || host::find(&chain)).await.ok().flatten()
 }
 
 /// The end of the session's transcript the payload names, read on a thread of its own and within `TAIL_WAIT`, before
@@ -566,6 +595,8 @@ pub async fn serve(hub: Arc<Hub>) -> Result<(), String> {
                 }
                 continue;
             }
+            // First of all: a relay writes and ends at once, and what it runs in is only known while it, or its parents, can be asked.
+            let chain = kuchu_wire::client_pid(server.as_raw_handle()).map(host::chain).unwrap_or_default();
             let next = loop {
                 match make(false) {
                     Ok(next) => break next,
@@ -574,7 +605,7 @@ pub async fn serve(hub: Arc<Hub>) -> Result<(), String> {
             };
             let connected = std::mem::replace(&mut server, next);
             let me = kuchu_wire::client_is_me(connected.as_raw_handle());
-            take_in(&hub, &permits, connected, me);
+            take_in(&hub, &permits, connected, me, chain);
         }
     }
     #[cfg(not(windows))]
@@ -595,14 +626,15 @@ pub async fn serve(hub: Arc<Hub>) -> Result<(), String> {
         loop {
             if let Ok((stream, _)) = listener.accept().await {
                 let me = kuchu_wire::client_is_me(stream.as_raw_fd());
-                take_in(&hub, &permits, stream, me);
+                take_in(&hub, &permits, stream, me, Vec::new());
             }
         }
     }
 }
 
-/// A connection just made: heard if it is this account's (`me`) and there is room, else closed unread.
-fn take_in<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(hub: &Arc<Hub>, permits: &Arc<Semaphore>, stream: S, me: bool) {
+/// A connection just made: heard if it is this account's (`me`) and there is room, else closed unread. `chain` is the process at its
+/// other end and its parents, where the system can say.
+fn take_in<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(hub: &Arc<Hub>, permits: &Arc<Semaphore>, stream: S, me: bool, chain: Vec<host::Proc>) {
     if !me {
         return;
     }
@@ -610,7 +642,7 @@ fn take_in<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(hub: &Arc<Hub>, p
     let hub = hub.clone();
     tokio::spawn(async move {
         let _permit = permit;
-        hub.handle(stream).await;
+        hub.handle(stream, chain).await;
     });
 }
 
