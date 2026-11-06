@@ -1,0 +1,51 @@
+# Kuchu's website, from site/: built and published to GitHub Pages whenever what it is made of changes on main (its
+# own files, the pet it shows, the privacy policy it carries, the version it names), or by hand. Actions are pinned to
+# a commit; the build uses the runner's own Node.
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'app/src/pet/**'
+      - 'app/src-tauri/tauri.conf.json'
+      - 'app/src-tauri/icons/**'
+      - 'PRIVACY.md'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One publish at a time; one under way is let finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the site
+        working-directory: site
+        run: npm ci && npm run build
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
