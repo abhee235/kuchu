@@ -389,6 +389,14 @@ html[data-window='settings'] body {
   top: calc(100% + 6px - 8px);
   bottom: auto;
 }
+/* Scrolling, a card is cut where the stack ends: there, the gap's width short of this card, so it never seems to run
+   under it. */
+.card-others.is-scrolling {
+  clip-path: inset(0 0 8px 0);
+}
+.card-others.is-below.is-scrolling {
+  clip-path: inset(8px 0 0 0);
+}
 /* Each reads like the card: its name, then its line or its last few steps. */
 .card-other {
   display: grid;

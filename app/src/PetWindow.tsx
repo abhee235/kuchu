@@ -50,11 +50,12 @@ const LIST_GAP_PX = 6
 const LIST_PAD_PX = 8
 /** The room the window gains above the pet while a card shows, and the pet's margins in its box (as in lib.rs). */
 const CARD_H_PX = 210
+const PET_BOTTOM_PX = 14
 /** How far a card keeps from the top of the window (`.beside` in styles.css). */
 const BESIDE_TOP_PX = 8
 /** The parts of a permission card that scroll, and so give way when the screen has no more room. */
 const CARD_SCROLLS = '.approval-what, .approval-detail, .approval-rule'
-const BOX_MARGIN_PX = 14 + 22
+const BOX_MARGIN_PX = PET_BOTTOM_PX + 22
 
 const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
 
@@ -270,6 +271,26 @@ function cardKey(card: Card) {
   return `${card.session}:${mood}:${card.at}`
 }
 
+/** How far the window can grow from where the pet is: up, and down past the pet. A list or a card can stay open while
+ *  the pet is carried somewhere with more room or less, so the core tells it again each time the pet comes to rest. */
+function useReach(wanted: boolean) {
+  const [reach, setReach] = useState<[number, number] | null>(null)
+  useEffect(() => {
+    if (!wanted) return setReach(null)
+    let live = true
+    const told = ([up, down]: [number, number]) => {
+      if (live) setReach((r) => (r?.[0] === up && r[1] === down ? r : [up, down]))
+    }
+    void core.listRoom().then(told)
+    const off = on<[number, number]>('reach', told)
+    return () => {
+      live = false
+      off()
+    }
+  }, [wanted])
+  return reach
+}
+
 /** Which session, and what it is doing now (or the answer's first lines once done). A click opens the sessions. With
  *  other sessions at work, "+N" lists them while hovered, or until it is clicked off once clicked on; a click on one
  *  switches the card to it. */
@@ -285,57 +306,55 @@ function SessionCard({ card, lines, leaving, onClose, held, onHold, onBelow, box
 }) {
   const [hovered, setList] = useState(false)
   const list = (held || hovered) && card.others.length > 0
-  const [room, setRoom] = useState<{ below: boolean; max: number } | null>(null)
+  const [room, setRoom] = useState<{ below: boolean; max: number; scrolls: boolean } | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const shut = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // The list stacks on the card, edge to edge: above it, the window growing up to make room for it as far as the
   // screen allows; with more room below (a pet high on its screen), below it, the window growing down past the pet.
-  // The core says how far the window can grow each way; the room the window has without growing does not change as it
-  // grows (the card stays put), so what is asked for does not either. Short of room both ways, each session takes one
-  // line (its name and its step) until the list closes; past that it scrolls. Measured before it is drawn (it shows
-  // once the core has answered), again as it grows and as the window does.
-  const [reach, setReach] = useState<[number, number] | null>(null)
+  // Once there it stays on that side while it fits, so a line more or less does not send it across the card. Short of
+  // room both ways, each session takes one line (its name and its step) until the list closes; past that it scrolls.
+  // All of this is worked out from what stays put: the core's reach, the card's height and the list's. Never from the
+  // window's size now, which lags behind what was asked for: the answer would change with it, and could go round and
+  // round. Measured before it is drawn (it shows once the core has answered), and again on every change.
+  const reach = useReach(list)
   const [short, setShort] = useState(false)
-  const way = useRef<'up' | 'down'>('up')
+  const under = useRef(false)
   const asked = useRef('')
-  const ask = (more: number, under: boolean) => {
-    const key = `${more}:${under}`
+  const ask = (more: number, down: boolean) => {
+    const key = `${more}:${down}:${reach}`
     if (asked.current === key) return
     asked.current = key
-    void core.setRoom(more, under)
+    void core.setRoom(more, down)
   }
-  useEffect(() => {
-    if (!list) return setReach(null)
-    void core.listRoom().then(setReach)
-  }, [list])
   useEffect(() => () => ask(0, false), [])
   useLayoutEffect(() => {
-    const box = cardRef.current?.getBoundingClientRect()
+    const height = cardRef.current?.offsetHeight
     const el = listRef.current
-    if (!list || !box || !el || !reach) {
+    if (!list || !height || !el || !reach) {
       if (!list) {
         ask(0, false)
         onBelow(false)
         setShort(false)
+        under.current = false
       }
       return setRoom(null)
     }
-    const need = Math.min(el.scrollHeight, LIST_MAX_PX)
-    const above = box.top - LIST_GAP_PX + LIST_PAD_PX
-    const below = window.innerHeight - box.bottom - LIST_GAP_PX + LIST_PAD_PX
-    // The window's growth so far, one way or the other, taken out: the room it has without growing.
-    const grown = Math.max(0, window.innerHeight - boxH - CARD_H_PX)
-    const baseAbove = above - (way.current === 'up' ? grown : 0)
-    const baseBelow = below - (way.current === 'down' ? grown : 0)
-    const [up, down] = reach
-    const under = baseAbove + up < need && baseBelow + down > baseAbove + up
-    way.current = under ? 'down' : 'up'
-    onBelow(under)
-    ask(Math.ceil(Math.max(0, need - (under ? baseBelow : baseAbove))), under)
-    if (lines && !short && el.scrollHeight > Math.min(LIST_MAX_PX, Math.max(baseAbove + up, baseBelow + down))) setShort(true)
-    const max = Math.max(0, Math.min(LIST_MAX_PX, under ? below : above))
-    setRoom((r) => (r?.below === under && r.max === max ? r : { below: under, max }))
+    // The card's foot keeps its place by the pet, so the room each way, before the window grows, is the card's alone.
+    const foot = PET_BOTTOM_PX + (boxH - BOX_MARGIN_PX) / 2
+    const above = boxH + CARD_H_PX - foot - height - LIST_GAP_PX + LIST_PAD_PX
+    const below = foot - LIST_GAP_PX + LIST_PAD_PX
+    const most = (down: boolean) => (down ? below + reach[1] : above + reach[0])
+    const full = el.scrollHeight
+    const need = Math.min(full, LIST_MAX_PX)
+    if (most(under.current) < need && most(!under.current) > most(under.current)) under.current = !under.current
+    const down = under.current
+    onBelow(down)
+    ask(Math.ceil(Math.max(0, need - (down ? below : above))), down)
+    const max = Math.max(0, Math.min(LIST_MAX_PX, most(down)))
+    if (lines && !short && full > max) setShort(true)
+    const scrolls = full > max
+    setRoom((r) => (r?.below === down && r.max === max && r.scrolls === scrolls ? r : { below: down, max, scrolls }))
   })
   const open = () => {
     clearTimeout(shut.current)
@@ -392,7 +411,7 @@ function SessionCard({ card, lines, leaving, onClose, held, onHold, onBelow, box
       {list && (
         <div
           ref={listRef}
-          className={`card-others${room?.below ? ' is-below' : ''}`}
+          className={`card-others${room?.below ? ' is-below' : ''}${room?.scrolls ? ' is-scrolling' : ''}`}
           style={room ? { maxHeight: room.max } : { visibility: 'hidden' }}
           role="menu"
           aria-label="Sessions at work"
@@ -448,8 +467,7 @@ function ApprovalCard({ approval, more, boxH, onBelow }: { approval: Approval; m
   // way and the buttons stay. Measured after every layout, so again as the window grows.
   const cardRef = useRef<HTMLDivElement>(null)
   const asked = useRef('0:false')
-  const [reach, setReach] = useState<[number, number] | null>(null)
-  useEffect(() => void core.listRoom().then(setReach), [])
+  const reach = useReach(true)
   useLayoutEffect(
     () => () => {
       void core.setRoom(0, false)
