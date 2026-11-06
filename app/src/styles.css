@@ -242,11 +242,17 @@ html[data-window='settings'] body {
 .card-line.is-past .card-text {
   opacity: 0.42;
 }
+/* Its place on the card opens on hover and closes after it, the gap before it too: at rest the words have that room and the
+   +N badge stands at the end of the card; on hover the words give it back and the badge steps aside. */
 .card-actions {
   display: flex;
+  flex: none;
   gap: 6px;
+  width: 0;
+  margin-left: -8px;
+  overflow: hidden;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, width 0.2s ease, margin-left 0.2s ease;
 }
 .card-actions button,
 .card-close {
@@ -275,9 +281,14 @@ html[data-window='settings'] body {
 }
 .card:hover .card-actions,
 .card:hover .card-close,
-.card:focus-within .card-actions,
-.card:focus-within .card-close {
+.card:has(:focus-visible) .card-actions,
+.card:has(:focus-visible) .card-close {
   opacity: 1;
+}
+.card:hover .card-actions,
+.card:has(:focus-visible) .card-actions {
+  width: 32px;
+  margin-left: 0;
 }
 
 /* The other sessions at work: a count on the card, and the list it opens to switch the card to one of them. */
@@ -546,6 +557,9 @@ html[data-window='settings'] body {
   .card-others,
   .card-more::after {
     animation: none !important;
+  }
+  .card-actions {
+    transition-property: opacity;
   }
 }
 
