@@ -8,7 +8,7 @@ Kuchu is a small desk pet for Claude Code. It sits above your windows and shows 
 doing: it thinks while Claude reads your message, works while tools run, asks you when Claude Code needs permission,
 and hops when a session is done. A card beside it says which session it is and what is happening now.
 
-It works with Claude Code wherever you run it: in any terminal or editor, on the same computer.
+It works with Claude Code wherever you run it on the same computer: in VS Code, in any terminal, or in another editor.
 
 ## Set it up
 

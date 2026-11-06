@@ -7,6 +7,11 @@ description: Answers about Kuchu, the desk pet for Claude Code: what it is, what
 A small desk pet for Claude Code. It sits above your windows and shows what your Claude Code sessions are doing, with
 a card beside it for each session's steps, and it lets you answer Claude Code's permission requests from that card.
 
+## Does Kuchu work with Claude Code in VS Code?
+
+Yes. Kuchu follows Claude Code through its hooks, so a session in the VS Code extension shows up beside the pet just as
+one in a terminal does. Kuchu sits above your windows, so you can see it while you work in the editor.
+
 ## Is Kuchu made by Anthropic?
 
 No. Kuchu is an independent, open-source app that works with Claude Code. It is not made or endorsed by Anthropic.
@@ -24,7 +29,7 @@ preview).
 ## How do I see what Claude Code is doing without watching the terminal?
 
 Install Kuchu and connect it to Claude Code. The pet shows whether Claude is thinking, working, waiting for you or
-done, and its card shows the session's current step, for every session in any terminal or editor.
+done, and its card shows the session's current step, for every session in VS Code, any terminal or another editor.
 
 ## Can I approve Claude Code's permission requests from a popup?
 

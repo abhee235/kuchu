@@ -34,5 +34,5 @@ again.
 Kuchu runs your own Claude Code for a conversation, in the folder you chose, so Claude answers under your own Claude
 account, its plan and its terms, with your Claude Code settings. Kuchu sends nothing anywhere itself.
 
-Sessions you started in a terminal or an editor are followed, not typed into: Claude Code takes their messages only
+Sessions you started in VS Code, another editor or a terminal are followed, not typed into: Claude Code takes their messages only
 there.

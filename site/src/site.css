@@ -246,44 +246,53 @@ p {
   max-width: 62em;
 }
 
-/* ── Home: the hero, with the pet at work ─────────────────────────────────────────────────────────────────────── */
+/* ── Home: the hero, with the pet in front of an editor where Claude Code runs ─────────────────────────────────── */
 
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 40px;
-  align-items: center;
   max-width: var(--wide);
   margin: 0 auto;
-  padding: 56px 24px 96px;
+  padding: 44px 24px 88px;
+}
+.hero-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: end;
+  margin-bottom: 36px;
 }
 .hero h1 {
-  margin: 0 0 20px;
+  margin: 0;
   font-size: clamp(44px, 5.4vw, 68px);
   font-weight: 680;
   line-height: 1;
   letter-spacing: -0.046em;
 }
 .lede {
-  max-width: 21em;
-  margin: 0 0 30px;
+  max-width: 27em;
+  margin: 0 0 18px;
   color: var(--fg-2);
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1.45;
 }
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+}
 .also {
-  margin: 18px 0 0;
+  margin: 0;
   color: var(--fg-2);
   font-size: 15px;
 }
 .fine {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   color: var(--fg-3);
   font-size: 14px;
 }
 .hero-demo {
   position: relative;
-  min-height: 500px;
+  min-height: 548px;
 }
 .still {
   position: absolute;
@@ -291,65 +300,196 @@ p {
   bottom: 28px;
 }
 
-/* The pet stands on the page itself, above a small terminal, as it stands above your windows. */
+/* The scene: the editor at the back, Kuchu in front of its corner, as it stands in front of your windows. */
 .stage {
   position: relative;
-  height: 500px;
+  height: 548px;
 }
-.term {
+.ide {
   position: absolute;
   left: 0;
-  top: 10px;
-  width: 402px;
-  height: 226px;
+  right: 150px;
+  top: 0;
+  height: 496px;
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  background: #17191a;
-  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.45);
+  background: #1f1f1f;
+  box-shadow: 0 32px 64px -28px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+  color: #cccccc;
+  font-size: 13px;
+  line-height: 1.5;
   overflow: hidden;
 }
-.term-bar {
+.ide-title {
+  position: relative;
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 28px;
-  flex: none;
-  padding: 0 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-.term-bar span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.16);
-}
-.term-bar em {
-  margin-left: 8px;
-  color: rgba(255, 255, 255, 0.5);
+  justify-content: center;
+  height: 34px;
+  padding: 0 14px;
+  border-bottom: 1px solid #2b2b2b;
+  background: #181818;
+  color: #9d9d9d;
   font-size: 12px;
-  font-style: normal;
 }
-.term-body {
+.ide-title em {
+  font-style: normal;
+  white-space: nowrap;
+}
+.ide-menu {
+  position: absolute;
+  left: 14px;
+  white-space: nowrap;
+  word-spacing: 8px;
+}
+.ide-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.ide-bar {
+  flex: none;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 18px;
+  width: 44px;
+  padding-top: 14px;
+  border-right: 1px solid #2b2b2b;
+  background: #181818;
+  color: #868686;
+}
+.ide-bar svg {
+  width: 20px;
+  height: 20px;
+}
+.ide-claude {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: clamp(236px, 37%, 330px);
+  min-width: 0;
+  border-right: 1px solid #2b2b2b;
+  background: #181818;
+}
+.ide-head {
+  flex: none;
+  padding: 10px 14px;
+  color: #cccccc;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ide-log {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 1px;
-  padding: 8px 14px 10px;
-  color: #c9cfcb;
-  font-family: var(--mono);
-  font-size: 12px;
-  line-height: 1.45;
+  gap: 5px;
+  padding: 0 14px 12px;
+  color: #b4b4b4;
+  font-size: 12.5px;
   overflow: hidden;
 }
-.term-body .is-you {
+.ide-log .is-you {
+  align-self: flex-end;
+  max-width: 90%;
+  margin-bottom: 3px;
+  padding: 6px 11px;
+  border-radius: 12px;
+  background: #2f2f2f;
   color: #ffffff;
 }
-.term-body .is-out {
-  color: #99a19c;
+.ide-log .is-out {
+  color: #8b8b8b;
   white-space: pre;
+}
+.ide-input {
+  flex: none;
+  min-height: 52px;
+  margin: 0 12px 12px;
+  padding: 9px 12px;
+  border: 1px solid #3c3c3c;
+  border-radius: 10px;
+  background: #1f1f1f;
+  color: #ffffff;
+  font-size: 12.5px;
+}
+.ide-input span {
+  color: #7f7f7f;
+}
+.ide-file {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ide-tab {
+  flex: none;
+  align-self: flex-start;
+  padding: 8px 18px;
+  border-top: 1px solid #ef8a17;
+  background: #1f1f1f;
+  color: #ffffff;
+  font-size: 12.5px;
+}
+.ide-code {
+  flex: 1;
+  min-height: 0;
+  padding-top: 6px;
+  border-top: 1px solid #2b2b2b;
+  color: #cccccc;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 20px;
+  overflow: hidden;
+}
+.ide-line {
+  display: flex;
+  white-space: pre;
+}
+.ide-line b {
+  flex: none;
+  width: 42px;
+  padding-right: 16px;
+  color: #6e7681;
+  font-weight: 400;
+  text-align: right;
+}
+.ide-line.is-gone {
+  background: rgba(255, 70, 70, 0.17);
+}
+.ide-line.is-new {
+  background: rgba(60, 200, 110, 0.17);
+}
+.ide-line .is-key {
+  color: #c586c0;
+}
+.ide-line .is-type {
+  color: #4ec9b0;
+}
+.ide-line .is-call {
+  color: #dcdcaa;
+}
+.ide-line .is-text {
+  color: #ce9178;
+}
+.ide-line .is-num {
+  color: #b5cea8;
+}
+.ide-status {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  height: 24px;
+  padding: 0 12px;
+  border-top: 1px solid #2b2b2b;
+  background: #181818;
+  color: #9d9d9d;
+  font-size: 11.5px;
+  line-height: 23px;
 }
 .caret {
   display: inline-block;
@@ -365,11 +505,11 @@ p {
     opacity: 0;
   }
 }
-/* In the terminal's title bar on a wide screen; on a phone, where there is no terminal, under the pet's card. */
+/* In the editor's title bar on a wide screen; on a phone, where there is no editor, beside the pet. */
 .btn.demo-pause {
   position: absolute;
-  left: 306px;
-  top: 10px;
+  right: 158px;
+  top: 3px;
   z-index: 2;
   height: 28px;
   padding: 0 10px;
@@ -514,21 +654,53 @@ p {
   }
 }
 
-/* ── Home: what it gives you, its life, and the way to get it ─────────────────────────────────────────────────── */
+/* ── Home: what it gives you, its life, and the way to get it. Everything sits on one grid of three columns, so that
+   each section starts and ends on the same edges as the others. ───────────────────────────────────────────────── */
 
-.gains {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 40px;
+.gains,
+.more,
+.steps-wrap,
+.faq,
+.get {
   max-width: var(--wide);
   margin: 0 auto;
   padding: 0 24px 104px;
 }
+.gains,
+.more-list,
+.steps,
+.faq,
+.get,
+.life-inner {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px;
+}
+.more h2,
+.steps-wrap h2,
+.faq h2,
+.life h2,
+.get h2 {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 3.3vw, 40px);
+  font-weight: 650;
+  line-height: 1.08;
+  letter-spacing: -0.032em;
+}
+.more h2,
+.steps-wrap h2 {
+  margin-bottom: 30px;
+}
+
+/* Three panels of one size: whatever each holds, their tops, bottoms and the headings under them line up. */
 .gain-shot {
-  display: flex;
-  align-items: flex-end;
-  min-height: 196px;
-  margin-bottom: 28px;
+  display: grid;
+  place-items: center;
+  height: 232px;
+  margin-bottom: 24px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--desk);
 }
 .gain h2 {
   margin: 0 0 8px;
@@ -545,15 +717,12 @@ p {
   line-height: 1.5;
 }
 .shot-card {
-  max-width: 100%;
+  width: 100%;
+  max-width: 290px;
   animation: none;
 }
-.shot-card.is-line {
-  width: 204px;
-}
 .shot-card:has(.shot-more) {
-  width: 300px;
-  padding-right: 64px;
+  padding-right: 60px;
 }
 .shot-more {
   position: absolute;
@@ -575,7 +744,14 @@ p {
 .shot-needs {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
+  max-width: 290px;
+  min-width: 0;
+}
+.shot-needs .shot-card {
+  flex: 1;
+  min-width: 0;
 }
 .mini-pet {
   flex: none;
@@ -584,75 +760,162 @@ p {
 }
 
 .life {
-  padding: 88px 24px 92px;
+  margin-bottom: 104px;
   background: var(--desk);
-  text-align: center;
 }
-.life h2,
-.get h2 {
-  margin: 0 0 10px;
-  font-size: clamp(30px, 3.6vw, 44px);
-  font-weight: 650;
-  line-height: 1.08;
-  letter-spacing: -0.034em;
+.life-inner {
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  max-width: var(--wide);
+  margin: 0 auto;
+  padding: 64px 24px;
 }
-.life > p {
+.life-copy {
+  grid-column: 1 / span 2;
+  grid-row: 1;
+}
+.life-copy p {
+  max-width: 30em;
   margin: 0;
   color: var(--fg-2);
-  font-size: 18px;
+  font-size: 17px;
 }
+/* The playable pet's parts sit on the section's own grid: its buttons under the words, the pet in the third column. */
+.life-play,
 .play {
-  display: grid;
-  justify-items: center;
-  gap: 26px;
-  margin-top: 28px;
+  display: contents;
 }
 .play-pet {
+  grid-column: 3;
+  grid-row: 1 / span 2;
   display: grid;
   place-items: center;
-  min-height: 284px;
+  min-height: 280px;
 }
 .play-buttons {
+  grid-column: 1 / span 2;
+  grid-row: 2;
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  align-content: flex-start;
   gap: 8px;
 }
 
-.trust {
-  max-width: var(--wide);
-  margin: 0 auto;
-  padding: 104px 24px 0;
+.more-list {
+  gap: 30px 40px;
 }
-.trust-line {
-  max-width: 22em;
-  margin: 0 0 14px;
-  font-size: clamp(24px, 3vw, 34px);
+.more-list h3,
+.steps h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
   font-weight: 620;
-  line-height: 1.18;
-  letter-spacing: -0.026em;
 }
-.trust-links {
-  display: flex;
-  gap: 20px;
+.more-list h3 a {
+  text-decoration: none;
+}
+.more-list h3 a:hover {
+  color: var(--tint);
+}
+.more-list p,
+.steps p {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+.more-list > div {
+  padding-top: 16px;
+  border-top: 0.5px solid var(--line);
+}
+
+/* These are the order to do things in, so they carry numbers. */
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.steps li {
+  counter-increment: step;
+}
+.steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 12px;
+  border: 0.5px solid var(--line);
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.faq-head p {
   margin: 0;
   color: var(--fg-2);
   font-size: 15px;
 }
+.faq-list {
+  grid-column: 2 / span 2;
+}
+.qa {
+  border-top: 0.5px solid var(--line);
+}
+.qa:last-child {
+  border-bottom: 0.5px solid var(--line);
+}
+.qa summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 2px;
+  font-size: 16.5px;
+  font-weight: 580;
+  cursor: pointer;
+  list-style: none;
+}
+.qa summary::-webkit-details-marker {
+  display: none;
+}
+.qa summary::after {
+  content: '+';
+  flex: none;
+  color: var(--fg-3);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.2;
+  transition: transform 0.15s ease;
+}
+.qa[open] summary::after {
+  transform: rotate(45deg);
+}
+.qa p {
+  max-width: 40em;
+  margin: 0 2px 16px;
+  color: var(--fg-2);
+  font-size: 16px;
+  line-height: 1.55;
+}
 
 .get {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 40px;
   align-items: end;
-  max-width: var(--wide);
-  margin: 0 auto;
-  padding: 96px 24px 72px;
+  padding-bottom: 72px;
+}
+.get-copy {
+  grid-column: 1 / span 2;
+}
+.get-pet {
+  grid-column: 3;
+  justify-self: center;
 }
 .get .fine {
   margin: 0 0 24px;
   color: var(--fg-2);
   font-size: 16px;
+}
+.get .also {
+  margin-top: 18px;
 }
 .say {
   display: flex;
@@ -799,23 +1062,44 @@ p {
 
 /* ── Smaller screens ──────────────────────────────────────────────────────────────────────────────────────────── */
 
-/* Below this the card and the pet need more room than their column has, and would reach the words. */
+/* Below this the words stack, and the editor gives the pet less room beside it. */
 @media (max-width: 1000px) {
-  .hero {
+  .hero-head {
     grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
-    padding-top: 40px;
-    padding-bottom: 72px;
+    gap: 18px;
+  }
+  .ide {
+    right: 96px;
+  }
+  .btn.demo-pause {
+    right: 104px;
+  }
+  .ide-menu {
+    display: none;
+  }
+  .demo-card {
+    margin-bottom: 40px;
   }
 }
+/* Three columns no longer fit: two for the short lists, one for the panels, each at full width. */
 @media (max-width: 900px) {
   .gains {
     grid-template-columns: minmax(0, 1fr);
-    gap: 56px;
-    padding-bottom: 80px;
+    gap: 48px;
   }
-  .gain-shot {
-    min-height: 0;
+  .more-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+  .faq {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .faq-list {
+    grid-column: 1;
   }
   .docs {
     grid-template-columns: minmax(0, 1fr);
@@ -834,32 +1118,29 @@ p {
     white-space: nowrap;
   }
 }
-/* On a phone the pet goes straight under the words, without the terminal, so it shows in the first screen. */
+/* On a phone the pet goes straight under the words, without the editor, so it shows in the first screen. */
 @media (max-width: 640px) {
   .top-get {
     display: none;
   }
-  .lede {
-    margin-bottom: 22px;
-    font-size: 18px;
-  }
-  .also {
-    margin-top: 14px;
-  }
   .hero {
     padding-top: 28px;
-    gap: 20px;
+    padding-bottom: 64px;
+  }
+  .hero-head {
+    margin-bottom: 20px;
   }
   .hero-demo,
   .stage {
     min-height: 346px;
     height: 346px;
   }
-  .term {
+  .ide {
     display: none;
   }
   .btn.demo-pause {
     left: 0;
+    right: auto;
     top: auto;
     bottom: 0;
     padding: 0;
@@ -887,23 +1168,51 @@ p {
     right: 0;
     bottom: 0;
   }
+  .gains,
+  .more,
+  .steps-wrap,
+  .faq {
+    padding-bottom: 72px;
+  }
+  .more-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .life {
+    margin-bottom: 72px;
+  }
+  .life-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 48px 24px;
+  }
+  .life-copy,
+  .play-pet,
+  .play-buttons {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .play-pet {
+    min-height: 220px;
+  }
   .get {
     grid-template-columns: minmax(0, 1fr);
-    padding-top: 80px;
+  }
+  .get-copy {
+    grid-column: 1;
   }
   .get-pet {
+    grid-column: 1;
     justify-self: end;
-    grid-row: 1;
-  }
-  .trust {
-    padding-top: 80px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .caret,
   .mark.is-running,
-  .demo-card {
+  .demo-card,
+  .qa summary::after {
     animation: none;
+    transition: none;
   }
 }

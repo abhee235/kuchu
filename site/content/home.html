@@ -1,14 +1,18 @@
 ---
 title: Kuchu: a desk pet for Claude Code
-description: Kuchu is a free desk pet for Claude Code on Windows and macOS. It shows what every Claude Code session is doing, and lets you answer its permission requests from a card beside it.
+description: Kuchu is a free desk pet for Claude Code on Windows and macOS. It shows what every Claude Code session is doing, in VS Code or any terminal, and lets you answer its permission requests from a card beside it.
 ---
 <section class="hero">
-  <div class="hero-copy">
+  <div class="hero-head">
     <h1>A desk&nbsp;pet for&nbsp;Claude&nbsp;Code</h1>
-    <p class="lede">It shows what Claude is doing, and lets you say yes without switching windows.</p>
-    <a class="btn is-primary is-large" href="{{STORE}}">Get it from the Microsoft Store</a>
-    <p class="also"><a href="{{BASE}}docs/install/">Or download for Windows and macOS (preview)</a></p>
-    <p class="fine">Free and open source. Needs Claude Code.</p>
+    <div class="hero-side">
+      <p class="lede">It shows what Claude is doing, and lets you say yes without switching windows. In VS Code or any terminal.</p>
+      <div class="actions">
+        <a class="btn is-primary is-large" href="{{STORE}}">Get it from the Microsoft Store</a>
+        <a class="also" href="{{BASE}}docs/install/">More ways to install</a>
+      </div>
+      <p class="fine">Free and open source. Needs Claude Code.</p>
+    </div>
   </div>
   <div class="hero-demo" data-pet="hero">
     <img class="still" src="{{BASE}}icon-180.png" width="180" height="180" alt="Kuchu, a small white robot with an orange antenna">
@@ -24,7 +28,7 @@ description: Kuchu is a free desk pet for Claude Code on Windows and macOS. It s
       </div>
     </div>
     <h2>Know when Claude needs you</h2>
-    <p>It waves the moment a session is waiting, so you can stop watching the terminal.</p>
+    <p>It waves the moment a session is waiting, so you can stop watching the panel.</p>
   </article>
   <article class="gain">
     <div class="gain-shot">
@@ -57,14 +61,44 @@ description: Kuchu is a free desk pet for Claude Code on Windows and macOS. It s
 </section>
 
 <section class="life">
-  <h2>A life of its own</h2>
-  <p>With no work to show, it stretches, dances and naps. Try it.</p>
-  <div data-pet="play"></div>
+  <div class="life-inner">
+    <div class="life-copy">
+      <h2>A life of its own</h2>
+      <p>With no work to show, it stretches, dances and naps. It waves hello when you send Claude a message. Try it.</p>
+    </div>
+    <div class="life-play" data-pet="play"></div>
+  </div>
 </section>
 
-<section class="trust">
-  <p class="trust-line">Collects nothing. Open source. No admin rights. Shows every change before making it.</p>
-  <p class="trust-links"><a href="{{BASE}}privacy/">Privacy policy</a><a href="{{BASE}}docs/how-it-works/">How it works</a></p>
+<section class="more">
+  <h2>Everything else it does</h2>
+  <div class="more-list">
+    <div><h3><a href="{{BASE}}docs/cards/">Works in VS Code and any terminal</a></h3><p>Every Claude Code session on your computer shows up, wherever you started it.</p></div>
+    <div><h3><a href="{{BASE}}docs/cards/#more-than-one-session">Several sessions at once</a></h3><p>Each has its own card. "+N" lists the others, and a click follows one.</p></div>
+    <div><h3><a href="{{BASE}}docs/conversations/">Talk to Claude from Kuchu</a></h3><p>Start a conversation in any folder, stop it, or carry it on in a terminal.</p></div>
+    <div><h3><a href="{{BASE}}docs/settings/">Stays out of your way</a></h3><p>It never takes the focus, and clicks go through everywhere but the pet and its cards.</p></div>
+    <div><h3><a href="{{BASE}}docs/permissions/">Nothing without your click</a></h3><p>An unanswered request goes back to Claude Code. A timeout never allows anything.</p></div>
+    <div><h3><a href="{{BASE}}privacy/">Collects nothing</a></h3><p>No account and no analytics. Open source, and no administrator rights needed.</p></div>
+  </div>
+</section>
+
+<section class="steps-wrap">
+  <h2>Set it up in three steps</h2>
+  <ol class="steps">
+    <li><h3>Install Kuchu</h3><p>From the Microsoft Store, or from GitHub for Windows and macOS.</p></li>
+    <li><h3>Click Connect</h3><p>Kuchu shows the change to Claude Code's settings first, and keeps a copy.</p></li>
+    <li><h3>Use Claude Code as usual</h3><p>Every session in VS Code or a terminal shows up beside the pet.</p></li>
+  </ol>
+</section>
+
+<section class="faq">
+  <div class="faq-head">
+    <h2>Questions about Kuchu</h2>
+    <p><a href="{{BASE}}faq/">All questions and answers</a></p>
+  </div>
+  <div class="faq-list">
+<!-- faq -->
+  </div>
 </section>
 
 <section class="get" id="install">

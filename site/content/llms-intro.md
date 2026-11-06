@@ -2,7 +2,7 @@ Kuchu is a free, open-source (MIT) desk pet for Claude Code, for Windows 10 and 
 independent app, not made or endorsed by Anthropic.
 
 - It shows what every Claude Code session is doing: the pet's mood (thinking, working, needs you, done) and a card
-  with each session's current steps, for sessions in any terminal or editor.
+  with each session's current steps, for sessions in VS Code, any terminal or another editor.
 - Claude Code's permission requests can be answered from the card with Allow or Deny. Nothing is allowed without a
   click; an unanswered request goes back to Claude Code after about 100 seconds.
 - It hears Claude Code through hooks in Claude Code's settings.json, added only when the user clicks Connect after
