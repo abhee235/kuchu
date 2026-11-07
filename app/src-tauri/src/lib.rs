@@ -11,6 +11,7 @@ mod install;
 mod locks;
 mod prefs;
 mod sessions;
+mod update;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, Ordering};
@@ -340,6 +341,9 @@ pub fn run() {
             forget,
             open_app,
             open_page,
+            open_store,
+            update_status,
+            update_install,
             decide,
             approval_shown,
             set_wide,
@@ -903,7 +907,10 @@ fn page_address(name: &str) -> Option<&'static str> {
     PAGES.iter().find(|(page, _)| *page == name).map(|(_, address)| *address)
 }
 
-/// Hands an address to the person's browser. Kuchu itself connects to nothing.
+/// Kuchu's page in the Microsoft Store app.
+const STORE_PAGE: &str = "ms-windows-store://pdp/?ProductId=9NNK1Q800R84";
+
+/// Hands an address to the person's browser, or the Store app for its own. Kuchu itself connects to nothing.
 fn browse(address: &str) -> Result<(), String> {
     #[cfg(windows)]
     let opened = std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", address]).spawn();
@@ -914,6 +921,27 @@ fn browse(address: &str) -> Result<(), String> {
     let mut child = opened.map_err(|e| format!("Kuchu could not open your browser: {e}"))?;
     std::thread::spawn(move || child.wait());
     Ok(())
+}
+
+/// Opens Kuchu's page in the Microsoft Store app.
+#[tauri::command]
+fn open_store() -> Result<(), String> {
+    browse(STORE_PAGE)
+}
+
+/// What is known about a newer Kuchu: from the Store, Windows says; any other copy cannot know, and its button opens the website.
+#[tauri::command]
+async fn update_status() -> update::Update {
+    update::status().await
+}
+
+/// A click on "Update now". Where the Store will not do it unattended, its own page takes over.
+#[tauri::command]
+async fn update_install() -> Result<(), String> {
+    if update::install().await {
+        return Ok(());
+    }
+    browse(STORE_PAGE)
 }
 
 /// Opens the page for reporting an answer in the person's browser. Always that one page: the page names nothing.

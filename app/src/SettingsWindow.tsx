@@ -4,7 +4,7 @@
 
 import { BookOpen, Bot, CircleAlert, CircleCheck, ExternalLink, Globe, MessageSquareText, Plug, ShieldCheck, Sparkles, TriangleAlert, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { core, on, SIZES, type HookPlan, type HookReport, type Prefs, type SitePage, type Start } from './api'
+import { core, on, SIZES, type HookPlan, type HookReport, type Prefs, type SitePage, type Start, type Update } from './api'
 import { Pet, type PetKind } from './pet/Pet'
 import robot3d from './pet/robot3d.webp'
 import type { PetMood } from './pet/petMood'
@@ -67,6 +67,7 @@ export function SettingsWindow() {
           Kuchu
           <span className="brand-version">{version}</span>
         </span>
+        <UpdateRow />
         <nav className="settings-tabs" role="tablist" aria-orientation="vertical">
           {TABS.map((t) => (
             <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className="tab" onClick={() => setTab(t.id)}>
@@ -210,6 +211,63 @@ export function SettingsWindow() {
           )}
         </div>
       </section>
+    </div>
+  )
+}
+
+/** Under the version: whether a newer Kuchu is out. A copy from the Store is told by Windows, each time Settings opens; any other copy
+ *  cannot know without going online, which Kuchu never does, so its button opens the website. */
+function UpdateRow() {
+  const [update, setUpdate] = useState<Update | null>(null)
+  const [installing, setInstalling] = useState(false)
+  const check = () => {
+    setUpdate(null)
+    void core.updateStatus().then(setUpdate)
+  }
+  useEffect(check, [])
+  const install = () => {
+    setInstalling(true)
+    // Windows closes Kuchu to finish; if this comes back, the Store's own page has taken over.
+    void core.updateInstall().finally(() => setInstalling(false))
+  }
+  if (!update) return <div className="update-row">Checking for updates…</div>
+  if (update.state === 'site') {
+    return (
+      <div className="update-row">
+        <button type="button" className="text-link" onClick={() => void core.openPage('changelog')}>
+          Check for updates
+          <ExternalLink />
+        </button>
+      </div>
+    )
+  }
+  if (update.state === 'current') {
+    return (
+      <div className="update-row">
+        Up to date
+        <button type="button" className="text-link" onClick={check}>
+          Check again
+        </button>
+      </div>
+    )
+  }
+  if (update.state === 'unknown') {
+    return (
+      <div className="update-row">
+        Could not check
+        <button type="button" className="text-link" onClick={() => void core.openStore()}>
+          Open the Store
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="update-row is-ready">
+      <span>{update.version ? `Version ${update.version} is ready` : 'A new version is ready'}</span>
+      <button type="button" className="btn is-small is-primary" disabled={installing} onClick={install}>
+        {installing ? 'Updating…' : 'Update now'}
+      </button>
+      {installing && <span>Kuchu closes for a moment, then starts again.</span>}
     </div>
   )
 }

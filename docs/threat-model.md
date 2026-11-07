@@ -137,6 +137,12 @@ for someone who scrolls. A lower limit is worth weighing once real commands show
 |---|---|---|---|---|
 | T37 | **A button that brings another app forward.** Each card offers the app its session runs in. If a message could name that app, anything reaching the pipe (T2) could steer Kuchu at any window. | Low | No message takes part. The system names the process at the other end of the pipe (`client_pid`) and its parents (read from each process's own handle, a parent started after its child being no parent), so a fake session of this account can only offer the app it itself runs under. Only apps on a short list count (`host::APPS`, the desktop app, a console's own window). A click does one thing: it brings that app's window forward, after checking its process is still that program. Nothing is started, and no path or link is opened. The session's project is compared with window titles to tell windows apart; titles are not kept. Windows lets only the program with the last input bring a window forward, and a click on a card goes to the page's process, so Kuchu sends an empty mouse input, which moves nothing. | macOS: no button yet. |
 
+### 3b. Updates (update.rs)
+
+| | Threat | Severity | Stands today | To do |
+|---|---|---|---|---|
+| T38 | **An update check is a way out.** Kuchu promises to connect to nothing, and an updater is what would break that. | Low | Kuchu has none. A copy from the Store asks Windows (`StoreContext`), which does the asking and the installing of a package the Store signed; Kuchu opens no connection and handles no file. The call runs on a thread of its own within `STORE_WAIT`, so a Store that hangs costs an answer. Any other copy cannot know, and says so: its button opens the website in the browser. Installing without a dialog needs the click on "Update now", and nothing else starts it. | A signed updater for other copies, if ever: T28. |
+
 ### 4. Paths named in payloads (sessions.rs `tail_of`)
 
 | | Threat | Severity | Stands today | To do |
@@ -322,6 +328,7 @@ Each is one small commit with its tests.
 | T28 | The install itself | Medium | Open: needs a signing identity for Windows and macOS, which is not code; provenance (T34) meanwhile |
 | T29 | One panic ends Kuchu | Medium | Fixed in 7a1a2e0 and 306e661: locks, the garbage test, unwinding instead of aborting, the relay catching a panic and still exiting 0 |
 | T37 | A button that brings another app forward | Low | Accepted: the system names the app, never a message; only a window comes forward |
+| T38 | An update check is a way out | Low | Accepted: Windows and the Store do it, for a Store copy only; Kuchu connects to nothing |
 | T30 | Kuchu gone without a word | Low | Open |
 | T31 | Secrets on the card | Low | Open |
 | T32 | What is on disk | Low | Watching: nothing from sessions |
