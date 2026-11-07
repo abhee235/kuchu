@@ -165,7 +165,7 @@ export type ChoiceKind = 'allow' | 'deny' | 'always' | 'answer' | 'terminal'
 export const SIZES = { small: 64, base: 96, big: 128 } as const
 
 /** What is known about a newer Kuchu. Only a copy from the Microsoft Store can know: Windows asks for it. */
-export type Update = { state: 'site' } | { state: 'current' } | { state: 'ready'; version: string | null } | { state: 'unknown' }
+export type Update = { state: 'site' } | { state: 'current' } | { state: 'ready' } | { state: 'unknown' }
 
 /** Kuchu's own pages on its website, by name: the core holds the addresses. */
 export type SitePage = 'home' | 'docs' | 'changelog' | 'troubleshooting'

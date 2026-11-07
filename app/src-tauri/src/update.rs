@@ -20,15 +20,10 @@ pub enum Update {
     Site,
     /// The Store has nothing newer.
     Current,
-    /// The Store has a newer version, and which, if it says.
-    Ready { version: Option<String> },
+    /// The Store has a newer version. Which one it does not say: the version on its update is the one installed now.
+    Ready,
     /// The Store did not answer: its own page for Kuchu can say.
     Unknown,
-}
-
-/// A package's version as people read it: the Store's fourth number is always 0.
-fn version_name(major: u16, minor: u16, build: u16) -> String {
-    format!("{major}.{minor}.{build}")
 }
 
 #[cfg(windows)]
@@ -36,7 +31,7 @@ mod store {
     use windows::Services::Store::{StoreContext, StorePackageUpdateState};
     use windows::Win32::System::WinRT::{RoInitialize, RO_INIT_MULTITHREADED};
 
-    use super::{version_name, Update};
+    use super::Update;
 
     /// The Store's view of this app, on a thread of its own.
     fn context() -> windows::core::Result<StoreContext> {
@@ -47,11 +42,7 @@ mod store {
 
     pub fn check() -> windows::core::Result<Update> {
         let updates = context()?.GetAppAndOptionalStorePackageUpdatesAsync()?.join()?;
-        if updates.Size()? == 0 {
-            return Ok(Update::Current);
-        }
-        let version = updates.GetAt(0).and_then(|u| u.Package()).and_then(|p| p.Id()).and_then(|id| id.Version()).ok();
-        Ok(Update::Ready { version: version.map(|v| version_name(v.Major, v.Minor, v.Build)) })
+        Ok(if updates.Size()? == 0 { Update::Current } else { Update::Ready })
     }
 
     /// Downloads and installs what the Store has, the click on "Update now" being the person's say. Windows closes Kuchu to finish, and
@@ -108,14 +99,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_store_version_reads_as_people_write_it() {
-        assert_eq!(version_name(0, 1, 8), "0.1.8");
-    }
-
-    #[test]
     fn the_page_is_told_what_is_known_in_a_shape_it_can_read() {
         assert_eq!(serde_json::to_value(Update::Site).unwrap(), serde_json::json!({ "state": "site" }));
-        assert_eq!(serde_json::to_value(Update::Ready { version: Some("0.1.8".into()) }).unwrap(), serde_json::json!({ "state": "ready", "version": "0.1.8" }));
+        assert_eq!(serde_json::to_value(Update::Ready).unwrap(), serde_json::json!({ "state": "ready" }));
     }
 
     /// The call that decides whether the button can fall back: outside a package the Store has no app to speak of, as it has none when

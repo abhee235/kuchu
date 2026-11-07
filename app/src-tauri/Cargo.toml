@@ -24,7 +24,7 @@ dirs = "7"
 
 [target.'cfg(windows)'.dependencies]
 # Asking the Microsoft Store whether a newer Kuchu is out (update.rs). Already in the build through the web view; here for the Store's API.
-windows = { version = "0.62", features = ["ApplicationModel", "Foundation_Collections", "Services_Store", "Win32_System_WinRT"] }
+windows = { version = "0.62", features = ["Foundation_Collections", "Services_Store", "Win32_System_WinRT"] }
 # One Kuchu per sign-in: a second start hands its arguments to the first. Windows only: on macOS the system keeps an
 # app to one copy, and the plugin's socket there sits in the shared /tmp.
 tauri-plugin-single-instance = "2"

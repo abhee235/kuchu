@@ -1341,16 +1341,15 @@ kbd {
   width: 18px;
   height: 18px;
 }
-/* Under the version: whether a newer Kuchu is out. */
+/* At the foot of the list, with the links to the website: whether a newer Kuchu is out. */
 .update-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px 8px;
-  min-height: 20px;
+  gap: 2px 6px;
+  min-height: 32px;
   white-space: nowrap;
   padding: 0 10px;
-  margin: -6px 0 10px 32px;
   color: var(--fg-2);
   font-size: var(--text-caption);
 }
@@ -1359,14 +1358,14 @@ kbd {
   align-items: flex-start;
   gap: 6px;
 }
-.update-row .text-link {
-  display: inline-flex;
+.update-note {
+  display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 .update-row svg {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
 }
 /* Where to read more, at the foot of the list: Kuchu's website, opened in the browser. */
 .settings-tabs {
@@ -1418,6 +1417,8 @@ kbd {
   border-radius: 50%;
   background: var(--amber);
 }
+  padding-block: 6px;
+  white-space: normal;
 .settings-pane {
   flex: 1;
   min-width: 0;
