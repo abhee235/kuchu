@@ -105,6 +105,8 @@ export interface View {
   card: Card | null
   approvals: Approval[]
   sessions: Session[]
+  /** The pet is off the screen. */
+  hidden: boolean
 }
 
 export interface Prefs {
@@ -121,6 +123,8 @@ export interface Prefs {
   approvals: boolean
   /** With no work, Kuchu plays now and then and naps after a long quiet. */
   lively: boolean
+  /** The pet is hidden until then (milliseconds since 1970). */
+  hiddenUntil: number | null
   /** Folders conversations were started in from Kuchu, the latest first. */
   folders: string[]
 }
@@ -177,6 +181,7 @@ export const core = {
   prefs: () => invoke<Prefs>('get_prefs'),
   setPrefs: (patch: Partial<Prefs>) => invoke<Prefs>('set_prefs', { patch }),
   petClicked: () => invoke('pet_clicked'),
+  hideFor: (minutes: number) => invoke('hide_for', { minutes }),
   forget: (session: string) => invoke('forget', { session }),
   /** Brings forward the app a session runs in. False if it has gone, or Windows would not. */
   openApp: (session: string) => invoke<boolean>('open_app', { session }),

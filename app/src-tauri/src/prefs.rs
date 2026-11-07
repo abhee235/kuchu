@@ -28,6 +28,8 @@ pub struct Prefs {
     pub lively: bool,
     /// Where the pet was left (its box's top-left, physical px), so it comes back there.
     pub at: Option<(i32, i32)>,
+    /// The pet is hidden until then (milliseconds since 1970). Kept here so that a restart does not bring it back early.
+    pub hidden_until: Option<u64>,
     /// Folders conversations were started in from Kuchu, the latest first.
     pub folders: Vec<String>,
 }
@@ -35,9 +37,12 @@ pub struct Prefs {
 /// How many recent folders are kept.
 const FOLDERS: usize = 6;
 
+/// The longest the pet can be hidden for: the longest the pet's menu offers, one day.
+pub const LONGEST_HIDE_MS: u64 = 24 * 60 * 60 * 1000;
+
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { pet: "robot".into(), size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, keep_others: false, sounds: true, click: "sessions".into(), approvals: true, lively: true, at: None, folders: Vec::new() }
+        Prefs { pet: "robot".into(), size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, keep_others: false, sounds: true, click: "sessions".into(), approvals: true, lively: true, at: None, hidden_until: None, folders: Vec::new() }
     }
 }
 
@@ -67,6 +72,12 @@ impl Prefs {
         }
         self.folders.truncate(FOLDERS);
         self
+    }
+
+    /// When a hide left by an earlier run ends, if it still has time to go. Never further off than the longest hide: a
+    /// file saying the year 3000, or a clock put right since, must not keep the pet away.
+    pub fn hidden_for_now(&self, now: u64) -> Option<u64> {
+        self.hidden_until.filter(|&until| until > now).map(|until| until.min(now + LONGEST_HIDE_MS))
     }
 
     /// A folder a conversation was just started in goes first.
@@ -157,6 +168,19 @@ mod tests {
         assert!(again.keep_others);
         assert_eq!(again.width(), 128);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_hide_lasts_through_a_restart_and_never_longer_than_a_day() {
+        let at = Prefs { hidden_until: Some(5_000), ..Prefs::default() };
+        assert_eq!(serde_json::from_str::<Prefs>(&serde_json::to_string(&at).unwrap()).unwrap().hidden_until, Some(5_000));
+        assert_eq!(serde_json::from_str::<Prefs>("{}").unwrap().hidden_until, None);
+        assert_eq!(at.hidden_for_now(4_000), Some(5_000));
+        assert_eq!(at.hidden_for_now(5_000), None);
+        assert_eq!(at.hidden_for_now(6_000), None);
+        let far = Prefs { hidden_until: Some(u64::MAX), ..Prefs::default() };
+        assert_eq!(far.hidden_for_now(1_000), Some(1_000 + LONGEST_HIDE_MS));
+        assert_eq!(Prefs::default().hidden_for_now(1_000), None);
     }
 
     #[test]

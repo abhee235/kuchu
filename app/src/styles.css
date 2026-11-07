@@ -133,17 +133,22 @@ html[data-window='settings'] body {
   bottom: calc(14px + var(--drop, 0px));
   width: var(--pet-w, 96px);
   height: var(--pet-h, 123px);
-  cursor: grab;
   /* A thin warm edge and a close shadow lift its white shell off a white page; the wide one sets it down. */
   filter: drop-shadow(0 0 0.8px rgba(60, 42, 22, 0.5)) drop-shadow(0 2px 3px rgba(40, 28, 14, 0.22))
     drop-shadow(0 6px 14px rgba(0, 0, 0, 0.24));
-  touch-action: none;
 }
 .stage.is-wide.is-right .bubble {
   left: auto;
   right: 16px;
 }
-.bubble:active {
+/* The pet itself, to click or carry; its small button sits beside this, not in it. */
+.bubble-press {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  touch-action: none;
+}
+.bubble-press:active {
   cursor: grabbing;
 }
 /* See-through: the pet fades while the pointer is on it; held, it is solid again. "On it" comes from the core, which
@@ -154,8 +159,38 @@ html[data-window='settings'] body {
 .bubble.is-over .pet {
   opacity: 0.3;
 }
-.bubble:active .pet {
+.bubble-press:active .pet {
   opacity: 1;
+}
+/* A small button on the pet, on its top corner toward its cards: hides it for a while. It shows while the pointer is on
+   the pet, inside the pet's own box, so going to it never counts as leaving. */
+.pet-hide {
+  position: absolute;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--composer);
+  color: inherit;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.pet-hide.is-shown {
+  opacity: 1;
+  pointer-events: auto;
+}
+.stage.is-right .pet-hide {
+  left: 0;
+}
+.stage.is-left .pet-hide {
+  right: 0;
 }
 
 .beside {
@@ -492,7 +527,8 @@ html[data-window='settings'] body {
 }
 
 /* A permission request: the card a chat shows for one, beside the pet. */
-.approval {
+.approval,
+.hide-menu {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -502,6 +538,30 @@ html[data-window='settings'] body {
   background: var(--composer);
   box-shadow: var(--card-shadow);
   animation: card-in 0.22s ease-out both;
+}
+/* How long to hide the pet for. */
+.hide-menu-title {
+  font-size: var(--text-strong);
+  line-height: 22px;
+  font-weight: 600;
+}
+.hide-menu-times {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+.hide-menu-times .btn.is-small {
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+.hide-menu-note {
+  margin-top: 10px;
+  font-size: var(--text-note);
+  line-height: 18px;
+  color: var(--fg-2);
 }
 .approval-head {
   display: flex;
@@ -1357,6 +1417,8 @@ kbd {
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
+  padding-block: 6px;
+  white-space: normal;
 }
 .update-note {
   display: flex;
@@ -1417,8 +1479,6 @@ kbd {
   border-radius: 50%;
   background: var(--amber);
 }
-  padding-block: 6px;
-  white-space: normal;
 .settings-pane {
   flex: 1;
   min-width: 0;

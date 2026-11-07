@@ -49,6 +49,9 @@ const STROLL_PAUSE: Duration = Duration::from_millis(900);
 /// A busy session silent this long is checked with Claude Code, at most this often.
 const SILENT_MS: u64 = 15_000;
 const CHECK_EVERY: Duration = Duration::from_secs(15);
+/// How often a hidden pet looks at the clock. The clock and not one long sleep, so that it is back on time after the
+/// computer has slept.
+const HIDE_CHECK: Duration = Duration::from_secs(5);
 /// How long after losing the focus the sessions list checks it really has, before hiding.
 const BLUR_SETTLE: Duration = Duration::from_millis(150);
 /// The shortcut that opens the sessions list from anywhere.
@@ -277,9 +280,7 @@ fn again(app: &AppHandle, args: &[String]) {
         Handed::Quit => app.exit(0),
         Handed::Settings => show_settings(app),
         Handed::Show => {
-            if let Some(pet) = app.get_webview_window("pet") {
-                let _ = pet.show();
-            }
+            show_pet(app);
             if !app.get_webview_window("sessions").is_some_and(|w| w.is_visible().unwrap_or(false)) {
                 toggle_sessions(app);
             }
@@ -323,9 +324,7 @@ pub fn run() {
                 .expect("a valid shortcut")
                 .with_handler(|app, _shortcut, event| {
                     if event.state == ShortcutState::Pressed {
-                        if let Some(pet) = app.get_webview_window("pet") {
-                            let _ = pet.show();
-                        }
+                        show_pet(app);
                         toggle_sessions(app);
                     }
                 })
@@ -338,6 +337,7 @@ pub fn run() {
             get_prefs,
             set_prefs,
             pet_clicked,
+            hide_for,
             forget,
             open_app,
             open_page,
@@ -385,6 +385,10 @@ pub fn run() {
                 prefs.save(&prefs_path);
             }
             let hub = Hub::new(app.handle().clone(), prefs.approvals);
+            // Hidden when Kuchu last stopped, with time to go: it stays hidden.
+            let hidden = prefs.hidden_for_now(hub::now());
+            let prefs = Prefs { hidden_until: hidden, ..prefs };
+            hub.set_hidden(hidden.is_some());
             let window = app.get_webview_window("pet").expect("the pet's window is in tauri.conf.json");
             let at = prefs.at.filter(|at| still_on_screen(&window, *at)).unwrap_or_else(|| first_place(&window, prefs.width()));
             let relay = install::start_relay();
@@ -407,7 +411,9 @@ pub fn run() {
             let _ = window.set_ignore_cursor_events(true);
             kuchu.place(&window);
             kuchu.settle(&window);
-            let _ = window.show();
+            if hidden.is_none() {
+                let _ = window.show();
+            }
             {
                 let kuchu = kuchu.clone();
                 let w = window.clone();
@@ -456,6 +462,16 @@ pub fn run() {
                     }
                     if let Some(running) = alive::running().await {
                         hub.check_running(&asked, &running, SILENT_MS);
+                    }
+                }
+            });
+            let (handle, k) = (app.handle().clone(), kuchu.clone());
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(HIDE_CHECK).await;
+                    let up = k.prefs.hold().hidden_until.is_some_and(|until| until <= hub::now());
+                    if up {
+                        show_pet(&handle);
                     }
                 }
             });
@@ -627,6 +643,43 @@ fn raise_pet(app: &AppHandle) {
     }
 }
 
+/// Takes the pet off the screen, until `until` (as `hub::now`) or, with none, until it is asked for.
+fn hide_pet(app: &AppHandle, until: Option<u64>) {
+    let k = kuchu(app);
+    k.hub.set_hidden(true);
+    let next = Prefs { hidden_until: until, ..k.prefs.hold().clone() };
+    k.set_prefs(app, next);
+    if let Some(pet) = app.get_webview_window("pet") {
+        let _ = pet.hide();
+    }
+    mark_shown(app, false);
+}
+
+/// Brings the pet back, whatever hid it: its time being up, or being asked for (the tray, the shortcut, a second start).
+fn show_pet(app: &AppHandle) {
+    let k = kuchu(app);
+    k.hub.set_hidden(false);
+    if k.prefs.hold().hidden_until.is_some() {
+        let next = Prefs { hidden_until: None, ..k.prefs.hold().clone() };
+        k.set_prefs(app, next);
+    }
+    if let Some(pet) = app.get_webview_window("pet") {
+        let _ = pet.show();
+    }
+    raise_pet(app);
+    mark_shown(app, true);
+}
+
+/// The tray says whether the pet shows, and how to bring it back.
+fn mark_shown(app: &AppHandle, shown: bool) {
+    if let Some(item) = app.try_state::<CheckMenuItem<tauri::Wry>>() {
+        let _ = item.set_checked(shown);
+    }
+    if let Some(tray) = app.tray_by_id("kuchu") {
+        let _ = tray.set_tooltip(Some(if shown { "Kuchu" } else { "Kuchu is hidden. Click to bring it back." }));
+    }
+}
+
 fn show_settings(app: &AppHandle) {
     if let Some(settings) = app.get_webview_window("settings") {
         let _ = settings.show();
@@ -663,6 +716,13 @@ fn set_prefs(app: AppHandle, patch: serde_json::Value) -> Prefs {
     let k = kuchu(&app);
     let next = k.prefs.hold().merged(&patch);
     k.set_prefs(&app, next)
+}
+
+/// The pet's menu: off the screen for this long, then back by itself.
+#[tauri::command]
+fn hide_for(app: AppHandle, minutes: u64) {
+    let length = minutes.saturating_mul(60_000).min(prefs::LONGEST_HIDE_MS);
+    hide_pet(&app, Some(hub::now() + length));
 }
 
 /// A click on the pet: what was done is seen, and the list or Settings opens, as Settings says. (Commands that make
@@ -781,7 +841,7 @@ fn set_rects(app: AppHandle, rects: Vec<Rect>) {
 fn stroll(app: AppHandle, dx: f64) -> f64 {
     let k = kuchu(&app);
     let Some(window) = app.get_webview_window("pet") else { return 0.0 };
-    let busy = k.layout.wide.load(Ordering::Relaxed) || k.layout.taking.load(Ordering::Relaxed) || k.layout.moved.hold().is_some();
+    let busy = !window.is_visible().unwrap_or(false) || k.layout.wide.load(Ordering::Relaxed) || k.layout.taking.load(Ordering::Relaxed) || k.layout.moved.hold().is_some();
     if busy {
         return 0.0;
     }
@@ -1049,7 +1109,8 @@ fn own_settings(app: &AppHandle) -> Option<PathBuf> {
 
 /// The tray: always a way back to the pet, the sessions, Settings, sounds, quitting.
 fn tray(app: &AppHandle) -> tauri::Result<()> {
-    let shown = CheckMenuItem::with_id(app, "shown", "Show Kuchu", true, true, None::<&str>)?;
+    let hidden = kuchu(app).prefs.hold().hidden_until.is_some();
+    let shown = CheckMenuItem::with_id(app, "shown", "Show Kuchu", true, !hidden, None::<&str>)?;
     let sessions = MenuItem::with_id(app, "sessions", "Sessions", true, Some("Ctrl+Alt+K"))?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let help = MenuItem::with_id(app, "help", "Help and docs…", true, None::<&str>)?;
@@ -1063,16 +1124,18 @@ fn tray(app: &AppHandle) -> tauri::Result<()> {
     if let Some(icon) = app.default_window_icon() {
         builder = builder.icon(icon.clone());
     }
-    let shown_item = shown.clone();
+    app.manage(shown.clone());
     let sounds_item = sounds.clone();
     builder
         .on_menu_event(move |app, event| {
             let Some(window) = app.get_webview_window("pet") else { return };
             match event.id().as_ref() {
                 "shown" => {
-                    let show = !window.is_visible().unwrap_or(true);
-                    let _ = if show { window.show() } else { window.hide() };
-                    let _ = shown_item.set_checked(show);
+                    if window.is_visible().unwrap_or(true) {
+                        hide_pet(app, None);
+                    } else {
+                        show_pet(app);
+                    }
                 }
                 "sessions" => toggle_sessions(app),
                 "settings" => show_settings(app),
@@ -1095,9 +1158,7 @@ fn tray(app: &AppHandle) -> tauri::Result<()> {
         .on_tray_icon_event(|tray, event| {
             // A click on the tray icon always brings the pet back.
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                if let Some(window) = tray.app_handle().get_webview_window("pet") {
-                    let _ = window.show();
-                }
+                show_pet(tray.app_handle());
             }
         })
         .build(app)?;
