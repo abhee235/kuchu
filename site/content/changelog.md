@@ -8,6 +8,17 @@ Every release is on [GitHub]({{RELEASES}}), with its files' checksums and build 
 [Microsoft Store]({{STORE}}), Kuchu updates itself. Otherwise, install the [latest release]({{RELEASES}}) over the one you
 have.
 
+## 0.1.8, 7 November 2026
+
+- Hide Kuchu for a while, for a meeting or a game: a small button on the pet puts it away for 30 minutes up to a day, and
+  it comes back by itself. While it is hidden it stays quiet, and Claude Code asks in its own window.
+- Choose your pet in Settings: the robot, a cat, a dog, an owl, a frog or a rubber duck.
+- Each card names its project, and a button on it brings up the app its session runs in.
+- The other sessions stay shown if you want them to: the switch on "+N" now lasts from one start to the next.
+- Settings shows whether a newer Kuchu is out. From the Microsoft Store it can install it; other copies open this page.
+- Help, What's new and Kuchu's website are a click away in Settings.
+- Cards no longer run under each other with three sessions at once, and a crash that could blank the pet is fixed.
+
 ## 0.1.7, 6 November 2026
 
 - A long command no longer runs out of the bottom of a permission card. The card makes room for itself, and "Always allow" says
