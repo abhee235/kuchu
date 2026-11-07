@@ -114,6 +114,8 @@ export interface Prefs {
   card: 'line' | 'lines' | 'off'
   /** An answer stays beside the pet until it is clicked; otherwise it shows for a few seconds. */
   keepAnswer: boolean
+  /** The other sessions at work stay shown beside the card; otherwise they show while "+N" is hovered. */
+  keepOthers: boolean
   sounds: boolean
   click: 'sessions' | 'settings'
   approvals: boolean

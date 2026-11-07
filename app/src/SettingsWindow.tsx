@@ -179,6 +179,12 @@ export function SettingsWindow() {
               >
                 <Toggle label="Keep an answer until you click Kuchu" on={prefs.keepAnswer} set={(keepAnswer) => set({ keepAnswer })} />
               </Row>
+              <Row
+                label="Keep other sessions shown"
+                desc="With several sessions at work, each stays on a card of its own beside this one. Otherwise they show while your pointer is on the +N badge. A click on the badge switches this too."
+              >
+                <Toggle label="Keep other sessions shown" on={prefs.keepOthers} set={(keepOthers) => set({ keepOthers })} />
+              </Row>
               <Row label="Clicking Kuchu opens" desc="Ctrl+Alt+K opens your sessions from anywhere, and the tray icon always brings Kuchu back.">
                 <Segmented
                   value={prefs.click}

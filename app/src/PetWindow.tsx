@@ -72,8 +72,6 @@ export function PetWindow() {
   const stroke = useRef({ x: 0, way: 0, turns: [] as number[] })
   const [closed, setClosed] = useState<string | null>(null)
   const [leaving, setLeaving] = useState<string | null>(null)
-  // "+N" switched on: the other sessions stay listed above the card, whichever session it shows.
-  const [held, setHeld] = useState(false)
 
   useEffect(() => {
     void core.view().then(setView)
@@ -198,8 +196,8 @@ export function PetWindow() {
                 lines={prefs?.card === 'lines'}
                 leaving={leaving === key}
                 onClose={() => setClosed(key)}
-                held={held}
-                onHold={setHeld}
+                held={!!prefs?.keepOthers}
+                onHold={(keepOthers) => void core.setPrefs({ keepOthers }).then(setPrefs)}
                 onBelow={(b) => (below.current = b)}
                 boxH={height + BOX_MARGIN_PX}
               />

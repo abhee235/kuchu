@@ -17,6 +17,8 @@ pub struct Prefs {
     pub card: String,
     /// An answer stays beside the pet until it is clicked; otherwise it shows for a few seconds.
     pub keep_answer: bool,
+    /// The other sessions at work stay shown beside the card; otherwise they show while "+N" is hovered.
+    pub keep_others: bool,
     pub sounds: bool,
     /// What a click on the pet opens: "sessions" or "settings".
     pub click: String,
@@ -35,7 +37,7 @@ const FOLDERS: usize = 6;
 
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { pet: "robot".into(), size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, sounds: true, click: "sessions".into(), approvals: true, lively: true, at: None, folders: Vec::new() }
+        Prefs { pet: "robot".into(), size: "base".into(), see_through: true, card: "line".into(), keep_answer: false, keep_others: false, sounds: true, click: "sessions".into(), approvals: true, lively: true, at: None, folders: Vec::new() }
     }
 }
 
@@ -140,6 +142,20 @@ mod tests {
         std::fs::write(&path, r#"{ "pet": "dragon", "size": "big" }"#).unwrap();
         let newer = Prefs::load(&path);
         assert_eq!((newer.pet.as_str(), newer.width()), ("robot", 128));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn keeping_the_other_sessions_shown_lasts_from_one_start_to_the_next() {
+        let dir = std::env::temp_dir().join(format!("kuchu-prefs-others-{}", std::process::id()));
+        let path = path_in(dir.clone());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&path, r#"{ "size": "big" }"#).unwrap();
+        assert!(!Prefs::load(&path).keep_others);
+        Prefs::load(&path).merged(&serde_json::json!({ "keepOthers": true })).save(&path);
+        let again = Prefs::load(&path);
+        assert!(again.keep_others);
+        assert_eq!(again.width(), 128);
         let _ = std::fs::remove_dir_all(dir);
     }
 
