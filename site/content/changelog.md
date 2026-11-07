@@ -4,6 +4,10 @@ description: Every Kuchu release and what changed, from the first version to the
 ---
 Every release is on [GitHub]({{RELEASES}}), with its files' checksums and build attestations.
 
+**To update:** the newest version is the first one below, and Kuchu's Settings shows the version you have. From the
+[Microsoft Store]({{STORE}}), Kuchu updates itself. Otherwise, install the [latest release]({{RELEASES}}) over the one you
+have.
+
 ## 0.1.7, 6 November 2026
 
 - A long command no longer runs out of the bottom of a permission card. The card makes room for itself, and "Always allow" says

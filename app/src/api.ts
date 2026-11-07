@@ -164,6 +164,9 @@ export type ChoiceKind = 'allow' | 'deny' | 'always' | 'answer' | 'terminal'
 
 export const SIZES = { small: 64, base: 96, big: 128 } as const
 
+/** What is known about a newer Kuchu. Only a copy from the Microsoft Store can know: Windows asks for it. */
+export type Update = { state: 'site' } | { state: 'current' } | { state: 'ready'; version: string | null } | { state: 'unknown' }
+
 /** Kuchu's own pages on its website, by name: the core holds the addresses. */
 export type SitePage = 'home' | 'docs' | 'changelog' | 'troubleshooting'
 
@@ -203,6 +206,10 @@ export const core = {
   chatSend: (session: string, text: string) => invoke('chat_send', { session, text }),
   chatStop: (session: string) => invoke('chat_stop', { session }),
   chatTerminal: (session: string) => invoke('chat_terminal', { session }),
+  updateStatus: () => invoke<Update>('update_status'),
+  /** Installs what the Store has; if it will not, its page opens instead. */
+  updateInstall: () => invoke('update_install'),
+  openStore: () => invoke('open_store'),
   /** Opens one of Kuchu's own pages, in the browser. */
   openPage: (page: SitePage) => invoke('open_page', { page }),
   /** Opens the page for reporting an answer from Claude, in the browser. */

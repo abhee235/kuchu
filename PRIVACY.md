@@ -1,7 +1,8 @@
 # Kuchu's privacy policy
 
-Kuchu collects nothing and sends nothing anywhere. It has no account, no analytics, no ads and no updater, and it
-never connects to the internet itself.
+Kuchu collects nothing and sends nothing anywhere. It has no account, no analytics, no ads and no updater of its own,
+and it never connects to the internet itself. Installed from the Microsoft Store, it can ask Windows whether the Store
+has a newer version, and Windows does the asking and the installing.
 
 ## What it reads, on your computer only
 
