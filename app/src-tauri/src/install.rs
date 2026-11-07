@@ -146,7 +146,7 @@ fn this_program() -> Result<PathBuf, String> {
 }
 
 /// A path without Windows' `\\?\` prefix, which `canonicalize` adds and the Run key does not need.
-fn plain_path(path: PathBuf) -> PathBuf {
+pub fn plain_path(path: PathBuf) -> PathBuf {
     match path.to_str().and_then(|p| p.strip_prefix(r"\\?\")) {
         Some(p) if !p.starts_with("UNC\\") => PathBuf::from(p),
         _ => path,
