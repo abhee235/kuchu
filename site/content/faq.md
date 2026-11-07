@@ -16,7 +16,6 @@ Allow or Deny on the card answers it. Kuchu sits above your windows, so you can 
 ## Is Kuchu made by Anthropic?
 
 No. Kuchu is an independent, open-source app that works with Claude Code. It is not made or endorsed by Anthropic.
-Claude and Claude Code are trademarks of Anthropic.
 
 ## Is it free?
 
