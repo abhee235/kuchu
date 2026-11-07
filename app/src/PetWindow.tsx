@@ -4,7 +4,7 @@
 // and sends the sessions as one view; this page draws them, moves the pet, and plays its tones.
 
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { ExternalLink, List, MessageCircleQuestion, ShieldAlert, X } from 'lucide-react'
+import { ExternalLink, EyeOff, List, MessageCircleQuestion, ShieldAlert, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { core, on, SIZES, type Approval, type Card, type Line, type Prefs, type Progress, type View } from './api'
 import { Pet } from './pet/Pet'
@@ -56,8 +56,20 @@ const BESIDE_TOP_PX = 8
 /** The parts of a permission card that scroll, and so give way when the screen has no more room. */
 const CARD_SCROLLS = '.approval-what, .approval-detail, .approval-rule'
 const BOX_MARGIN_PX = PET_BOTTOM_PX + 22
+/** How long the pet can be hidden for, in minutes (as `prefs::LONGEST_HIDE_MS`, at most). */
+const HIDE_FOR = [
+  [30, '30 min'],
+  [60, '1 hour'],
+  [120, '2 hours'],
+  [240, '4 hours'],
+  [480, '8 hours'],
+  [1440, '1 day'],
+] as const
+/** The hide menu closes this long after the pointer leaves the pet and the menu: clicks elsewhere go through to what is
+ *  under the window, so a click away from the menu is never heard. */
+const HIDE_LINGER_MS = 1500
 
-const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [] }
+const EMPTY: View = { mood: 'idle', card: null, approvals: [], sessions: [], hidden: false }
 
 export function PetWindow() {
   const [view, setView] = useState<View>(EMPTY)
@@ -72,6 +84,7 @@ export function PetWindow() {
   const stroke = useRef({ x: 0, way: 0, turns: [] as number[] })
   const [closed, setClosed] = useState<string | null>(null)
   const [leaving, setLeaving] = useState<string | null>(null)
+  const [hiding, setHiding] = useState(false)
 
   useEffect(() => {
     void core.view().then(setView)
@@ -121,8 +134,13 @@ export function PetWindow() {
 
   const approval = view.approvals[0]
   const card = view.card && prefs?.card !== 'off' && cardKey(view.card) !== closed ? view.card : null
-  const wide = !!approval || !!card
+  const wide = !view.hidden && (!!approval || !!card || hiding)
   useEffect(() => void core.setWide(wide), [wide])
+  useEffect(() => {
+    if (!hiding || over || onCard) return
+    const t = setTimeout(() => setHiding(false), HIDE_LINGER_MS)
+    return () => clearTimeout(t)
+  }, [hiding, over, onCard])
 
   // An answer shows for a few seconds, then fades, unless Settings keeps it until the pet is clicked. While the
   // pointer is on it, it stays.
@@ -183,11 +201,22 @@ export function PetWindow() {
   const stage = { '--pet-w': `${width}px`, '--pet-h': `${height}px` } as React.CSSProperties
   const side = right ? 'is-right' : 'is-left'
 
+  // Off the screen, nothing is drawn. Hiding the window alone is not enough: the page goes on moving a pet nobody can see,
+  // at a greater cost than one on the screen, and hiding it for a game is the moment that matters.
+  if (view.hidden) return null
+
   return (
     <div ref={stageRef} className={`stage ${side}${wide ? ' is-wide' : ''}`} style={stage}>
       {wide && (
-        <div ref={sideRef} className={`beside${approval ? ' is-asking' : ''}`}>
-          {approval ? (
+        <div ref={sideRef} className={`beside${approval && !hiding ? ' is-asking' : ''}`}>
+          {hiding ? (
+            <HideMenu
+              onHide={(minutes) => {
+                setHiding(false)
+                void core.hideFor(minutes)
+              }}
+            />
+          ) : approval ? (
             <ApprovalCard key={approval.id} approval={approval} more={view.approvals.length - 1} boxH={height + BOX_MARGIN_PX} onBelow={(b) => (below.current = b)} />
           ) : (
             card && (
@@ -205,41 +234,70 @@ export function PetWindow() {
           )}
         </div>
       )}
-      <div
-        ref={petRef}
-        className={`bubble${over && prefs?.seeThrough ? ' is-over' : ''}`}
-        role="button"
-        aria-label={`Kuchu: ${mood}`}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return
-          press.current = { x: e.screenX, y: e.screenY }
-          if (walk) void core.stopStroll()
-        }}
-        onPointerMove={(e) => {
-          const p = press.current
-          if (!p || Math.hypot(e.screenX - p.x, e.screenY - p.y) < DRAG_PX) return
-          press.current = null
-          void getCurrentWindow().startDragging()
-        }}
-        onPointerUp={() => {
-          if (!press.current) return
-          press.current = null
-          void core.petClicked()
-        }}
-      >
-        <Pet
-          size={width}
-          mood={mood}
-          look={look}
-          lively={prefs?.lively ?? true}
-          near={near}
-          over={over}
-          walk={walk}
-          petted={petted}
-          asked={Math.max(0, ...view.sessions.map((s) => s.turn ?? 0))}
-          stroll={stroll}
-        />
+      <div ref={petRef} className={`bubble${over && prefs?.seeThrough ? ' is-over' : ''}`}>
+        <div
+          className="bubble-press"
+          role="button"
+          aria-label={`Kuchu: ${mood}`}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return
+            press.current = { x: e.screenX, y: e.screenY }
+            if (walk) void core.stopStroll()
+          }}
+          onPointerMove={(e) => {
+            const p = press.current
+            if (!p || Math.hypot(e.screenX - p.x, e.screenY - p.y) < DRAG_PX) return
+            press.current = null
+            void getCurrentWindow().startDragging()
+          }}
+          onPointerUp={() => {
+            if (!press.current) return
+            press.current = null
+            void core.petClicked()
+          }}
+        >
+          <Pet
+            size={width}
+            mood={mood}
+            look={look}
+            lively={prefs?.lively ?? true}
+            near={near}
+            over={over}
+            walk={walk}
+            petted={petted}
+            asked={Math.max(0, ...view.sessions.map((s) => s.turn ?? 0))}
+            stroll={stroll}
+          />
+        </div>
+        <button
+          type="button"
+          className={`pet-hide${over || hiding ? ' is-shown' : ''}`}
+          aria-label="Hide Kuchu for a while"
+          aria-expanded={hiding}
+          title="Hide Kuchu for a while"
+          onClick={() => setHiding((h) => !h)}
+        >
+          <EyeOff size={13} strokeWidth={2.25} />
+        </button>
       </div>
+    </div>
+  )
+}
+
+/** How long to hide the pet for, where a card goes. Hidden, it asks nothing of anyone: permission requests stay in
+ *  Claude Code, which is worth knowing before a meeting. */
+function HideMenu({ onHide }: { onHide: (minutes: number) => void }) {
+  return (
+    <div className="hide-menu" role="menu" aria-label="Hide Kuchu for">
+      <div className="hide-menu-title">Hide Kuchu for</div>
+      <div className="hide-menu-times">
+        {HIDE_FOR.map(([minutes, label]) => (
+          <button key={minutes} type="button" role="menuitem" className="btn is-small" onClick={() => onHide(minutes)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="hide-menu-note">Kuchu comes back by itself, or when you click its tray icon. Until then, Claude Code asks in its own window.</div>
     </div>
   )
 }

@@ -80,6 +80,8 @@ pub struct View {
     pub card: Option<Card>,
     pub approvals: Vec<Approval>,
     pub sessions: Vec<Session>,
+    /// The pet is off the screen, and its page has nothing to draw.
+    pub hidden: bool,
 }
 
 /// A click on a card.
@@ -103,6 +105,26 @@ struct Inner {
     sessions: Sessions,
     waiting: Vec<Waiting>,
     next: u64,
+    /// The pet is off the screen: nobody would see a card or hear a tone.
+    hidden: bool,
+}
+
+impl Inner {
+    /// Whether a new request can have a card.
+    fn takes_requests(&self) -> bool {
+        !self.hidden && self.waiting.len() < MAX_WAITING
+    }
+
+    /// The pet goes off the screen or comes back. Going, every request waiting on a card goes back to the terminal.
+    fn hide(&mut self, hidden: bool) {
+        self.hidden = hidden;
+        if hidden {
+            for w in &mut self.waiting {
+                w.shown.take();
+                w.decide.take();
+            }
+        }
+    }
 }
 
 pub struct Hub {
@@ -128,6 +150,7 @@ impl Hub {
             card: inner.sessions.card(),
             approvals: inner.waiting.iter().map(|w| w.card.clone()).collect(),
             sessions: inner.sessions.list(),
+            hidden: inner.hidden,
         }
     }
 
@@ -149,8 +172,23 @@ impl Hub {
             self.publish();
         }
         if let Some(tone) = tone_for(event, payload) {
+            self.ring(tone);
+        }
+    }
+
+    /// Rings `tone`, unless the pet is off the screen: a Kuchu put away for a meeting stays quiet.
+    fn ring(&self, tone: Mood) {
+        if !self.inner.hold().hidden {
             let _ = self.app.emit("kuchu://tone", tone);
         }
+    }
+
+    /// The pet goes off the screen or comes back. The window alone is not enough: a page can go on saying its card is on
+    /// the screen, and Claude Code would wait on a card nobody can see. So requests are the terminal's at once, not after
+    /// `SHOWN`, until it is back.
+    pub fn set_hidden(&self, hidden: bool) {
+        self.inner.hold().hide(hidden);
+        self.publish();
     }
 
     pub fn seen(&self) {
@@ -233,7 +271,7 @@ impl Hub {
             return None;
         }
         let mut inner = self.inner.hold();
-        if inner.waiting.len() >= MAX_WAITING {
+        if !inner.takes_requests() {
             return None;
         }
         inner.next += 1;
@@ -246,7 +284,7 @@ impl Hub {
         inner.waiting.push(Waiting { card: card(id, session, project, request), request: request.clone(), shown: Some(shown_tx), decide: Some(decide_tx) });
         drop(inner);
         self.publish();
-        let _ = self.app.emit("kuchu://tone", Mood::Needs);
+        self.ring(Mood::Needs);
         Some((id, shown_rx, decide_rx))
     }
 
@@ -675,6 +713,41 @@ mod tests {
         assert_eq!(tone_for("Notification", &json!({ "notification_type": "permission_prompt" })), Some(Mood::Needs));
         assert_eq!(tone_for("Notification", &json!({ "notification_type": "idle_prompt" })), None);
         assert_eq!(tone_for("PreToolUse", &fixture("PreToolUse")), None);
+    }
+
+    /// A request as `register` leaves it, and the wait its connection is in.
+    fn waiting(inner: &mut Inner, id: u64) -> (oneshot::Receiver<()>, oneshot::Receiver<Option<Value>>) {
+        let (shown_tx, shown_rx) = oneshot::channel();
+        let (decide_tx, decide_rx) = oneshot::channel();
+        let request = fixture("PermissionRequest");
+        inner.waiting.push(Waiting { card: card(id, "s".into(), "p".into(), &request), request, shown: Some(shown_tx), decide: Some(decide_tx) });
+        (shown_rx, decide_rx)
+    }
+
+    #[test]
+    fn a_hidden_pet_takes_no_requests_until_it_is_back() {
+        let mut inner = Inner::default();
+        assert!(inner.takes_requests());
+        inner.hide(true);
+        assert!(!inner.takes_requests());
+        inner.hide(false);
+        assert!(inner.takes_requests());
+    }
+
+    /// One that is on a card, one that has not reached the screen: hiding must not leave either to run out its time.
+    #[tokio::test]
+    async fn hiding_the_pet_hands_what_waits_back_to_the_terminal_at_once() {
+        let mut inner = Inner::default();
+        let (shown, decide) = waiting(&mut inner, 1);
+        let (not_yet, not_decided) = waiting(&mut inner, 2);
+        inner.waiting[0].shown.take().unwrap().send(()).unwrap();
+        let on_card = tokio::spawn(wait(shown, decide));
+        let unseen = tokio::spawn(wait(not_yet, not_decided));
+        tokio::task::yield_now().await;
+        inner.hide(true);
+        let quickly = Duration::from_millis(100);
+        assert_eq!(tokio::time::timeout(quickly, on_card).await.unwrap().unwrap(), None);
+        assert_eq!(tokio::time::timeout(quickly, unseen).await.unwrap().unwrap(), None);
     }
 
     #[tokio::test]

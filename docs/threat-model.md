@@ -142,6 +142,7 @@ for someone who scrolls. A lower limit is worth weighing once real commands show
 | | Threat | Severity | Stands today | To do |
 |---|---|---|---|---|
 | T38 | **An update check is a way out.** Kuchu promises to connect to nothing, and an updater is what would break that. | Low | Kuchu has none. A copy from the Store asks Windows (`StoreContext`), which does the asking and the installing of a package the Store signed; Kuchu opens no connection and handles no file. The call runs on a thread of its own within `STORE_WAIT`, so a Store that hangs costs an answer. Any other copy cannot know, and says so: its button opens the website in the browser. Installing without a dialog needs the click on "Update now", and nothing else starts it. | A signed updater for other copies, if ever: T28. |
+| T39 | **A request waits on a card nobody can see.** The pet can be hidden for a meeting or a game, for up to a day. The page of a hidden window can still say its card is on the screen, and Claude Code would then wait out `DECIDE` on every request, while tones ring through the meeting. | Low | The hub knows the pet is hidden (`set_hidden`), under the lock that guards the requests: a new request is left to the terminal at once, those waiting go back the moment it hides, and no tone rings. The end of a hide is kept in Kuchu's settings and believed only up to `LONGEST_HIDE_MS` ahead, so neither a changed file nor a changed clock can keep the pet away; the tray, the shortcut and a second start bring it back. | A conversation started from Kuchu has no terminal to ask in: hidden, its requests go the way they do with approvals off. |
 
 ### 4. Paths named in payloads (sessions.rs `tail_of`)
 
@@ -245,7 +246,7 @@ profile no longer aborts on a panic: a panic unwinds, so a task of Kuchu's can f
 
 | | Threat | Severity | Stands today | To do |
 |---|---|---|---|---|
-| T31 | **Secrets on the card.** A command on the card may hold a token; the card is above every window, on every desktop, in every screen share. | Low | Settings turn the card and approvals off; the tray hides Kuchu. | A one-key "hide everything" (the shortcut, twice); nothing shown is ever written to disk. |
+| T31 | **Secrets on the card.** A command on the card may hold a token; the card is above every window, on every desktop, in every screen share. | Low | Settings turn the card and approvals off; the tray and the pet's own button hide Kuchu, and a hidden Kuchu shows no card (T39). | A one-key "hide everything" (the shortcut, twice); nothing shown is ever written to disk. |
 | T32 | **What is on disk.** Kuchu's own settings hold recent folders; `hooks.json` holds the relay's path; nothing from any session. | Low | As it should be. | Keep; a test that no session text reaches `save`. |
 
 ### 11. The supply chain
@@ -329,6 +330,7 @@ Each is one small commit with its tests.
 | T29 | One panic ends Kuchu | Medium | Fixed in 7a1a2e0 and 306e661: locks, the garbage test, unwinding instead of aborting, the relay catching a panic and still exiting 0 |
 | T37 | A button that brings another app forward | Low | Accepted: the system names the app, never a message; only a window comes forward |
 | T38 | An update check is a way out | Low | Accepted: Windows and the Store do it, for a Store copy only; Kuchu connects to nothing |
+| T39 | A request waits on a card nobody can see | Low | Accepted: hidden, requests are the terminal's at once and no tone rings |
 | T30 | Kuchu gone without a word | Low | Open |
 | T31 | Secrets on the card | Low | Open |
 | T32 | What is on disk | Low | Watching: nothing from sessions |
