@@ -2,7 +2,7 @@
 // opens, connecting to Claude Code (the change to settings.json shown before it is made, a copy kept), and permission
 // requests. Each change reaches the pet at once.
 
-import { BookOpen, Bot, CircleAlert, CircleCheck, ExternalLink, Globe, MessageSquareText, Plug, ShieldCheck, Sparkles, TriangleAlert, Volume2 } from 'lucide-react'
+import { BookOpen, Bot, CircleAlert, CircleCheck, ExternalLink, Globe, MessageSquareText, Plug, RefreshCw, ShieldCheck, Sparkles, TriangleAlert, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { core, on, SIZES, type HookPlan, type HookReport, type Prefs, type SitePage, type Start, type Update } from './api'
 import { Pet, type PetKind } from './pet/Pet'
@@ -67,7 +67,6 @@ export function SettingsWindow() {
           Kuchu
           <span className="brand-version">{version}</span>
         </span>
-        <UpdateRow />
         <nav className="settings-tabs" role="tablist" aria-orientation="vertical">
           {TABS.map((t) => (
             <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className="tab" onClick={() => setTab(t.id)}>
@@ -85,6 +84,7 @@ export function SettingsWindow() {
               <ExternalLink className="tab-out" />
             </button>
           ))}
+          <UpdateRow />
         </div>
       </div>
 
@@ -215,8 +215,8 @@ export function SettingsWindow() {
   )
 }
 
-/** Under the version: whether a newer Kuchu is out. A copy from the Store is told by Windows, each time Settings opens; any other copy
- *  cannot know without going online, which Kuchu never does, so its button opens the website. */
+/** At the foot of the list: whether a newer Kuchu is out. A copy from the Store is told by Windows, each time Settings opens; any other
+ *  copy cannot know without going online, which Kuchu never does, so its button opens the website. */
 function UpdateRow() {
   const [update, setUpdate] = useState<Update | null>(null)
   const [installing, setInstalling] = useState(false)
@@ -230,20 +230,27 @@ function UpdateRow() {
     // Windows closes Kuchu to finish; if this comes back, the Store's own page has taken over.
     void core.updateInstall().finally(() => setInstalling(false))
   }
-  if (!update) return <div className="update-row">Checking for updates…</div>
-  if (update.state === 'site') {
+  if (!update) {
     return (
       <div className="update-row">
-        <button type="button" className="text-link" onClick={() => void core.openPage('changelog')}>
-          Check for updates
-          <ExternalLink />
-        </button>
+        <RefreshCw />
+        Checking for updates…
       </div>
+    )
+  }
+  if (update.state === 'site') {
+    return (
+      <button type="button" className="tab is-link" onClick={() => void core.openPage('changelog')}>
+        <RefreshCw />
+        Check for updates
+        <ExternalLink className="tab-out" />
+      </button>
     )
   }
   if (update.state === 'current') {
     return (
       <div className="update-row">
+        <RefreshCw />
         Up to date
         <button type="button" className="text-link" onClick={check}>
           Check again
@@ -254,6 +261,7 @@ function UpdateRow() {
   if (update.state === 'unknown') {
     return (
       <div className="update-row">
+        <RefreshCw />
         Could not check
         <button type="button" className="text-link" onClick={() => void core.openStore()}>
           Open the Store
@@ -263,7 +271,10 @@ function UpdateRow() {
   }
   return (
     <div className="update-row is-ready">
-      <span>{update.version ? `Version ${update.version} is ready` : 'A new version is ready'}</span>
+      <span className="update-note">
+        <RefreshCw />
+        A new version is ready
+      </span>
       <button type="button" className="btn is-small is-primary" disabled={installing} onClick={install}>
         {installing ? 'Updating…' : 'Update now'}
       </button>
