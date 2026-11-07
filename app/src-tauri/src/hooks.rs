@@ -267,7 +267,7 @@ pub fn apply(path: &Path, relay: &Path, install: bool, seen: &str) -> Result<Opt
         let backup = backup_path(&target);
         keep_copy(&backup, &bytes, &target).map_err(|e| format!("Kuchu could not keep a copy at {} ({e}), so it changed nothing.", backup.display()))?;
         prune_copies(&target);
-        kept = Some(backup.display().to_string());
+        kept = Some(crate::install::plain_path(backup).display().to_string());
     }
     if let Some(dir) = target.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
