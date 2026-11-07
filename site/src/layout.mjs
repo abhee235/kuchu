@@ -81,8 +81,8 @@ export function layout({ page, pages, site }) {
         </div>
         <div class="bottom-legal">
           <p>Kuchu ${esc(site.version)} is free and open source, under the MIT licence. © 2026 the Kuchu authors.</p>
-          <p>Kuchu is an independent app. It is not made or endorsed by Anthropic. Claude and Claude Code are trademarks of
-          Anthropic. Visual Studio Code is a trademark of Microsoft.</p>
+          <p>Kuchu is an independent app. It is not made or endorsed by Anthropic. Visual Studio Code is a trademark of
+          Microsoft.</p>
         </div>
       </div>
     </footer>`
