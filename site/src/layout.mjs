@@ -9,7 +9,7 @@ const brand = (base) => `<a class="brand" href="${base}" aria-label="Kuchu, home
 export function layout({ page, pages, site }) {
   const { base, origin, store, releases, repo } = site
   const url = origin + base + page.path
-  // What search results and link previews show. A page's own heading stays its `title`.
+  // The page's title in the browser and in link previews. The heading on the page stays its `title`.
   const title = page.head ?? (page.path === '' ? page.title : `${page.title} | Kuchu`)
   const docs = pages.filter((p) => p.kind === 'doc')
   const at = (p) => (p.path === page.path ? ' aria-current="page"' : '')
