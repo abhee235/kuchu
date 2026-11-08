@@ -29,7 +29,9 @@ const site = {
 const vars = {
   BASE: site.base,
   VERSION: version,
-  STORE: site.store,
+  /** The Store links people click carry a campaign tag, so Partner Center can count the visits and installs that came
+   * from this site. Microsoft counts them on its side; the site itself still tracks nothing. */
+  STORE: `${site.store}?cid=website`,
   RELEASES: site.releases,
   REPO: repo,
   DOWNLOAD: `${repo}/releases/latest/download`,
