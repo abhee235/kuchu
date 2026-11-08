@@ -1,8 +1,9 @@
 ---
 title: Connecting Kuchu to Claude Code
+head: Connect Kuchu to Claude Code through its hooks
 nav: Connect to Claude Code
 order: 3
-description: Kuchu hears Claude Code through hooks in Claude Code's settings.json. Connect adds them after showing you the change, keeps a copy of the file first, and Disconnect takes them out.
+description: Kuchu follows Claude Code through hooks in its settings.json. Connect adds them after showing you the change and keeps a copy; Disconnect takes them out.
 ---
 Kuchu hears what Claude Code is doing through Claude Code's **hooks**: a few lines in Claude Code's `settings.json`
 that run Kuchu's helper on each event. Kuchu adds them only when you click Connect, after showing you exactly what

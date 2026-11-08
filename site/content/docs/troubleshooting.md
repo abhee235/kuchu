@@ -1,5 +1,6 @@
 ---
 title: Troubleshooting Kuchu
+head: Troubleshooting Kuchu: hook errors, no cards, warnings
 nav: Troubleshooting
 order: 9
 description: Fixes for common problems with Kuchu and Claude Code: a hook error on every message, the pet not reacting, no permission cards, Windows warnings, and more.

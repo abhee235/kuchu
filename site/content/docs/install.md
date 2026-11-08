@@ -1,8 +1,9 @@
 ---
 title: Installing Kuchu
+head: Install Kuchu for Claude Code on Windows or macOS
 nav: Install
 order: 2
-description: Install Kuchu from the Microsoft Store, with the Windows installer, on macOS, or by asking Claude Code. Kuchu installs for your account only and needs no administrator rights.
+description: Get Kuchu from the Microsoft Store, with the Windows installer or as a macOS preview, or ask Claude Code to install it. No administrator rights needed.
 ---
 Kuchu installs for your account only. It needs no administrator rights and is never a Windows service. It does need
 Claude Code, installed separately.

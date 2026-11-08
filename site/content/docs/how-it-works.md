@@ -1,8 +1,9 @@
 ---
 title: How Kuchu works
+head: How Kuchu works: Claude Code hooks and a local pipe
 nav: How it works
 order: 10
-description: How Kuchu hears Claude Code (hooks, a tiny helper and a local pipe), and why it never slows Claude Code down, never allows anything by itself and never sends anything anywhere.
+description: Kuchu hears Claude Code through hooks, a tiny helper and a local pipe. It never slows Claude Code down, never allows anything itself and sends nothing out.
 ---
 ## Hooks, a helper and a pipe
 

@@ -1,8 +1,9 @@
 ---
 title: Conversations with Claude from Kuchu
+head: Start Claude Code conversations from Kuchu
 nav: Conversations
 order: 6
-description: Start a conversation with Claude in any folder from Kuchu's sessions list. It runs your own Claude Code, so Claude answers under your own account; stop it, or carry it on in a terminal.
+description: Start a conversation with Claude in any folder from Kuchu. It runs your own Claude Code under your own account; stop it, or carry it on in a terminal.
 ---
 Besides following your sessions, Kuchu can start one: a conversation with Claude in a folder you choose, without
 opening a terminal.

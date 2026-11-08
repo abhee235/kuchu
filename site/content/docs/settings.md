@@ -1,8 +1,9 @@
 ---
 title: Kuchu's settings
+head: Kuchu's settings: sounds, cards and permission requests
 nav: Settings
 order: 7
-description: Every setting in Kuchu, from its size and sounds to what shows beside the pet and how permission requests are answered.
+description: Every setting in Kuchu: its size and sounds, what shows beside the pet, and how Claude Code's permission requests are answered.
 ---
 Open Settings from the tray icon (**Settings…**), or from your sessions list. Each change reaches the pet at once.
 The sidebar shows which version of Kuchu you have.

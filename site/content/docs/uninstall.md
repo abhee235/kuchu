@@ -1,5 +1,6 @@
 ---
 title: Uninstalling Kuchu
+head: Uninstall Kuchu and remove its Claude Code hooks
 nav: Uninstall
 order: 8
 description: How to remove Kuchu completely, whichever way you installed it. Disconnect first, so Claude Code stops running Kuchu's hooks.

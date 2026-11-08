@@ -1,8 +1,9 @@
 ---
 title: Getting started with Kuchu
+head: Get started with Kuchu, the desktop pet for Claude Code
 nav: Getting started
 order: 1
-description: Kuchu is a desk pet for Claude Code. Install it, connect it to Claude Code once, and every session shows up beside it.
+description: Install Kuchu and connect it to Claude Code once. Every session then shows up beside the pet: what Claude is doing, when it needs you, and when it is done.
 ---
 Kuchu is a small desk pet for Claude Code. It sits above your windows and shows what your Claude Code sessions are
 doing: it thinks while Claude reads your message, works while tools run, asks you when Claude Code needs permission,
