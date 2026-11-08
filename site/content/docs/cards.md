@@ -1,8 +1,9 @@
 ---
 title: The card and your sessions
+head: See every Claude Code session at a glance | Kuchu
 nav: The card and sessions
 order: 4
-description: How Kuchu shows Claude Code sessions: the pet's moods, the card beside it, the +N list of other sessions, and the sessions list.
+description: Kuchu's pet and card show what each Claude Code session is doing: thinking, working, waiting for you or done, step by step, with a list of the other sessions.
 ---
 ## The pet
 

@@ -1,11 +1,13 @@
 ---
 title: Questions about Kuchu
-description: Answers about Kuchu, the desk pet for Claude Code: what it is, what it costs, privacy, safety, which systems it runs on, and how it works with Claude Code.
+head: Questions about Kuchu, the desktop pet for Claude Code
+description: Is it free and private? Does it work in VS Code? Can it answer Claude Code's permission requests or tell you when Claude is done? Short answers about Kuchu.
 ---
 ## What is Kuchu?
 
-A small desk pet for Claude Code. It sits above your windows and shows what your Claude Code sessions are doing, with
-a card beside it for each session's steps, and it lets you answer Claude Code's permission requests from that card.
+A small desktop pet for Claude Code. It sits above your windows and shows what your Claude Code sessions are doing,
+with a card beside it for each session's steps, and it lets you answer Claude Code's permission requests from
+that card.
 
 ## Does Kuchu work with Claude Code in VS Code?
 
@@ -30,6 +32,13 @@ preview).
 
 Install Kuchu and connect it to Claude Code. The pet shows whether Claude is thinking, working, waiting for you or
 done, and its card shows the session's current step, for every session in VS Code, any terminal or another editor.
+
+## How do I get a notification when Claude Code is done or needs me?
+
+Kuchu shows it on your screen. The pet waves the moment a session needs you, for a permission request or a
+question, and hops with a happy face when one is done, or frowns if it did not finish. A short tone plays for each;
+you can turn it off in Settings. Kuchu sits above your windows, so you see it without switching to the terminal. It
+does not send the system's own notifications.
 
 ## Can I approve Claude Code's permission requests from a popup?
 

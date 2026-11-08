@@ -1,6 +1,7 @@
 ---
 title: What's new in Kuchu
-description: Every Kuchu release and what changed, from the first version to the latest.
+head: What's new in Kuchu, the desktop pet for Claude Code
+description: Every release of Kuchu, the desktop pet for Claude Code, and what changed in each one, from the first version to the latest.
 ---
 Every release is on [GitHub]({{RELEASES}}), with its files' checksums and build attestations.
 

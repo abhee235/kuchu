@@ -9,7 +9,8 @@ const brand = (base) => `<a class="brand" href="${base}" aria-label="Kuchu, home
 export function layout({ page, pages, site }) {
   const { base, origin, store, releases, repo } = site
   const url = origin + base + page.path
-  const title = page.path === '' ? page.title : `${page.title} | Kuchu`
+  // What search results and link previews show. A page's own heading stays its `title`.
+  const title = page.head ?? (page.path === '' ? page.title : `${page.title} | Kuchu`)
   const docs = pages.filter((p) => p.kind === 'doc')
   const at = (p) => (p.path === page.path ? ' aria-current="page"' : '')
   const json = (page.jsonld ?? []).map((j) => `<script type="application/ld+json">${JSON.stringify(j)}</script>`).join('\n    ')
@@ -27,7 +28,7 @@ export function layout({ page, pages, site }) {
     <link rel="apple-touch-icon" href="${base}icon-180.png">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Kuchu">
-    <meta property="og:title" content="${esc(page.title)}">
+    <meta property="og:title" content="${esc(page.head ?? page.title)}">
     <meta property="og:description" content="${esc(page.description)}">
     <meta property="og:url" content="${url}">
     <meta property="og:image" content="${origin + base}og.png">

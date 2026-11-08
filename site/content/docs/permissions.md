@@ -1,8 +1,9 @@
 ---
 title: Answering permission requests
+head: Approve Claude Code permission requests from a card | Kuchu
 nav: Permission requests
 order: 5
-description: When Claude Code asks to run a command or change a file, Kuchu can show the request with Allow and Deny. Nothing is allowed without your click, and an unanswered request goes back to Claude Code.
+description: When Claude Code asks to run a command or edit a file, Kuchu shows the request with Allow and Deny. Nothing is allowed without your click.
 ---
 When Claude Code needs your permission, to run a command or change a file, Kuchu can show the request on its card, so
 you can answer without finding the right terminal.

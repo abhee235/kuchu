@@ -128,6 +128,7 @@ for (const { f, meta, md } of docs) {
     path: name === 'index' ? 'docs/' : `docs/${name}/`,
     source: `docs/${f}`,
     title: meta.title,
+    head: meta.head,
     nav: meta.nav ?? meta.title,
     description: meta.description,
     body: marked.parse(md),
@@ -167,6 +168,7 @@ pages.push({
   kind: 'page',
   path: 'faq/',
   title: faq.meta.title,
+  head: faq.meta.head,
   description: faq.meta.description,
   body: marked.parse(faq.md),
   md: faq.md,
@@ -174,7 +176,7 @@ pages.push({
 })
 
 const changelog = read(join(here, 'content/changelog.md'))
-pages.push({ kind: 'page', path: 'changelog/', title: changelog.meta.title, description: changelog.meta.description, body: marked.parse(changelog.md), md: changelog.md })
+pages.push({ kind: 'page', path: 'changelog/', title: changelog.meta.title, head: changelog.meta.head, description: changelog.meta.description, body: marked.parse(changelog.md), md: changelog.md })
 
 // The privacy policy is the repository's own PRIVACY.md, so there is one text to keep true; the site adds its own part.
 const privacy = readFileSync(join(repoDir, 'PRIVACY.md'), 'utf8').replace(/\r\n/g, '\n').replace(/^# .*\n+/, '')
@@ -184,6 +186,7 @@ pages.push({
   kind: 'page',
   path: 'privacy/',
   title: "Kuchu's privacy policy",
+  head: "Kuchu's privacy policy: it collects nothing",
   description: 'Kuchu collects nothing and sends nothing anywhere. What it reads on your computer, what it keeps, and how to remove it.',
   body: marked.parse(privacy + privacySite),
   md: privacy + privacySite,
