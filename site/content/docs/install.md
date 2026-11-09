@@ -59,6 +59,12 @@ your click in Kuchu's Settings.
 Kuchu is open source. To build it yourself you need Rust and Node 20 or later; the
 [README]({{REPO}}#build) has the steps.
 
+## Updating
+
+From the Microsoft Store, Kuchu updates itself, and its Settings say when a new version is ready. Otherwise, Settings'
+**Check for updates** opens [What's new](/changelog/): install the latest release over the one you have, the same way
+as the first time.
+
 ## Next
 
 The first time Kuchu starts, it opens its Settings. [Connect it to Claude Code](/docs/connect/).
