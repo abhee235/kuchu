@@ -19,8 +19,8 @@ message, and the pet does not move.
 
 ## The pet does not react to Claude Code
 
-1. **Is Kuchu running?** Its icon is in the tray (the menu bar on a Mac). If the pet is hidden, choose **Show Kuchu**
-   there.
+1. **Is Kuchu running?** Its icon is in the tray (the menu bar on a Mac). If the pet is hidden, or you hid it for a
+   while, choose **Show Kuchu** there.
 2. **Is it connected?** In Settings, **Claude Code** should say **Connected**. If it says **out of date**, click
    **Update**.
 3. **Are hooks switched off?** If Settings say *disableAllHooks is on*, Claude Code runs no hooks at all.
@@ -29,6 +29,8 @@ message, and the pet does not move.
 5. **Is another Kuchu running?** Only one Kuchu can listen per account. Quit the others from their tray icons.
 
 ## No permission cards
+
+If you hid Kuchu for a while, Claude Code asks in its own window until Kuchu is back.
 
 Claude Code's default **Auto** mode decides most requests itself, so few reach you. Switch to **manual** with
 **Shift+Tab** in Claude Code to be asked about each one. Also check that **Answer them on Kuchu** is on in Settings,

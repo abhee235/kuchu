@@ -27,8 +27,11 @@ It works with Claude Code wherever you run it on the same computer: in VS Code, 
 - **The card** beside it shows one session at a time, with **+N** for the others. See
   [The card and your sessions](/docs/cards/).
 - **Permission requests** show on the card with Allow and Deny. See [Permission requests](/docs/permissions/).
-- **The tray icon** (the menu bar on a Mac) shows or hides Kuchu, opens your sessions and Settings, turns sounds on and
-  off, and quits Kuchu.
+- **The small button beside the pet** hides Kuchu for a while, from 30 minutes to a day. See
+  [Hide Kuchu for a while](/docs/cards/#hide-kuchu-for-a-while).
+- **Settings** let you choose your pet, from a robot to a rubber duck. See [Kuchu's settings](/docs/settings/).
+- **The tray icon** (the menu bar on a Mac) shows or hides Kuchu, opens your sessions, Settings and these docs, turns
+  sounds on and off, and quits Kuchu.
 - **Ctrl+Alt+K** opens your sessions from anywhere.
 
 Something not working? [Troubleshooting](/docs/troubleshooting/) has the common cases.

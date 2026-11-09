@@ -79,6 +79,16 @@ No. Kuchu installs for your account only and is never a service.
 
 Yes. Each session has its own card. The card shows the latest, and "+N" lists the others; click one to follow it.
 
+## Can I hide Kuchu during a meeting or a game?
+
+Yes. Click the small button beside the pet and choose how long, from 30 minutes to a day. Kuchu comes back by itself,
+or sooner from its tray icon. While it is hidden it stays quiet, and Claude Code asks for permission in its own window.
+
+## Can I choose a different pet?
+
+Yes. In Settings, choose the robot, a cat, a dog, an owl, a frog or a rubber duck. Each does all the same things,
+with its own face.
+
 ## Can I talk to Claude from Kuchu?
 
 Yes. Start a conversation in any folder from your sessions list. Kuchu runs your own Claude Code for it, so Claude
