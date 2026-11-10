@@ -9,6 +9,14 @@ Every release is on [GitHub]({{RELEASES}}), with its files' checksums and build 
 [Microsoft Store]({{STORE}}), Kuchu updates itself. Otherwise, install the [latest release]({{RELEASES}}) over the one you
 have.
 
+## 0.1.9, 10 November 2026
+
+- On a Mac, Kuchu stays with you on every Space, over full-screen apps too, and no longer disappears for a moment as you
+  switch between them. It has left the Dock, as it stays out of the taskbar on Windows: its icon in the menu bar brings
+  it back.
+- Install Kuchu with one command: in Terminal on a Mac, in PowerShell on Windows. It checks the download against the
+  release's checksums, and Kuchu opens without a warning. See [Installing Kuchu](/docs/install/#one-command).
+
 ## 0.1.8, 7 November 2026
 
 - Hide Kuchu for a while, for a meeting or a game: a small button on the pet puts it away for 30 minutes up to a day, and
