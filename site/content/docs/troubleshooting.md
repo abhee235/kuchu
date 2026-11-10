@@ -39,13 +39,15 @@ Claude Code's default **Auto** mode decides most requests itself, so few reach y
 ## "Windows protected your PC"
 
 The installer from GitHub is not code-signed yet. Click **More info**, then **Run anyway**; or install Kuchu from the
-[Microsoft Store]({{STORE}}), which Microsoft signs. Compare the file's SHA-256 with the release's `SHA256SUMS` first
+[Microsoft Store]({{STORE}}), which Microsoft signs, or with the [one command](/docs/install/#one-command), which
+Windows opens without asking. Compare the file's SHA-256 with the release's `SHA256SUMS` first
 if you like.
 
 ## macOS will not open Kuchu
 
-The first time, macOS refuses an app from outside the App Store. In System Settings, **Privacy & Security**, click
-**Open Anyway**.
+The first time, macOS refuses an app downloaded from outside the App Store. In System Settings,
+**Privacy & Security**, click **Open Anyway**. Installed with the [one command](/docs/install/#one-command), macOS
+opens Kuchu without asking.
 
 ## Kuchu disappeared after a Store update
 

@@ -10,6 +10,8 @@ independent app, not made or endorsed by Anthropic.
   300 ms; it never slows Claude Code down.
 - It collects nothing and sends nothing anywhere. It installs per user, needs no administrator rights, and is never a
   service.
-- Install: Microsoft Store ({{STORE}}), GitHub releases ({{RELEASES}}), or ask Claude Code: "Install Kuchu from
+- Install: one command (macOS: `curl -fsSL https://raw.githubusercontent.com/abhee235/kuchu/main/install.sh | sh`;
+  Windows PowerShell: `irm https://raw.githubusercontent.com/abhee235/kuchu/main/install.ps1 | iex`), Microsoft Store
+  ({{STORE}}), GitHub releases ({{RELEASES}}), or ask Claude Code: "Install Kuchu from
   https://github.com/abhee235/kuchu".
 - Version {{VERSION}}.
