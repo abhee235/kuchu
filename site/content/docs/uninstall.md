@@ -17,6 +17,19 @@ helper from your home folder.
   Settings, **Apps**. Windows removes Kuchu and its settings.
 - **With the Windows installer**: Windows' Settings, **Apps**, Kuchu, **Uninstall**. Tick **Delete the application
   data** to remove its settings too. If you have not disconnected, Kuchu asks you to first.
+- **Installed with the [one command](/docs/install/#one-command)**: one command removes it too. It runs
+  `kuchu uninstall`, then deletes Kuchu. If Kuchu is still connected, its Settings open instead: click **Disconnect**,
+  then run the command again. On a Mac, in Terminal:
+
+  ```
+  curl -fsSL https://raw.githubusercontent.com/abhee235/kuchu/main/uninstall.sh | sh
+  ```
+
+  On Windows, in PowerShell:
+
+  ```
+  irm https://raw.githubusercontent.com/abhee235/kuchu/main/uninstall.ps1 | iex
+  ```
 - **On macOS, or unzipped by hand**: run `kuchu uninstall`. It removes Kuchu's startup entry, its helper, its settings
   and its data, then tells you where the program itself is, to delete it. It removes nothing until you have
   disconnected.
