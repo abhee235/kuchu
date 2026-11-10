@@ -11,6 +11,8 @@ mod install;
 mod locks;
 mod prefs;
 mod sessions;
+#[cfg(target_os = "macos")]
+mod space;
 mod update;
 
 use std::path::PathBuf;
@@ -38,6 +40,10 @@ const CARD_W: f64 = 320.0;
 const CARD_H: f64 = 210.0;
 /// How often the pointer is read: often enough for the eyes, and for the pet to take a click at once.
 const POLL: Duration = Duration::from_millis(40);
+/// On macOS, every so many reads of the pointer (about once a second), whether the pet's window is still out of the
+/// slide between Spaces (`out_of_the_slide`).
+#[cfg(target_os = "macos")]
+const SPACE_CHECK: u32 = 25;
 /// The pointer counts as on the pet or a card this close to its edge, so a click on an outline is not lost.
 const NEAR: f64 = 4.0;
 /// A drag is over once the window has not moved for this long.
@@ -317,7 +323,7 @@ pub fn run() {
     // First of all, so that a second Kuchu hands its arguments over before it does anything else.
     #[cfg(windows)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| again(app, &args)));
-    builder
+    let app = builder
         .plugin(
             ShortcutBuilder::new()
                 .with_shortcuts([SHORTCUT])
@@ -390,6 +396,7 @@ pub fn run() {
             let prefs = Prefs { hidden_until: hidden, ..prefs };
             hub.set_hidden(hidden.is_some());
             let window = app.get_webview_window("pet").expect("the pet's window is in tauri.conf.json");
+            join_every_space(&window);
             let at = prefs.at.filter(|at| still_on_screen(&window, *at)).unwrap_or_else(|| first_place(&window, prefs.width()));
             let relay = install::start_relay();
             install::restart_after_update();
@@ -413,6 +420,7 @@ pub fn run() {
             kuchu.settle(&window);
             if hidden.is_none() {
                 let _ = window.show();
+                out_of_the_slide(&window, false);
             }
             {
                 let kuchu = kuchu.clone();
@@ -490,17 +498,24 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("Kuchu could not start")
-        .run(|_app, _event| {
-            if let tauri::RunEvent::Exit = _event {
-                install::tidy_relay();
-            }
-            // Opened again while it runs (the system keeps an app to one copy on macOS).
-            #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Reopen { .. } = _event {
-                again(_app, &[]);
-            }
-        });
+        .expect("Kuchu could not start");
+    // On macOS, out of the Dock as it is out of the taskbar on Windows (the tray in the menu bar is the way back). Set
+    // here, before it runs: Tauri makes the windows in tauri.conf.json as soon as it has started, and a window made
+    // while Kuchu is still in the Dock never shows in another app's full-screen Space, even once Kuchu has left it.
+    #[cfg(target_os = "macos")]
+    let mut app = app;
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+    app.run(|_app, _event| {
+        if let tauri::RunEvent::Exit = _event {
+            install::tidy_relay();
+        }
+        // Opened again while it runs (the system keeps an app to one copy on macOS).
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Reopen { .. } = _event {
+            again(_app, &[]);
+        }
+    });
 }
 
 /// Reads the pointer a few times a second while the pet shows: tells the page where it is (for the eyes and for
@@ -511,6 +526,8 @@ fn follow_pointer(app: AppHandle, window: WebviewWindow, kuchu: Arc<Kuchu>) {
     std::thread::spawn(move || {
         let mut last: Option<Pointer> = None;
         let mut taking = false;
+        #[cfg(target_os = "macos")]
+        let mut reads: u32 = 0;
         loop {
             std::thread::sleep(POLL);
             let settled = kuchu.layout.moved.hold().is_some_and(|at| at.elapsed() >= SETTLE);
@@ -523,6 +540,13 @@ fn follow_pointer(app: AppHandle, window: WebviewWindow, kuchu: Arc<Kuchu>) {
             }
             if !window.is_visible().unwrap_or(false) {
                 continue;
+            }
+            #[cfg(target_os = "macos")]
+            {
+                reads = reads.wrapping_add(1);
+                if reads % SPACE_CHECK == 0 {
+                    out_of_the_slide(&window, true);
+                }
             }
             let (Ok(cursor), Ok(at), Ok(scale)) = (app.cursor_position(), window.outer_position(), window.scale_factor()) else {
                 continue;
@@ -594,6 +618,7 @@ fn toggle_sessions(app: &AppHandle) {
                 });
             }
         });
+        join_every_space(&list);
         place_sessions(app, &list);
         let _ = list.show();
         let _ = list.set_focus();
@@ -633,6 +658,54 @@ fn out_of_the_way(zone: (f64, f64, f64, f64), centre: f64, size: (f64, f64), are
     [(x, zy - gap - h), (x, zy + zh + gap), (inner, level), (outer, level)].into_iter().find(|&p| fits(p)).unwrap_or((clamp_x(inner), level))
 }
 
+/// On macOS, a window that shows on every Space, a full-screen app's own included, as the pet stays above every window
+/// on Windows. Tauri's `visibleOnAllWorkspaces` joins the ordinary Spaces only: a full-screen app's Space takes a
+/// window from another app only if the window says it may go beside a full-screen one (`FullScreenAuxiliary`), and
+/// only if its app was already outside the Dock when the window was made (see `run`). Mission Control leaves it where
+/// it is (`Stationary`). Elsewhere, nothing to do.
+fn join_every_space(window: &WebviewWindow) {
+    #[cfg(target_os = "macos")]
+    {
+        // AppKit only on the main thread: the sessions list is made from async commands too. (Already there, at start
+        // or from the shortcut and the tray, this runs at once.)
+        let w = window.clone();
+        let _ = window.run_on_main_thread(move || {
+            use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior as B};
+            if let Ok(ns) = w.ns_window() {
+                // SAFETY: Tauri hands back this window's own NSWindow, alive while the window is, on the main thread.
+                let ns = unsafe { &*ns.cast::<NSWindow>() };
+                ns.setCollectionBehavior(ns.collectionBehavior() | B::CanJoinAllSpaces | B::FullScreenAuxiliary | B::Stationary);
+            }
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = window;
+}
+
+/// On macOS, the pet's window moved into a Space of Kuchu's own (space.rs), so that it stays on the screen while macOS
+/// slides from one Space to the next. Done once it shows and each time it comes back; with `if_back`, only if macOS has
+/// put it on the person's Spaces again since (checked about once a second while it shows). Elsewhere, nothing to do.
+fn out_of_the_slide(window: &WebviewWindow, if_back: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let w = window.clone();
+        let _ = window.run_on_main_thread(move || {
+            use objc2_app_kit::NSWindow;
+            if let Ok(ns) = w.ns_window() {
+                // SAFETY: as in `join_every_space`.
+                let ns = unsafe { &*ns.cast::<NSWindow>() };
+                if if_back {
+                    space::keep(ns.windowNumber());
+                } else {
+                    space::take(ns.windowNumber());
+                }
+            }
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, if_back);
+}
+
 /// Puts the pet's window back on top of the other windows that stay on top (the sessions list too), without taking
 /// the focus: its cards, a permission request above all, are never covered.
 fn raise_pet(app: &AppHandle) {
@@ -665,6 +738,7 @@ fn show_pet(app: &AppHandle) {
     }
     if let Some(pet) = app.get_webview_window("pet") {
         let _ = pet.show();
+        out_of_the_slide(&pet, false);
     }
     raise_pet(app);
     mark_shown(app, true);
