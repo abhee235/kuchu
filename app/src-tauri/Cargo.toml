@@ -22,6 +22,14 @@ serde_json = { version = "1", features = ["preserve_order"] }
 tokio = { version = "1", features = ["net", "io-util", "time", "sync", "macros", "rt", "process"] }
 dirs = "7"
 
+# The pet's window on every Space, full-screen apps' own included (lib.rs `join_every_space`), and kept on the screen
+# as Spaces change (space.rs). Already in the build through Tauri's windows; here to reach the window and the window
+# server.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSResponder", "NSWindow"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSValue"] }
+
 [target.'cfg(windows)'.dependencies]
 # Asking the Microsoft Store whether a newer Kuchu is out (update.rs). Already in the build through the web view; here for the Store's API.
 windows = { version = "0.62", features = ["Foundation_Collections", "Services_Store", "Win32_System_WinRT"] }
