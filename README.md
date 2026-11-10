@@ -46,14 +46,26 @@ Kuchu installs for your account only: no administrator rights, never a service. 
 The first time Kuchu starts, it opens its Settings: click **Connect** there, after reading the change it shows you,
 and your Claude Code sessions appear beside it.
 
-To uninstall Kuchu, first click **Disconnect** in its Settings, so Claude Code stops running its hooks. Then remove it
-from Windows' Settings → Apps. Installed with the Windows installer, tick "Delete the application data" to remove
-everything (Kuchu asks you to disconnect first if you have not). From the Store, Windows removes Kuchu and its data,
-and Kuchu took its relay away when you disconnected. Uninstalled without disconnecting, Kuchu's hooks stay in Claude
-Code's `settings.json` (and, from the Store, its relay in the `.kuchu` folder in your home folder). They do nothing
-while Kuchu is gone; to remove them, install Kuchu again and click Disconnect, or take out the hooks that run
-`kuchu-relay` and delete that folder yourself. The copies Kuchu kept of `settings.json`
-(`settings.json.kuchu-backup-…`, beside it) stay too: they are yours to keep or delete.
+Installed with the one command, one command removes Kuchu too. It runs `kuchu uninstall` and then deletes Kuchu. If
+Kuchu is still connected to Claude Code, its Settings open instead: click **Disconnect** there, then run the command
+again.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abhee235/kuchu/main/uninstall.sh | sh      # on a Mac, in Terminal
+```
+
+```powershell
+irm https://raw.githubusercontent.com/abhee235/kuchu/main/uninstall.ps1 | iex           # on Windows, in PowerShell
+```
+
+Otherwise, to uninstall Kuchu, first click **Disconnect** in its Settings, so Claude Code stops running its hooks. Then
+remove it from Windows' Settings → Apps. Installed with the Windows installer, tick "Delete the application data" to
+remove everything (Kuchu asks you to disconnect first if you have not). From the Store, Windows removes Kuchu and its
+data, and Kuchu took its relay away when you disconnected. Uninstalled without disconnecting, Kuchu's hooks stay in
+Claude Code's `settings.json` (and, from the Store, its relay in the `.kuchu` folder in your home folder). They do
+nothing while Kuchu is gone; to remove them, install Kuchu again and click Disconnect, or take out the hooks that run
+`kuchu-relay` and delete that folder yourself. The copies Kuchu kept of `settings.json` (`settings.json.kuchu-backup-…`,
+beside it) stay too: they are yours to keep or delete.
 
 ### Claude Code, this part is for you
 

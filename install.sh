@@ -4,7 +4,7 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/abhee235/kuchu/main/install.sh | sh
 #
-# No administrator rights, and nothing outside your own folders. Run it again to update Kuchu.
+# No administrator rights, and nothing outside your own folders. Run it again to update Kuchu; uninstall.sh removes it.
 #
 # Files fetched with curl are not marked as downloaded from the internet, so macOS opens Kuchu without asking. The
 # SHA-256 check is what makes sure they are the release's own files.
