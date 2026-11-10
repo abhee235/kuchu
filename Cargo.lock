@@ -1910,7 +1910,7 @@ dependencies = [
 
 [[package]]
 name = "kuchu"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "dirs",
  "kuchu-wire",
