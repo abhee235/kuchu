@@ -29,7 +29,8 @@ irm https://raw.githubusercontent.com/abhee235/kuchu/main/install.ps1 | iex
 
 To read a script before you run it: [install.sh]({{REPO}}/blob/main/install.sh) for macOS,
 [install.ps1]({{REPO}}/blob/main/install.ps1) for Windows. It stops if a check fails, and like every other way here,
-it never touches your Claude Code settings.
+it never touches your Claude Code settings. To remove Kuchu, one command does that too: see
+[Uninstalling Kuchu](/docs/uninstall/).
 
 ## Windows: the Microsoft Store
 
@@ -46,8 +47,9 @@ installer below.
 From the [latest release]({{RELEASES}}), download `kuchu-windows-x64-setup.exe`, or
 `kuchu-windows-arm64-setup.exe` on an Arm PC, and open it.
 
-The installer is not code-signed yet, so Windows says "Windows protected your PC". Click **More info**, then
-**Run anyway**, or use the [one command](#one-command), which Windows opens without asking. To check the file first, compare its SHA-256 with the release's `SHA256SUMS`:
+The installer is not code-signed yet, so Windows says "Windows protected your PC". Click **More info**, then **Run
+anyway**, or use the [one command](#one-command), which Windows opens without asking. To check the file first, compare
+its SHA-256 with the release's `SHA256SUMS`:
 
 ```
 Get-FileHash .\kuchu-windows-x64-setup.exe
