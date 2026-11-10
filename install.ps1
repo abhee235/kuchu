@@ -3,7 +3,7 @@
 #
 #   irm https://raw.githubusercontent.com/abhee235/kuchu/main/install.ps1 | iex
 #
-# No administrator rights, and nothing outside your own folders. Run it again to update Kuchu.
+# No administrator rights, and nothing outside your own folders. Run it again to update Kuchu; uninstall.ps1 removes it.
 #
 # Files fetched this way are not marked as downloaded from the internet, so Windows opens Kuchu without asking. The
 # SHA-256 check is what makes sure they are the release's own files.
