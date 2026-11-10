@@ -17,6 +17,21 @@ Kuchu installs for your account only: no administrator rights, never a service. 
   > Install Kuchu from https://github.com/abhee235/kuchu
 
   It downloads the latest release and checks it, or builds Kuchu from its code if you ask for that.
+- **One command.** It downloads the latest release, checks its SHA-256, installs it for your account and runs
+  `kuchu setup`. Run it again to update Kuchu. Files fetched this way are not marked as downloaded from the internet,
+  so Windows and macOS open Kuchu without a warning. To read a script before you run it, open its link.
+
+  On a Mac, in Terminal ([install.sh](install.sh)):
+
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/abhee235/kuchu/main/install.sh | sh
+  ```
+
+  On Windows, in PowerShell ([install.ps1](install.ps1)):
+
+  ```powershell
+  irm https://raw.githubusercontent.com/abhee235/kuchu/main/install.ps1 | iex
+  ```
 - **The Windows installer.** From the [latest release](https://github.com/abhee235/kuchu/releases/latest), download
   `kuchu-windows-x64-setup.exe` (`kuchu-windows-arm64-setup.exe` on an Arm PC) and open it. **It is not code-signed
   yet**, so Windows says "Windows protected your PC": click **More info**, then **Run anyway**. To check the file
@@ -26,7 +41,7 @@ Kuchu installs for your account only: no administrator rights, never a service. 
   one.
 - **On a Mac**, download `kuchu-macos-arm64.tar.gz` (`-x64` on an Intel Mac), open it and drag `Kuchu.app` into
   Applications. The first time, macOS refuses to open it: in System Settings → Privacy & Security, click
-  **Open Anyway**. Not yet tried on a Mac.
+  **Open Anyway**. (The one command above has no such step.) Not yet tried on a Mac.
 
 The first time Kuchu starts, it opens its Settings: click **Connect** there, after reading the change it shows you,
 and your Claude Code sessions appear beside it.
