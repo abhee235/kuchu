@@ -1,73 +1,86 @@
+<div align="center">
+
+<img src="app/src-tauri/icons/128x128@2x.png" width="104" alt="Kuchu, a small white robot with an orange antenna">
+
 # Kuchu
 
-A small desk pet for Claude Code. It sits above your windows and shows what your sessions are doing: it thinks while
-Claude reads your message, works while tools run, waves when a session needs you and hops when one is done. Its card
-says which project and what is happening now, and a permission request can be answered from it.
+**A desk pet for Claude Code.**<br>
+It shows what Claude is doing, and lets you say yes without switching windows. In VS Code or any terminal.
 
-**Website and docs: [abhee235.github.io/kuchu](https://abhee235.github.io/kuchu/)**, with the pet live.
+<a href="https://apps.microsoft.com/detail/9NNK1Q800R84?cid=github"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="184" alt="Download from the Microsoft Store"></a>
 
-Windows and macOS first; Linux later. Work in progress: see [PLAN.md](PLAN.md).
+[Website](https://abhee235.github.io/kuchu/) ·
+[Docs](https://abhee235.github.io/kuchu/docs/) ·
+[Download](https://github.com/abhee235/kuchu/releases/latest) ·
+[What's new](https://abhee235.github.io/kuchu/changelog/)
+
+<br>
+
+<img src=".github/readme/demo.webp" width="100%" alt="Kuchu beside VS Code: Claude Code reads the files, asks to edit date.ts, the edit is allowed from Kuchu's card, and Kuchu cheers when Claude is done">
+
+<sub>Free and open source. Windows, and macOS in preview. Needs Claude Code.</sub>
+
+</div>
+
+## What it does
+
+- **Shows every session.** A card beside the pet names the project and the step Claude is on. Several sessions at
+  once each get a card.
+- **Asks you right there.** Permission requests show on the card with Allow and Deny. Nothing is allowed without your
+  click.
+- **Tells you when it's your turn.** It waves when Claude needs you and cheers when Claude is done, with a short tone
+  you can switch off.
+- **Stays out of the way.** It never takes the focus, and clicks go through everywhere but the pet and its cards.
+- **Keeps to itself.** It collects nothing and sends nothing anywhere.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/readme/moods-dark.webp">
+    <img src=".github/readme/moods.webp" width="100%" alt="The robot as it thinks while Claude reads, works while tools run, asks when Claude needs a yes, and cheers when Claude is done">
+  </picture>
+</p>
+
+## Choose your pet
+
+A robot, a cat, a dog, an owl, a frog or a rubber duck. Each does all the same things, with its own face.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/readme/pets-dark.webp">
+    <img src=".github/readme/pets.webp" width="100%" alt="The six pets side by side: a robot, a cat, a dog, an owl, a frog and a duck">
+  </picture>
+</p>
 
 ## Install
 
-Kuchu installs for your account only: no administrator rights, never a service. Pick one way:
-
-- **Ask Claude Code.** Say this, in any session:
-
-  > Install Kuchu from https://github.com/abhee235/kuchu
-
-  It downloads the latest release and checks it, or builds Kuchu from its code if you ask for that.
-- **One command.** It downloads the latest release, checks its SHA-256, installs it for your account and runs
-  `kuchu setup`. Run it again to update Kuchu. Files fetched this way are not marked as downloaded from the internet,
-  so Windows and macOS open Kuchu without a warning. To read a script before you run it, open its link.
-
-  On a Mac, in Terminal ([install.sh](install.sh)):
-
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/abhee235/kuchu/main/install.sh | sh
-  ```
-
-  On Windows, in PowerShell ([install.ps1](install.ps1)):
-
-  ```powershell
-  irm https://raw.githubusercontent.com/abhee235/kuchu/main/install.ps1 | iex
-  ```
-- **The Windows installer.** From the [latest release](https://github.com/abhee235/kuchu/releases/latest), download
-  `kuchu-windows-x64-setup.exe` (`kuchu-windows-arm64-setup.exe` on an Arm PC) and open it. **It is not code-signed
-  yet**, so Windows says "Windows protected your PC": click **More info**, then **Run anyway**. To check the file
-  first, compare its SHA-256 (`Get-FileHash` in PowerShell) with the release's `SHA256SUMS`.
-- **[The Microsoft Store](https://apps.microsoft.com/detail/9NNK1Q800R84)**, signed by Microsoft, so Windows opens it
-  without a warning (x64 for now). It updates through the Store: Windows closes Kuchu for a moment and starts the new
-  one.
-- **On a Mac**, download `kuchu-macos-arm64.tar.gz` (`-x64` on an Intel Mac), open it and drag `Kuchu.app` into
-  Applications. The first time, macOS refuses to open it: in System Settings → Privacy & Security, click
-  **Open Anyway**. (The one command above has no such step.) Not yet tried on a Mac.
-
-The first time Kuchu starts, it opens its Settings: click **Connect** there, after reading the change it shows you,
-and your Claude Code sessions appear beside it.
-
-Installed with the one command, one command removes Kuchu too. It runs `kuchu uninstall` and then deletes Kuchu. If
-Kuchu is still connected to Claude Code, its Settings open instead: click **Disconnect** there, then run the command
-again.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/abhee235/kuchu/main/uninstall.sh | sh      # on a Mac, in Terminal
-```
+**Windows:** get it from the [Microsoft Store](https://apps.microsoft.com/detail/9NNK1Q800R84?cid=github), signed by
+Microsoft and kept up to date by it. Or, in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/abhee235/kuchu/main/uninstall.ps1 | iex           # on Windows, in PowerShell
+irm https://raw.githubusercontent.com/abhee235/kuchu/main/install.ps1 | iex
 ```
 
-Otherwise, to uninstall Kuchu, first click **Disconnect** in its Settings, so Claude Code stops running its hooks. Then
-remove it from Windows' Settings → Apps. Installed with the Windows installer, tick "Delete the application data" to
-remove everything (Kuchu asks you to disconnect first if you have not). From the Store, Windows removes Kuchu and its
-data, and Kuchu took its relay away when you disconnected. Uninstalled without disconnecting, Kuchu's hooks stay in
-Claude Code's `settings.json` (and, from the Store, its relay in the `.kuchu` folder in your home folder). They do
-nothing while Kuchu is gone; to remove them, install Kuchu again and click Disconnect, or take out the hooks that run
-`kuchu-relay` and delete that folder yourself. The copies Kuchu kept of `settings.json` (`settings.json.kuchu-backup-…`,
-beside it) stay too: they are yours to keep or delete.
+**macOS** (preview), in Terminal:
 
-### Claude Code, this part is for you
+```bash
+curl -fsSL https://raw.githubusercontent.com/abhee235/kuchu/main/install.sh | sh
+```
+
+**Or ask Claude Code**, in any session:
+
+> Install Kuchu from https://github.com/abhee235/kuchu
+
+Then click **Connect** in Kuchu's Settings, after reading the change it shows you, and your sessions appear beside the
+pet. The installer, updating and uninstalling are in the [docs](https://abhee235.github.io/kuchu/docs/install/).
+
+## How it works
+
+Claude Code runs `kuchu-relay`, a small native program, for each hook event. The relay hands the event to Kuchu and
+exits at once; it never holds Claude Code up, and when Kuchu is not running it does nothing. What Claude Code sends
+is in [docs/hooks.md](docs/hooks.md).
+
+<details>
+<summary><b>Claude Code, this part is for you</b>: installing Kuchu for someone</summary>
 
 Install Kuchu on the person's own computer, for their account only: no administrator rights, no `sudo`, never a
 service. There are two ways:
@@ -241,34 +254,7 @@ Releases are not code-signed yet. Files downloaded with `curl` as above are not 
 so Windows and macOS open them without a warning; the SHA-256 check is what makes sure they are the release's own
 files.
 
-## What it does
-
-- **Every session, on its own card.** Beside the pet: the project and what Claude is doing now (or the answer's first
-  line once done, for a few seconds), in one line or a few. With several at work, "+N" shows the others, each on its
-  own card above it, while you hover it, or until you switch it off once you have clicked it on; a click on one
-  switches the card to it. Each card names its project, and on Windows a button brings up the app its session runs in.
-  A click on the pet lists every session.
-- **Permission requests on the pet.** Allow, Deny, or hand it back to Claude Code. Nothing is allowed without a click.
-- **Talk to Claude from Kuchu.** Start a conversation in a folder from the sessions list, answer it, stop it, or take
-  it on in a terminal. Sessions started in a terminal or an editor are followed, not typed into: Claude Code takes
-  their messages only there.
-- **A life of its own.** With no work it stretches, yawns, looks around, taps a foot, flips its face, whistles or
-  takes a short walk, and naps after a few quiet minutes. It walks when you drag it and likes being petted.
-- **Your choice of pet.** A robot, a cat, a dog, an owl, a frog or a rubber duck, each with its own face, and each doing
-  all the same things.
-- **Its own Settings.** Your pet, size, see-through under the pointer, sounds, starting at sign-in, what shows beside the pet,
-  what a click opens, and connecting to Claude Code: the change to `settings.json` is shown first, and a copy of the
-  file is kept.
-- **Out of the way.** It never takes the focus, and clicks go through everywhere but the pet and its cards. The tray
-  icon and Ctrl+Alt+K always bring it back.
-- **Yours alone.** Kuchu is installed for your account only and starts when you sign in, from your account's own list
-  of startup apps. It is never a service and never runs with administrator rights.
-
-## How it works
-
-Claude Code runs `kuchu-relay`, a small native program, for each hook event. The relay hands the event to Kuchu and
-exits at once; it never holds Claude Code up, and when Kuchu is not running it does nothing. What Claude Code sends
-is in [docs/hooks.md](docs/hooks.md).
+</details>
 
 ## Build
 
