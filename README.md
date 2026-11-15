@@ -7,7 +7,8 @@
 **A desk pet for Claude Code.**<br>
 It shows what Claude is doing, and lets you say yes without switching windows. In VS Code or any terminal.
 
-<a href="https://apps.microsoft.com/detail/9NNK1Q800R84?cid=github"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="184" alt="Download from the Microsoft Store"></a>
+<a href="https://apps.microsoft.com/detail/9NNK1Q800R84?cid=github"><img src="https://get.microsoft.com/images/en-us%20dark.svg" height="50" alt="Download from the Microsoft Store"></a>&nbsp;
+<a href="#macos"><img src=".github/readme/macos-badge.png" height="50" alt="Download for macOS"></a>
 
 [Website](https://abhee235.github.io/kuchu/) ·
 [Docs](https://abhee235.github.io/kuchu/docs/) ·
@@ -53,25 +54,38 @@ A robot, a cat, a dog, an owl, a frog or a rubber duck. Each does all the same t
 
 ## Install
 
-**Windows:** get it from the [Microsoft Store](https://apps.microsoft.com/detail/9NNK1Q800R84?cid=github), signed by
-Microsoft and kept up to date by it. Or, in PowerShell:
+### Windows
+
+Get it from the [Microsoft Store](https://apps.microsoft.com/detail/9NNK1Q800R84?cid=github), signed by Microsoft and
+kept up to date by it. Or, in PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/abhee235/kuchu/main/install.ps1 | iex
 ```
 
-**macOS** (preview), in Terminal:
+### macOS
+
+In preview. In Terminal, one command downloads the latest release, checks it and installs it, and Kuchu opens without a
+warning:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/abhee235/kuchu/main/install.sh | sh
 ```
 
-**Or ask Claude Code**, in any session:
+Or download it yourself from the [latest release](https://github.com/abhee235/kuchu/releases/latest):
+`kuchu-macos-arm64.tar.gz` on a Mac with Apple silicon (M1 and later), `kuchu-macos-x64.tar.gz` on an Intel Mac. Open
+it and drag **Kuchu.app** into Applications. Kuchu is not notarized by Apple yet, so the first time, macOS refuses to
+open it: in **System Settings → Privacy & Security**, click **Open Anyway**.
+
+### Or ask Claude Code
+
+In any session:
 
 > Install Kuchu from https://github.com/abhee235/kuchu
 
-Then click **Connect** in Kuchu's Settings, after reading the change it shows you, and your sessions appear beside the
-pet. The installer, updating and uninstalling are in the [docs](https://abhee235.github.io/kuchu/docs/install/).
+Whichever way you install it, click **Connect** in Kuchu's Settings, after reading the change it shows you, and your
+sessions appear beside the pet. The installer, updating and uninstalling are in the
+[docs](https://abhee235.github.io/kuchu/docs/install/).
 
 ## How it works
 
